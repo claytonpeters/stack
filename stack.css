@@ -1,0 +1,120 @@
+/* GTK+ defined */
+@define-color bg_color #404050;
+@define-color text_color #ccd;
+@define-color selected_bg_color #406080;
+@define-color selected_fg_color #fff;
+
+/* Custom */
+@define-color half_color #383848;
+@define-color edge_color #303040;
+@define-color selected_bg_color_light #6080a0;
+
+* {
+	-GtkTreeView-vertical-separator: 2;
+}
+
+StackAppWindow GtkContainer {
+	background-color: @bg_color;
+	color: @text_color;
+}
+
+GtkScrolledWindow {
+	border: 1px solid @edge_color;
+	border-radius: 2px;
+}
+
+GtkTreeView column-header .button {
+	background: -gtk-gradient(linear, left top, left bottom, from (@bg_color), to (@half_color));
+	border: 1px solid @edge_color;
+	text-shadow: 1px 2px rgba(0.0, 0.0, 0.0, 0.5);
+	box-shadow: inset 1px 1px 1px rgba(255.0, 255.0, 255.0, 0.1);
+}
+
+GtkTreeView row:selected {
+	background: -gtk-gradient(linear, left top, left bottom, from (@selected_bg_color_light), to (@selected_bg_color));
+	border: none;
+}
+
+.progressbar, .progressbar row, .progressbar row:selected, .progressbar row:selected:focused {
+	background: -gtk-gradient(linear, left top, left bottom, from (#008000), to (#006000));
+	border: 1px solid @edge_color;
+	border-radius: 3px;
+}
+
+.trough, .trough row, .trough row:selected, .trough row:selected:focused {
+	background: @bg_color;
+	box-shadow: inset -2px -2px 6px rgba(0.0, 0.0, 0.0, 0.15);
+	border: 1px solid @edge_color;
+	border-radius: 3px;
+}
+
+.toolbar
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (@bg_color), to (@half_color));
+}
+
+.notebook
+{
+	-GtkNotebook-initial-gap: 4;
+}
+
+.notebook tab
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (@half_color), to (@bg_color));
+	border: 1px solid @edge_color;
+}
+
+.notebook tab:active
+{
+	background: @bg_color;
+}
+
+GtkTextView.view, GtkEntry.entry
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (#ddd), to (#fff));
+	border: 0px;
+	border-radius: 3px;
+	color: #222;
+	box-shadow: inset 0px 0px 3px rgba(0.0, 0.0, 0.0, 0.8);
+}
+
+GtkTextView.view:selected, GtkEntry.entry:selected
+{
+	background: @selected_bg_color;
+	color: @text_color;
+}
+
+.button
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (@bg_color), to (@half_color));
+	border: 1px solid @edge_color;
+	color: @text_color;
+	border-radius: 3px;
+}
+
+.button:hover
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (mix(@bg_color, #fff, 0.05)), to (mix(@half_color, #fff, 0.05)));
+	color: #fff;
+}
+
+GtkPlacesSidebar.sidebar .view
+{
+	background: @bg_color;
+}
+
+GtkFileChooserDialog GtkTreeView.view
+{
+	background: @bg_color;
+}
+
+GtkFileChooserDialog GtkTreeView.view row:selected
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (@selected_bg_color_light), to (@selected_bg_color));
+	border: none;
+}
+
+GtkAboutDialog GtkLabel
+{
+	color: @text_color;
+}

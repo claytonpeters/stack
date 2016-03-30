@@ -26,3 +26,13 @@
 *.exe
 *.out
 *.app
+
+# The executable for this application
+stack
+
+# We're using CMake, so don't import the Makefile or cache items
+Makefile
+CMakeCache.txt
+CMakeLists.txt
+cmake_install.cmake
+CMakeFiles/*
