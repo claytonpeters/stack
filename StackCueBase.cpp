@@ -107,8 +107,6 @@ void stack_cue_stop_base(StackCue *cue)
 // Provides the pulse for a base cue
 void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 {
-	fprintf(stderr, "stack_cue_pulse_base()\n");
-
 	// We don't need to do anything if the cue is stopped or in error state
 	if (cue->state == STACK_CUE_STATE_STOPPED || cue->state == STACK_CUE_STATE_ERROR)
 	{

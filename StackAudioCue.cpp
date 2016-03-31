@@ -5,25 +5,6 @@
 #include <cstdlib>
 #include <cmath>
 
-#pragma pack(push, 2)
-typedef struct WaveHeader
-{
-	char chunk_id[4];
-	uint32_t chunk_size;
-	char format[4];
-	char subchunk_1_id[4];
-	uint32_t subchunk_1_size;
-	uint16_t audio_format;
-	uint16_t num_channels;
-	uint32_t sample_rate;
-	uint32_t byte_rate;
-	uint16_t block_align;
-	uint16_t bits_per_sample;
-	char subchunk_2_id[4];
-	uint32_t subchunk_2_size;
-} WaveHeader;
-#pragma pack(pop)
-
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 {
@@ -34,7 +15,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	StackAudioCue* cue = new StackAudioCue();
 	
 	// Initialise the superclass
-	stack_cue_init(&cue->super);
+	stack_cue_init(&cue->super, cue_list);
 
 	// Make this class a StackAudioCue
 	cue->super._class_name = "StackAudioCue";
@@ -44,13 +25,13 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	
 	// Initialise our variables
 	cue->file = strdup("");
-	cue->fade_in_time = 0;
-	cue->fade_out_time = 0;
+	//cue->fade_in_time = 0;
+	//cue->fade_out_time = 0;
 	cue->media_start_time = 0;
 	cue->media_end_time = 0;
-	cue->start_volume = -INFINITY;
+	//cue->start_volume = -INFINITY;
 	cue->play_volume = 0.0;
-	cue->end_volume = -INFINITY;
+	//cue->end_volume = -INFINITY;
 	cue->builder = NULL;
 	cue->media_tab = NULL;
 
@@ -88,6 +69,49 @@ static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 	stack_cue_set_action_time(STACK_CUE(cue), action_time);
 }
 
+static bool stack_audio_cue_read_wavehdr(GInputStream *stream, WaveHeader *header)
+{
+	if (g_input_stream_read(stream, header, 44, NULL, NULL) == 44)
+	{
+		// Check for RIFF header
+		if (header->chunk_id[0] == 'R' && header->chunk_id[1] == 'I' && header->chunk_id[2] == 'F' && header->chunk_id[3] == 'F')
+		{
+			// Check for WAVE format
+			if (header->format[0] == 'W' && header->format[1] == 'A' && header->format[2] == 'V' && header->format[3] == 'E')
+			{
+				// Check for 'fmt ' subchunl
+				if (header->subchunk_1_id[0] == 'f' && header->subchunk_1_id[1] == 'm' && header->subchunk_1_id[2] == 't' && header->subchunk_1_id[3] == ' ')
+				{
+					if (header->byte_rate == 0)
+					{
+						header->byte_rate = header->sample_rate * header->num_channels * header->bits_per_sample / 8;
+					}
+					
+					return true;
+				}
+				else
+				{
+					fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find fmt chunk\n");
+				}
+			}
+			else
+			{
+				fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find WAVE format\n");
+			}
+		}
+		else
+		{
+			fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find RIFF header\n");
+		}
+	}
+	else
+	{
+		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to read 44 byte header\n");
+	}
+	
+	return false;
+}
+
 static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
@@ -112,93 +136,64 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 	{
 		// Attempt to read a wave header
 		WaveHeader header;
-		if (g_input_stream_read((GInputStream*)stream, &header, 44, NULL, NULL) == 44)
-		{
-			// Check for RIFF header
-			if (header.chunk_id[0] == 'R' && header.chunk_id[1] == 'I' && header.chunk_id[2] == 'F' && header.chunk_id[3] == 'F')
+		if (stack_audio_cue_read_wavehdr((GInputStream*)stream, &header))
+		{						
+			// Query the file info
+			GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
+			if (file_info != NULL)
 			{
-				// Check for WAVE format
-				if (header.format[0] == 'W' && header.format[1] == 'A' && header.format[2] == 'V' && header.format[3] == 'E')
+				// Get the file size and work out the length of the file in seconds
+				goffset size = g_file_info_get_size(file_info);
+				double seconds = double(size - 44) / double(header.byte_rate);
+			
+				// Debug
+				fprintf(stderr, "acp_file_changed(): File info: %ld bytes / %d byte rate = %.4f seconds\n", size, header.byte_rate, seconds);
+				
+				// Store the file length
+				cue->file_length = (stack_time_t)(seconds * 1.0e9);
+				
+				// Update the cue state
+				stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
+				
+				// If we were previously empty, or if this new file is shorter
+				// than the previous file, update the media end point
+				if (was_empty || cue->file_length < cue->media_end_time)
 				{
-					// Check for 'fmt ' subchunl
-					if (header.subchunk_1_id[0] == 'f' && header.subchunk_1_id[1] == 'm' && header.subchunk_1_id[2] == 't' && header.subchunk_1_id[3] == ' ')
-					{
-						if (header.byte_rate == 0)
-						{
-							header.byte_rate = header.sample_rate * header.num_channels * header.bits_per_sample / 8;
-						}
-						
-						// Query the file info
-						GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
-						if (file_info != NULL)
-						{
-							// Get the file size and work out the length of the file in seconds
-							goffset size = g_file_info_get_size(file_info);
-							double seconds = double(size - 44) / double(header.byte_rate);
-						
-							// Debug
-							fprintf(stderr, "acp_file_changed(): File info: %ld bytes / %d byte rate = %.4f seconds\n", size, header.byte_rate, seconds);
-							
-							// Store the file length
-							cue->file_length = (stack_time_t)(seconds * 1.0e9);
-							
-							// Update the cue state
-							stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
-							
-							// If we were previously empty, or if this new file is shorter
-							// than the previous file, update the media end point
-							if (was_empty || cue->file_length < cue->media_end_time)
-							{
-								cue->media_end_time = cue->file_length;
-							}
-							
-							// If the media start point is past the length of the file, reset it
-							if (cue->media_start_time > cue->file_length)
-							{
-								cue->media_start_time = 0;
-							}
-							
-							// Update the cue action time;
-							stack_audio_cue_update_action_time(cue);
-							
-							// Display the file length
-							char time_buffer[32], text_buffer[128];
-							stack_format_time_as_string(cue->file_length, time_buffer, 32);
-							snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
-							gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
-							
-							// Update the UI
-							stack_format_time_as_string(cue->media_start_time, time_buffer, 32);
-							gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), time_buffer);
-							stack_format_time_as_string(cue->media_end_time, time_buffer, 32);
-							gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), time_buffer);
+					cue->media_end_time = cue->file_length;
+				}
+				
+				// If the media start point is past the length of the file, reset it
+				if (cue->media_start_time > cue->file_length)
+				{
+					cue->media_start_time = 0;
+				}
+				
+				// Update the cue action time;
+				stack_audio_cue_update_action_time(cue);
+				
+				// Display the file length
+				char time_buffer[32], text_buffer[128];
+				stack_format_time_as_string(cue->file_length, time_buffer, 32);
+				snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
+				gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
+				
+				// Update the UI
+				stack_format_time_as_string(cue->media_start_time, time_buffer, 32);
+				gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), time_buffer);
+				stack_format_time_as_string(cue->media_end_time, time_buffer, 32);
+				gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), time_buffer);
 
-							// Tidy up
-							g_object_unref(file_info);
-						}
-						else
-						{
-							fprintf(stderr, "acp_file_changed(): Failed to get file info\n");
-						}
-					}
-					else
-					{
-						fprintf(stderr, "acp_file_changed(): Failed to find fmt chunk\n");
-					}
-				}
-				else
-				{
-					fprintf(stderr, "acp_file_changed(): Failed to find WAVE format\n");
-				}
+				// Tidy up
+				g_object_unref(file_info);
 			}
 			else
 			{
-				fprintf(stderr, "acp_file_changed(): Failed to find RIFF header\n");
+				fprintf(stderr, "acp_file_changed(): Failed to get file info\n");
 			}
 		}
 		else
 		{
-			fprintf(stderr, "acp_file_changed(): Failed to read 44 byte header\n");
+			fprintf(stderr, "acp_file_changed(): Failed to read header\n");
 		}
 		
 		// Tidy up
@@ -278,6 +273,118 @@ static void acp_volume_changed(GtkRange *range, gpointer user_data)
 	
 	// Get the volume label and update it's value
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpVolumeValueLabel")), buffer);
+}
+
+// Called when we're being played
+static bool stack_audio_cue_play(StackCue *cue)
+{
+	// Call the super class
+	if (!stack_cue_play_base(cue))
+	{
+		return false;
+	}
+	
+	// For tidiness
+	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
+	
+	// Initialise playback
+	audio_cue->playback_data_sent = 0;
+	audio_cue->playback_live_volume = audio_cue->play_volume;
+	audio_cue->playback_audio_ptr = -1;
+	
+	// Initialise playback: open the file
+	audio_cue->playback_file = g_file_new_for_uri(audio_cue->file);
+	if (audio_cue->playback_file == NULL)
+	{
+		fprintf(stderr, "stack_audio_cue_play(): Failed to open playback file\n");
+		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+		return false;
+	}
+	
+	// Initialise playback: get a stream
+	audio_cue->playback_file_stream = g_file_read(audio_cue->playback_file, NULL, NULL);
+	if (audio_cue->playback_file_stream == NULL)
+	{
+		fprintf(stderr, "stack_audio_cue_play(): Failed to open playback stream\n");
+		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+		g_object_unref(audio_cue->playback_file);
+		return false;
+	}
+
+	if (!stack_audio_cue_read_wavehdr((GInputStream*)audio_cue->playback_file_stream, &audio_cue->playback_header))
+	{
+		fprintf(stderr, "stack_audio_cue_play(): Failed to read header\n");	
+		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+		g_object_unref(audio_cue->playback_file);
+		g_object_unref(audio_cue->playback_file_stream);
+		return false;
+	}
+	
+	return true;
+}
+
+static void stack_audio_cue_stop(StackCue *cue)
+{
+	// Call the superclass
+	stack_cue_stop_base(cue);
+	
+	// For tidiness
+	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
+
+	// Tidy up the open file stream...
+	if (audio_cue->playback_file_stream != NULL)
+	{
+		g_object_unref(audio_cue->playback_file_stream);
+		audio_cue->playback_file_stream = NULL;
+	}
+
+	// ...and then the file
+	if (STACK_AUDIO_CUE(cue)->playback_file != NULL)
+	{
+		g_object_unref(audio_cue->playback_file);
+		audio_cue->playback_file = NULL;
+	}	
+}
+
+// Called when we're pulsed (every few milliseconds whilst the cue is in playback)
+static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
+{
+	// Call the super class
+	stack_cue_pulse_base(cue, clocktime);
+	
+	// We don't need to do anything if we're not in the playing state
+	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
+	{
+		return;
+	}
+
+	// For tidiness
+	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
+	
+	// Get the current cue action times
+	stack_time_t action_time;
+	stack_cue_get_running_times(cue, clocktime, NULL, &action_time, NULL, NULL, NULL, NULL);
+	
+	// If we've sent no data, or we've running behind, or we're about to need more data
+	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 10000000)
+	{
+		size_t samples = 256;
+		
+		// Set up buffer for the number of samples of each channel
+		size_t bytes_to_read = samples * audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8;
+		
+		char *buffer = new char[bytes_to_read];
+		g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, buffer, bytes_to_read, NULL, NULL);
+
+		// Write the audio data to the cue list, which handles the output
+		audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, (int16_t*)buffer, audio_cue->playback_header.num_channels, samples, true);
+		
+		// Tidy up
+		delete [] buffer;
+		
+		// Keep track of how much data we've sent to the audio device
+		audio_cue->playback_data_sent += ((stack_time_t)samples * NANOSECS_PER_SEC) / (stack_time_t)audio_cue->playback_header.sample_rate;
+	}
 }
 
 // Sets up the properties tabs for an audio cue
@@ -381,8 +488,8 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
-	// Register built in cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, NULL, NULL, NULL, NULL, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs };
+	// Register cue types
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs };
 	stack_register_cue_class(audio_cue_class);
 }
 

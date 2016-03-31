@@ -13,7 +13,7 @@
 	-GtkTreeView-vertical-separator: 2;
 }
 
-StackAppWindow GtkContainer {
+GtkContainer {
 	background-color: @bg_color;
 	color: @text_color;
 }
@@ -98,23 +98,18 @@ GtkTextView.view:selected, GtkEntry.entry:selected
 	color: #fff;
 }
 
-GtkPlacesSidebar.sidebar .view
+.radio, .radio row
 {
-	background: @bg_color;
+	background-image: -gtk-gradient(radial, center center, 0, center center, 1, from (#ddd), to (#fff));
+	border: 0px solid @edge_color;
+	border-radius: 30px;
+	box-shadow: inset 0px 0px 3px @edge_color;
 }
 
-GtkFileChooserDialog GtkTreeView.view
+.radio:active, .radio row:selected:active, .radio row:selected:focused:active
 {
-	background: @bg_color;
-}
-
-GtkFileChooserDialog GtkTreeView.view row:selected
-{
-	background: -gtk-gradient(linear, left top, left bottom, from (@selected_bg_color_light), to (@selected_bg_color));
-	border: none;
-}
-
-GtkAboutDialog GtkLabel
-{
-	color: @text_color;
+	background-image: -gtk-gradient(radial, center center, 0, center center, 1, color-stop(0.0, @text_color), color-stop(0.175, @text_color), color-stop(0.225, @selected_bg_color_light), color-stop(1.0, @selected_bg_color) );
+	border: 0px solid @edge_color;
+	border-radius: 35px;
+	box-shadow: inset 0px 0px 3px @edge_color;
 }

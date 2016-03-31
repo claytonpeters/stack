@@ -16,7 +16,7 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	StackFadeCue* cue = new StackFadeCue();
 	
 	// Initialise the superclass
-	stack_cue_init(&cue->super);
+	stack_cue_init(&cue->super, cue_list);
 
 	// Make this class a StackAudioCue
 	cue->super._class_name = "StackFadeCue";

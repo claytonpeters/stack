@@ -2,13 +2,14 @@
 #include "StackCue.h"
 #include <map>
 #include <cstring>
-#include <cstdlib>
 #include <time.h>
 #include <cmath>
 using namespace std;
 
-// Map of how to create cues
+// Map of classes
 static map<string, const StackCueClass*> cue_class_map;
+
+// Map of UIDs
 static map<cue_uid_t, StackCue*> cue_uid_map;
 
 // Generates a UID
@@ -42,15 +43,16 @@ static cue_uid_t stack_cue_generate_uid()
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base };
 	stack_register_cue_class(stack_cue_class);
 }
 
 // Initialises a base cue object
 // @param cue The cue to initialise
-void stack_cue_init(StackCue *cue)
+void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 {
 	cue->_class_name = "StackCue";
+	cue->parent = cue_list;
 	cue->can_have_children = false;
 	cue->id = 1000;
 	cue->uid = stack_cue_generate_uid();
@@ -89,11 +91,8 @@ StackCue *stack_cue_get_by_uid(cue_uid_t uid)
 }
 
 // Calculates how long a cue has been running
-void stack_cue_get_running_times(StackCue *cue, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total)
+void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total)
 {
-	// Get the clock time
-	stack_time_t clocktime = stack_get_clock_time();
-	
 	// If we're paused, re-calculate the paused time
 	if (cue->state == STACK_CUE_STATE_PAUSED)
 	{
@@ -295,7 +294,7 @@ StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 	auto iter = cue_class_map.find(string(type));
 	if (iter == cue_class_map.end())
 	{
-		fprintf(stderr, "stack_cue_new(): Unknown class");
+		fprintf(stderr, "stack_cue_new(): Unknown class\n");
 		return NULL;
 	}
 	
@@ -315,7 +314,7 @@ void stack_cue_destroy(StackCue *cue)
 	auto iter = cue_class_map.find(string(cue->_class_name));
 	if (iter == cue_class_map.end())
 	{
-		fprintf(stderr, "stack_cue_destroy(): Unknown class");
+		fprintf(stderr, "stack_cue_destroy(): Unknown class\n");
 		return;
 	}
 
@@ -344,7 +343,7 @@ bool stack_cue_play(StackCue *cue)
 	const char *class_name = cue->_class_name;
 	
 	// Look for a playback function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->play_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->play_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
@@ -362,7 +361,7 @@ void stack_cue_pause(StackCue *cue)
 	const char *class_name = cue->_class_name;
 	
 	// Look for a pause function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->pause_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->pause_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
@@ -380,7 +379,7 @@ void stack_cue_stop(StackCue *cue)
 	const char *class_name = cue->_class_name;
 	
 	// Look for a stop function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->stop_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->stop_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
@@ -392,13 +391,11 @@ void stack_cue_stop(StackCue *cue)
 // Heartbeat callback for an active cue
 void stack_cue_pulse(StackCue *cue, stack_time_t clock)
 {
-	fprintf(stderr, "stack_cue_pulse()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
 	// Look for a pulse function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->pulse_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->pulse_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
@@ -416,7 +413,7 @@ void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	const char *class_name = cue->_class_name;
 	
 	// Look for a set tabs function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->set_tabs_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->set_tabs_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
@@ -434,7 +431,7 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	const char *class_name = cue->_class_name;
 	
 	// Look for an unset tabs function. Iterate through superclasses if we don't have one
-	while (cue_class_map[class_name]->unset_tabs_func == NULL && class_name != NULL)
+	while (class_name != NULL && cue_class_map[class_name]->unset_tabs_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}

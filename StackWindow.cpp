@@ -2,8 +2,10 @@
 #include "StackApp.h"
 #include "StackAudioCue.h"
 #include "StackFadeCue.h"
+#include "StackAudioDevice.h"
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 
 // GTK stuff
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
@@ -55,7 +57,7 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 	{
 		// If cue is running or paused, display the time left
 		stack_time_t rpre, raction, rpost;
-		stack_cue_get_running_times(cue, &rpre, &raction, &rpost, NULL, NULL, NULL);
+		stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
 		
 		// Format the times
 		stack_format_time_as_string(cue->pre_time - rpre, pre_buffer, 32);
@@ -476,6 +478,14 @@ static gboolean saw_ui_timer(gpointer user_data)
 	return true;
 }
 
+// Callback for cue pulsing timer
+static gboolean stack_pulse_timer(gpointer user_data)
+{
+	stack_cue_list_pulse(&STACK_APP_WINDOW(user_data)->cue_list);
+
+	return true;
+}
+
 // Callback for when the selected cue changes
 static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 {
@@ -558,6 +568,9 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
+	
+	// Destroy the cue list
+	stack_cue_list_destroy(&STACK_APP_WINDOW(user_data)->cue_list);
 }
 
 // Cue property change (done on focus-out)
@@ -737,8 +750,8 @@ static void stack_app_window_init(StackAppWindow *window)
 	g_signal_connect(window, "destroy", G_CALLBACK(saw_destroy), (gpointer)window);
 	g_signal_connect(window, "update-selected-cue", G_CALLBACK(saw_update_selected_cue), (gpointer)window);
 	
-	// Initialise this windows cue stack
-	stack_cue_list_init(&window->cue_list);
+	// Initialise this windows cue stack, defaulting to two channels
+	stack_cue_list_init(&window->cue_list, 2);
 	
 	if (window->use_custom_style)
 	{
@@ -852,9 +865,38 @@ static void stack_app_window_init(StackAppWindow *window)
 	// DEBUG: Refresh the cue list
 	saw_refresh_list_store_from_list(window);
 	
+	// DEBUG: Open a PulseAudio device
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+	if (sadc)
+	{
+		StackAudioDeviceDesc *devices;
+		size_t num_outputs = sadc->get_outputs_func(&devices);
+
+		for (size_t i = 0; i < num_outputs; i++)
+		{
+			fprintf(stderr, "------------------------------------------------------------\n");
+			fprintf(stderr, "Index: %lu\n", i);
+			fprintf(stderr, "Name: %s\n", devices[i].name);
+			fprintf(stderr, "Description: %s\n", devices[i].desc);
+			fprintf(stderr, "Channels: %d\n", devices[i].channels);
+		}
+		fprintf(stderr, "------------------------------------------------------------\n");
+
+		// Create a PulseAudio device for the first output
+		StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+		
+		// Free the list of devices
+		sadc->free_outputs_func(&devices, num_outputs);
+		
+		// Store the audio device in the cue list
+		window->cue_list.audio_device = device;
+	}
+	
 	// Set up a timer to periodically refresh the UI
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
-	
+
+	// Add a high-priority timeout for cue pulsing operations at 1ms intervals
+	g_timeout_add_full(G_PRIORITY_HIGH, 1, (GSourceFunc)stack_pulse_timer, (gpointer)window, NULL);
 }
 
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)

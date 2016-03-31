@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackAudioCue.h"
 #include "StackFadeCue.h"
+#include "StackPulseAudioDevice.h"
 
 // GTK stuff
 G_DEFINE_TYPE(StackApp, stack_app, GTK_TYPE_APPLICATION);
@@ -13,6 +14,8 @@ static void stack_app_init(StackApp *app)
 	stack_cue_initsystem();
 	stack_audio_cue_register();
 	stack_fade_cue_register();
+	stack_audio_device_initsystem();
+	stack_pulse_audio_device_register();
 }
 
 // Files are passed to the application

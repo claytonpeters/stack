@@ -2,6 +2,8 @@
 #define _STACKCUE_H_INCLUDED
 
 // Includes:
+#include "StackError.h"
+#include "StackAudioDevice.h"
 #include <gtk/gtk.h>
 #include <cstdint>
 #include <cstdlib>
@@ -19,14 +21,6 @@ typedef int64_t cue_uid_t;
 #define CENTISECS_PER_SEC_F ((double)CENTISECS_PER_SEC)
 #define MILLISECS_PER_SEC_F ((double)MILLISECS_PER_SEC)
 #define STACK_CUE_UID_NONE ((cue_uid_t)0)
-
-// Definitions: Errors
-#define STACKERR_PARAM_NULL         (1)
-#define STACKERR_CLASS_BADNAME      (2)
-#define STACKERR_CLASS_BADCREATE    (3)
-#define STACKERR_CLASS_BADDESTROY   (4)
-#define STACKERR_CLASS_DUPLICATE    (5)
-#define STACKERR_CLASS_NOSUPER      (6)
 
 // Cue state
 typedef enum StackCueState
@@ -49,14 +43,40 @@ typedef enum StackCueWaitTrigger
 	STACK_CUE_WAIT_TRIGGER_AFTERACTION = 3,
 } StackCuePostWaitTrigger;
 
+// Cue list
+typedef struct StackCueList
+{
+	// The array of cues (this is a std::list internally)
+	void *cues;
+		
+	// Channels - the number of channels configured for playback
+	uint16_t channels;
+
+	// The audio device to play out of (in the future we'd have many of these 
+	// and a map between virtual channels and device channels)
+	StackAudioDevice *audio_device;
+	
+	// Buffered audio data (ring-buffer)
+	int16_t* buffer;
+
+	// Buffer size - the maximum number of samples to keep in the buffer (per channel)
+	size_t buffer_len;
+
+	// Index of the current start of our audio_data ring buffer
+	size_t buffer_idx;
+	
+	// The time at the start of the data
+	stack_time_t buffer_time;
+} StackCueList;
+
 // Base class for cues
 typedef struct StackCue
 {
 	// Class name
 	const char *_class_name;
 	
-	// Parent cue list / group
-	StackCue *parent;
+	// Parent cue list
+	StackCueList *parent;
 	
 	// Determines if the cue can have child cues
 	bool can_have_children;
@@ -116,16 +136,6 @@ typedef struct StackGroupCue
 	void *cues;
 } StackGroupCue;
 
-// Cue list
-typedef struct StackCueList
-{
-	// The array of cues (this is a std::list internally)
-	void *cues;
-		
-	// Channels - the number of channels configured for playback
-	uint16_t channels;
-} StackCueList;
-
 // Typedefs for create/delete functions
 typedef StackCue*(*stack_create_cue_t)(StackCueList*);
 typedef void(*stack_destroy_cue_t)(StackCue*);
@@ -170,7 +180,7 @@ void stack_cue_destroy(StackCue *cue);
 // Functions: Base cue functions
 void stack_cue_initsystem();
 StackCue *stack_cue_get_by_uid(cue_uid_t uid);
-void stack_cue_init(StackCue *cue);
+void stack_cue_init(StackCue *cue, StackCueList *cue_list);
 void stack_cue_set_id(StackCue *cue, cue_id_t id);
 void stack_cue_set_name(StackCue *cue, const char *name);
 void stack_cue_set_notes(StackCue *cue, const char *notes);
@@ -186,7 +196,7 @@ void stack_cue_stop(StackCue *cue);
 void stack_cue_pulse(StackCue *cue, stack_time_t clocktime);
 void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook);
-void stack_cue_get_running_times(StackCue *cue, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total);
+void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -200,7 +210,8 @@ void stack_cue_set_tabs_base(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook);
 
 // Functions: Cue list count
-void stack_cue_list_init(StackCueList *cue_list);
+void stack_cue_list_init(StackCueList *cue_list, uint16_t channels);
+void stack_cue_list_destroy(StackCueList *cue_list);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);
 void *stack_cue_list_iter_front(StackCueList *cue_list);
@@ -208,6 +219,8 @@ void *stack_cue_list_iter_next(void *iter);
 StackCue *stack_cue_list_iter_get(void *iter);
 void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
+void stack_cue_list_pulse(StackCueList *cue_list);
+size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, int16_t *data, uint16_t channels, size_t samples, bool interleaved);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))
