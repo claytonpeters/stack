@@ -320,12 +320,15 @@ static bool stack_audio_cue_play(StackCue *cue)
 		return false;
 	}
 	
+	// Skip to the appropriate point in the file
+	fprintf(stderr, "%d\n", g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), audio_cue->media_start_time * (stack_time_t)audio_cue->playback_header.byte_rate / NANOSECS_PER_SEC, G_SEEK_CUR, NULL, NULL));
+	
 	return true;
 }
 
 static void stack_audio_cue_stop(StackCue *cue)
 {
-	// Call the superclass
+	// Call the superclass (this handles stopping the cue after the action time)
 	stack_cue_stop_base(cue);
 	
 	// For tidiness
