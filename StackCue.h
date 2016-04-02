@@ -57,7 +57,7 @@ typedef struct StackCueList
 	StackAudioDevice *audio_device;
 	
 	// Buffered audio data (ring-buffer)
-	int16_t* buffer;
+	float* buffer;
 
 	// Buffer size - the maximum number of samples to keep in the buffer (per channel)
 	size_t buffer_len;
@@ -220,7 +220,7 @@ StackCue *stack_cue_list_iter_get(void *iter);
 void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
 void stack_cue_list_pulse(StackCueList *cue_list);
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, int16_t *data, uint16_t channels, size_t samples, bool interleaved);
+size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, float *data, uint16_t channels, size_t samples, bool interleaved);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

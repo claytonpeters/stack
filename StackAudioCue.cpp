@@ -217,6 +217,18 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 	
 	// Set the time
 	cue->media_start_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
+
+	// Keep it inside the bounds of our file
+	if (cue->media_start_time < 0)
+	{
+		cue->media_start_time = 0;
+	}
+	if (cue->media_start_time > cue->file_length)
+	{
+		cue->media_start_time = cue->file_length;
+	}
+
+	// Update the action_time
 	stack_audio_cue_update_action_time(cue);
 
 	// Update the UI
@@ -237,6 +249,18 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	
 	// Set the time
 	cue->media_end_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
+	
+	// Keep it inside the bounds of our file
+	if (cue->media_end_time < 0)
+	{
+		cue->media_end_time = 0;
+	}
+	if (cue->media_end_time > cue->file_length)
+	{
+		cue->media_end_time = cue->file_length;
+	}
+	
+	// Update the action time
 	stack_audio_cue_update_action_time(cue);
 
 	// Update the UI
@@ -321,7 +345,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 	}
 	
 	// Skip to the appropriate point in the file
-	fprintf(stderr, "%d\n", g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), audio_cue->media_start_time * (stack_time_t)audio_cue->playback_header.byte_rate / NANOSECS_PER_SEC, G_SEEK_CUR, NULL, NULL));
+	g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), audio_cue->media_start_time * (stack_time_t)audio_cue->playback_header.byte_rate / NANOSECS_PER_SEC, G_SEEK_CUR, NULL, NULL);
 	
 	return true;
 }
@@ -368,22 +392,40 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_time_t action_time;
 	stack_cue_get_running_times(cue, clocktime, NULL, &action_time, NULL, NULL, NULL, NULL);
 	
+	// Calculate audio scalar (using the live playback volume). Also use this to
+	// scale from 16-bit signed int to 0.0-1.0 range
+	float audio_scaler = stack_db_to_scalar(audio_cue->playback_live_volume) / 32768.0;
+	
 	// If we've sent no data, or we've running behind, or we're about to need more data
 	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000)
 	{
 		size_t samples = 1024;
+		size_t out_buffer_size = samples * audio_cue->playback_header.num_channels;
 		
 		// Set up buffer for the number of samples of each channel
 		size_t bytes_to_read = samples * audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8;
-		
-		char *buffer = new char[bytes_to_read];
-		g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, buffer, bytes_to_read, NULL, NULL);
 
+		// Allocate buffers		
+		char *read_buffer = new char[bytes_to_read];
+		float *out_buffer = new float[samples * out_buffer_size];
+		
+		// Read data
+		g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, read_buffer, bytes_to_read, NULL, NULL);
+
+		// Convert to float Apply audio scaling
+		float *obp = out_buffer;
+		int16_t *ibp = (int16_t*)read_buffer;
+		for (size_t i = 0; i < out_buffer_size; i++)
+		{
+			*(obp++) = *(ibp++) * audio_scaler;
+		}
+		
 		// Write the audio data to the cue list, which handles the output
-		audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, (int16_t*)buffer, audio_cue->playback_header.num_channels, samples, true);
+		audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, out_buffer, audio_cue->playback_header.num_channels, samples, true);
 		
 		// Tidy up
-		delete [] buffer;
+		delete [] read_buffer;
+		delete [] out_buffer;
 		
 		// Keep track of how much data we've sent to the audio device
 		audio_cue->playback_data_sent += ((stack_time_t)samples * NANOSECS_PER_SEC) / (stack_time_t)audio_cue->playback_header.sample_rate;

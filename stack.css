@@ -78,6 +78,15 @@ GtkTextView.view, GtkEntry.entry
 	box-shadow: inset 0px 0px 3px rgba(0.0, 0.0, 0.0, 0.8);
 }
 
+GtkTextView.view:insensitive, GtkEntry.entry:insensitive
+{
+	background: -gtk-gradient(linear, left top, left bottom, from (#999), to (#ccc));
+	border: 0px;
+	border-radius: 3px;
+	color: #666;
+	box-shadow: inset 0px 0px 3px rgba(0.0, 0.0, 0.0, 0.8);
+}
+
 GtkTextView.view:selected, GtkEntry.entry:selected
 {
 	background: @selected_bg_color;

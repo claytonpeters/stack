@@ -252,23 +252,27 @@ static void saw_update_cue_properties(StackAppWindow *window, StackCue *cue)
 	saw_ucp_wait(window, cue, true);
 	saw_ucp_wait(window, cue, false);
 	
-	// Update post-wait trigger option
+	// Update post-wait trigger option (and enable/disable post-wait time as necessary)
 	switch (cue->post_trigger)
 	{
 		case STACK_CUE_WAIT_TRIGGER_NONE:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger1")), true);
+			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), false);
 			break;
 
 		case STACK_CUE_WAIT_TRIGGER_IMMEDIATE:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger2")), true);
+			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 			break;
 
 		case STACK_CUE_WAIT_TRIGGER_AFTERPRE:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger3")), true);
+			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 			break;
 
 		case STACK_CUE_WAIT_TRIGGER_AFTERACTION:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger4")), true);
+			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 			break;
 	}
 	
@@ -739,10 +743,26 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 	
 	// Determine which one is toggled on
 	StackCueWaitTrigger trigger;
-	if (widget == r1 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r1))) { trigger = STACK_CUE_WAIT_TRIGGER_NONE; }
-	if (widget == r2 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r2))) { trigger = STACK_CUE_WAIT_TRIGGER_IMMEDIATE; }
-	if (widget == r3 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r3))) { trigger = STACK_CUE_WAIT_TRIGGER_AFTERPRE; }
-	if (widget == r4 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r4))) { trigger = STACK_CUE_WAIT_TRIGGER_AFTERACTION; }
+	if (widget == r1 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r1)))
+	{
+		trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+		gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), false);
+	}
+	if (widget == r2 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r2)))
+	{
+		trigger = STACK_CUE_WAIT_TRIGGER_IMMEDIATE;
+		gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
+	}
+	if (widget == r3 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r3)))
+	{
+		trigger = STACK_CUE_WAIT_TRIGGER_AFTERPRE;
+		gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
+	}
+	if (widget == r4 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r4)))
+	{
+		trigger = STACK_CUE_WAIT_TRIGGER_AFTERACTION;
+		gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
+	}
 	
 	// Set the cue post-wait trigger
 	stack_cue_set_post_trigger(window->selected_cue, trigger);

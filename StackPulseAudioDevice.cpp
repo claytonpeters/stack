@@ -271,11 +271,11 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	// Create a PulseAudio sample spec
 	pa_sample_spec samplespec;
 	samplespec.channels = channels;
-	samplespec.format = PA_SAMPLE_S16LE;//FLOAT32;
+	samplespec.format = PA_SAMPLE_FLOAT32;
 	samplespec.rate = sample_rate;
 
 	// Create a new stream (on the application-global context)
-	device->stream = pa_stream_new(context, "StackPulseAudioDevice", &samplespec, NULL);
+	device->stream = pa_stream_new(context, "PulseAudio Stream", &samplespec, NULL);
 
 	// Set up a callback
 	pa_stream_set_state_callback(device->stream, (pa_stream_notify_cb_t)stack_pulse_audio_stream_notify_callback, device);
@@ -315,16 +315,8 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 
 void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, size_t bytes)
 {
-	//static bool first = true;
-	
 	pa_threaded_mainloop_lock(mainloop);
 	pa_stream_write(STACK_PULSE_AUDIO_DEVICE(device)->stream, data, bytes, NULL, 0, PA_SEEK_RELATIVE);
-	//if (first)
-	//{
-		pa_stream_trigger(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
-		//pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 0, NULL, NULL);
-		//first = false;
-//	}
 	pa_threaded_mainloop_unlock(mainloop);
 }
 

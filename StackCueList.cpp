@@ -19,8 +19,8 @@ void stack_cue_list_init(StackCueList *cue_list, uint16_t channels)
 	
 	// Allocate our buffer (fixed at 32k samples size for now)
 	cue_list->buffer_len = 32768;
-	cue_list->buffer = new int16_t[channels * cue_list->buffer_len];
-	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(int16_t));
+	cue_list->buffer = new float[channels * cue_list->buffer_len];
+	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(float));
 	cue_list->buffer_idx = 0;
 	cue_list->buffer_time = 0;
 }
@@ -31,11 +31,9 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	delete (stackcue_list_t*)cue_list->cues;
 }
 
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *data, uint16_t channels, size_t samples, bool interleaved)
+size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, float *data, uint16_t channels, size_t samples, bool interleaved)
 {
 	// data should contain [channels * samples] audio samples
-	
-	// TODO: THIS ONLY WORKS FOR A SINGLE STREAM CURRENTLY!!!!
 	
 	// If the caller doesn't know where to write to, just write to the read pointer
 	if (ptr == -1)
@@ -51,8 +49,8 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 		if (interleaved)
 		{
 			// Calculate source and destination pointers
-			int16_t *src = data;
-			int16_t *dst = &cue_list->buffer[(ptr * cue_list->channels)];
+			float *src = data;
+			float *dst = &cue_list->buffer[(ptr * cue_list->channels)];
 			size_t count = channels * samples;
 
 			for (size_t i = 0; i < count; i++)
@@ -71,8 +69,8 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 			for (size_t ch = 0; ch < channels; ch++)
 			{
 				// Calculate source and destination pointers
-				int16_t *src = &data[ch * samples];
-				int16_t *dst = &cue_list->buffer[(ptr * cue_list->channels) + ch];
+				float *src = &data[ch * samples];
+				float *dst = &cue_list->buffer[(ptr * cue_list->channels) + ch];
 				
 				// Copy one channels worth of data
 				for (size_t i = 0; i < samples; i++)
@@ -93,8 +91,8 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 		if (interleaved)
 		{
 			// Copy whatever fits at the end of our ring buffer
-			int16_t *src = data;
-			int16_t *dst = &cue_list->buffer[(ptr * cue_list->channels)];
+			float *src = data;
+			float *dst = &cue_list->buffer[(ptr * cue_list->channels)];
 			size_t count = channels * (cue_list->buffer_len - ptr);
 			for (size_t i = 0; i < count; i++)
 			{
@@ -171,6 +169,8 @@ bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter)
 
 void stack_cue_list_pulse(StackCueList *cue_list)
 {
+	static stack_time_t underflow_time = 0;
+	
 	// Get a single clock time for all the cues
 	stack_time_t clocktime = stack_get_clock_time();
 	
@@ -196,6 +196,13 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Write data to the audio streams if necessary (i.e. if there's less than 2x our block size in the buffer)
 	if (clocktime > cue_list->buffer_time - block_size_time * 2)
 	{
+		// A test attempt at underflow detection
+		if (clocktime > cue_list->buffer_time)
+		{
+			underflow_time += clocktime - cue_list->buffer_time;
+			fprintf(stderr, "UNDERFLOW: %ldus (total: %ldus)\n", (clocktime - cue_list->buffer_time) / 1000, underflow_time / 1000);
+		}
+		
 		//fprintf(stderr, "C: %ld, T: %ld, D: %ld, S: %lu\n", clocktime, cue_list->buffer_time, cue_list->buffer_time - clocktime, total_samps);
 		
 		// See if we can write an entire memory block at once
@@ -203,7 +210,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		{	
 			// Calculate data index and size
 			index = cue_list->buffer_idx * cue_list->channels;
-			byte_count = block_size_samples * cue_list->channels * sizeof(int16_t);
+			byte_count = block_size_samples * cue_list->channels * sizeof(float);
 			
 			// Write to device
 			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
@@ -215,7 +222,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		{
 			// Calculate data index and size
 			size_t index = cue_list->buffer_idx * cue_list->channels;
-			size_t byte_count = (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(int16_t);
+			size_t byte_count = (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(float);
 
 			// Write the stuff that's at the end of the memory block
 			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
@@ -224,7 +231,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 			memset(&cue_list->buffer[index], 0, byte_count);
 
 			// Calculate remaining size
-			byte_count = (block_size_samples - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(int16_t);
+			byte_count = (block_size_samples - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(float);
 
 			// Write stuff that's at the beginning of the memory block
 			stack_audio_device_write(cue_list->audio_device, (const char*)cue_list->buffer, byte_count);
