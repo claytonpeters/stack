@@ -446,6 +446,17 @@ static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "Stop all cues clicked\n");
+
+	/*int16_t *buffer = new int16_t[32768 * 2];
+	
+	for (size_t i = 0; i < 32768; i++)
+	{
+		buffer[i * 2] = buffer[i * 2 + 1] = (uint16_t)(sin(float(i) / 44100.0 * 500.0 * 2.0 * M_PI) * 32767.0);
+	}
+	
+	stack_cue_list_write_audio(&STACK_APP_WINDOW(user_data)->cue_list, -1, (int16_t*)buffer, 2, 32768, true);
+	
+	delete [] buffer;*/
 }
 
 // Callback for UI timer
@@ -839,7 +850,10 @@ static void stack_app_window_init(StackAppWindow *window)
 	stack_cue_set_name(STACK_CUE(myCue1), "House music");
 	stack_cue_set_notes(STACK_CUE(myCue1), "Notes\n\nThese are my notes for this cue. There are many of them and things.\nBlah.");
 	stack_cue_set_action_time(STACK_CUE(myCue1), 175200000000);
-
+	free(myCue1->file);
+	myCue1->file = strdup("file:///home/clayton/devel/cpp/stack/test.wav");
+	stack_cue_set_state(STACK_CUE(myCue1), STACK_CUE_STATE_STOPPED);	
+	
 	// DEBUG: Second cue
 	StackFadeCue* myCue2 = STACK_FADE_CUE(stack_cue_new("StackFadeCue", &window->cue_list));
 	stack_cue_set_id(STACK_CUE(myCue2), 2000);

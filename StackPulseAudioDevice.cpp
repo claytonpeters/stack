@@ -283,7 +283,7 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	// Connect a playback stream
 	pa_buffer_attr attr;
 	attr.maxlength = 0xffffffff;
-	attr.tlength = 65536 * 2;
+	attr.tlength = 32768 * 2;
 	attr.prebuf = 0;
 	attr.minreq = 0xffffffff;
 	fprintf(stderr, "stack_pulse_audio_device_create(): Connecting playback stream...\n");
@@ -315,16 +315,16 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 
 void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, size_t bytes)
 {
-	static bool first = true;
+	//static bool first = true;
 	
 	pa_threaded_mainloop_lock(mainloop);
 	pa_stream_write(STACK_PULSE_AUDIO_DEVICE(device)->stream, data, bytes, NULL, 0, PA_SEEK_RELATIVE);
-	if (first)
-	{
+	//if (first)
+	//{
 		pa_stream_trigger(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
-		pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 0, NULL, NULL);
-		first = false;
-	}
+		//pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 0, NULL, NULL);
+		//first = false;
+//	}
 	pa_threaded_mainloop_unlock(mainloop);
 }
 

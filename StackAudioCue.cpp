@@ -366,9 +366,9 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_cue_get_running_times(cue, clocktime, NULL, &action_time, NULL, NULL, NULL, NULL);
 	
 	// If we've sent no data, or we've running behind, or we're about to need more data
-	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 10000000)
+	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000)
 	{
-		size_t samples = 256;
+		size_t samples = 1024;
 		
 		// Set up buffer for the number of samples of each channel
 		size_t bytes_to_read = samples * audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8;

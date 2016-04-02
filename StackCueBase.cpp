@@ -112,6 +112,77 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	{
 		return;
 	}
+	
+	// Get the current cue action times
+	stack_time_t run_pre_time, run_action_time, run_post_time;
+	stack_cue_get_running_times(cue, clocktime, &run_pre_time, &run_action_time, &run_post_time, NULL, NULL, NULL);
+
+	// If pre hasn't finished, return
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time < cue->pre_time)
+	{
+		// Do nothing;
+		return;
+	}
+	
+	// If we're in pre, but pre has finished
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_action_time > 0)
+	{
+		// If we're still in action time
+		if (run_action_time < cue->action_time)
+		{
+			// Change us to the action state
+			fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to action\n");
+			cue->state = STACK_CUE_STATE_PLAYING_ACTION;
+			return;
+		}
+
+		// We're no longer in action time, see if post is still running
+		if (run_post_time > 0)
+		{
+			if (run_post_time < cue->post_time)
+			{
+				// Change us to the post state
+				fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to post\n");
+				cue->state = STACK_CUE_STATE_PLAYING_POST;
+				return;
+			}
+			else
+			{
+				// Stop the cue
+				fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to stopped\n");
+				stack_cue_stop(cue);
+				return;
+			}
+		}
+	}
+	
+	// If we're in action, but action time has finished
+	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue->action_time)
+	{
+		// Check if we're still in post time
+		if (run_post_time < cue->post_time)
+		{
+			// Change us to the post state
+			fprintf(stderr, "stack_cue_pulse_base(): Moving from action to post\n");
+			cue->state = STACK_CUE_STATE_PLAYING_POST;
+			return;
+		}
+		else
+		{
+			// Stop the cue
+			fprintf(stderr, "stack_cue_pulse_base(): Moving from action to stopped\n");
+			stack_cue_stop(cue);
+		}
+	}
+		
+	// If we're in post, but post time has finished
+	if (cue->state == STACK_CUE_STATE_PLAYING_POST && run_post_time == cue->post_time)
+	{
+		// Stop the cue
+		fprintf(stderr, "stack_cue_pulse_base(): Moving from post to stopped\n");
+		stack_cue_stop(cue);
+		return;
+	}
 }
 
 // Does nothing for the base class - the base tabs are always there

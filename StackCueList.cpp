@@ -18,9 +18,9 @@ void stack_cue_list_init(StackCueList *cue_list, uint16_t channels)
 	cue_list->cues = (void*)new stackcue_list_t();
 	
 	// Allocate our buffer (fixed at 32k samples size for now)
-	cue_list->buffer_len = 262144;
+	cue_list->buffer_len = 32768;
 	cue_list->buffer = new int16_t[channels * cue_list->buffer_len];
-	memset(cue_list->buffer, 0, channels * cue_list->buffer_len);
+	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(int16_t));
 	cue_list->buffer_idx = 0;
 	cue_list->buffer_time = 0;
 }
@@ -37,7 +37,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 	
 	// TODO: THIS ONLY WORKS FOR A SINGLE STREAM CURRENTLY!!!!
 	
-	// If the caller doesn't know where to write to
+	// If the caller doesn't know where to write to, just write to the read pointer
 	if (ptr == -1)
 	{
 		ptr = (cue_list->buffer_idx) % cue_list->buffer_len;
@@ -50,7 +50,21 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 		// interleaved data, we can just copy it in
 		if (interleaved)
 		{
-			memcpy(&cue_list->buffer[ptr * cue_list->channels], data, channels * samples * sizeof(int16_t));
+			// Calculate source and destination pointers
+			int16_t *src = data;
+			int16_t *dst = &cue_list->buffer[(ptr * cue_list->channels)];
+			size_t count = channels * samples;
+
+			for (size_t i = 0; i < count; i++)
+			{
+				*dst += *src;
+				
+				// Increment source pointer
+				src++;
+				
+				// Increment destination point
+				dst++;
+			}
 		}
 		else
 		{
@@ -63,7 +77,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 				// Copy one channels worth of data
 				for (size_t i = 0; i < samples; i++)
 				{
-					*dst = *src;
+					*dst += *src;
 					
 					// Increment source pointer
 					src++;
@@ -79,10 +93,34 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, int16_t *d
 		if (interleaved)
 		{
 			// Copy whatever fits at the end of our ring buffer
-			memcpy(&cue_list->buffer[ptr * cue_list->channels], data, channels * (cue_list->buffer_len - ptr) * sizeof(int16_t));
+			int16_t *src = data;
+			int16_t *dst = &cue_list->buffer[(ptr * cue_list->channels)];
+			size_t count = channels * (cue_list->buffer_len - ptr);
+			for (size_t i = 0; i < count; i++)
+			{
+				*dst += *src;
+				
+				// Increment source pointer
+				src++;
+				
+				// Increment destination point
+				dst++;
+			}
 			
 			// Copy the rest to the beginning
-			memcpy(cue_list->buffer, &data[channels * (cue_list->buffer_len - ptr)], channels * (samples - (cue_list->buffer_len - ptr)) * sizeof(int16_t));
+			src = &data[channels * (cue_list->buffer_len - ptr)];
+			dst = cue_list->buffer;
+			count = channels * (samples - (cue_list->buffer_len - ptr));
+			for (size_t i = 0; i < count; i++)
+			{
+				*dst += *src;
+				
+				// Increment source pointer
+				src++;
+				
+				// Increment destination point
+				dst++;
+			}
 		}
 		else
 		{
@@ -151,39 +189,52 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		}
 	}
 	
-	// Write data to the audio streams if necessary (i.e. if there's less than 200ms left in the buffer)
-	if (clocktime > cue_list->buffer_time)
+	size_t index, byte_count;
+	size_t block_size_samples = 1024;
+	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
+	
+	// Write data to the audio streams if necessary (i.e. if there's less than 2x our block size in the buffer)
+	if (clocktime > cue_list->buffer_time - block_size_time * 2)
 	{
 		//fprintf(stderr, "C: %ld, T: %ld, D: %ld, S: %lu\n", clocktime, cue_list->buffer_time, cue_list->buffer_time - clocktime, total_samps);
 		
-		size_t samples_out = 256;
-		
 		// See if we can write an entire memory block at once
-		if (cue_list->buffer_idx + samples_out < cue_list->buffer_len)
+		if (cue_list->buffer_idx + block_size_samples < cue_list->buffer_len)
 		{	
+			// Calculate data index and size
+			index = cue_list->buffer_idx * cue_list->channels;
+			byte_count = block_size_samples * cue_list->channels * sizeof(int16_t);
+			
 			// Write to device
-			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[cue_list->buffer_idx * cue_list->channels], samples_out * cue_list->channels * sizeof(int16_t));
+			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
 			
 			// Wipe buffer
-			memset(&cue_list->buffer[cue_list->buffer_idx * cue_list->channels], 0, samples_out * cue_list->channels * sizeof(int16_t));
+			memset(&cue_list->buffer[index], 0, byte_count);
 		}
 		else
 		{
-			// Write the stuff that's at the end of the memory block
-			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[cue_list->buffer_idx * cue_list->channels], (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(int16_t));
-			
-			// Write stuff that's at the beginning of the memory block
-			stack_audio_device_write(cue_list->audio_device, (const char*)cue_list->buffer, (samples_out - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(int16_t));
+			// Calculate data index and size
+			size_t index = cue_list->buffer_idx * cue_list->channels;
+			size_t byte_count = (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(int16_t);
 
+			// Write the stuff that's at the end of the memory block
+			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
+			
 			// Wipe buffer at the end
-			memset(&cue_list->buffer[cue_list->buffer_idx * cue_list->channels], 0, (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(int16_t));
+			memset(&cue_list->buffer[index], 0, byte_count);
+
+			// Calculate remaining size
+			byte_count = (block_size_samples - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(int16_t);
+
+			// Write stuff that's at the beginning of the memory block
+			stack_audio_device_write(cue_list->audio_device, (const char*)cue_list->buffer, byte_count);
 
 			// Wipe buffer at the beginning
-			memset(cue_list->buffer, 0, (samples_out - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(int16_t));
+			memset(cue_list->buffer, 0, byte_count);
 		}
 		
 		// Increment ring buffer and wrap around
-		cue_list->buffer_idx = (cue_list->buffer_idx + samples_out) % cue_list->buffer_len;
-		cue_list->buffer_time += ((stack_time_t)samples_out * NANOSECS_PER_SEC) / cue_list->audio_device->sample_rate;
+		cue_list->buffer_idx = (cue_list->buffer_idx + block_size_samples) % cue_list->buffer_len;
+		cue_list->buffer_time += ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / cue_list->audio_device->sample_rate;
 	}	
 }
