@@ -238,6 +238,55 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "fcpVolumeValueLabel")), buffer);
 }
 
+static bool stack_fade_cue_play(StackCue *cue)
+{
+	// Call the superclass
+	if (!stack_cue_play_base(cue))
+	{
+		return false;
+	}
+	
+	StackCue *target = stack_cue_get_by_uid(STACK_FADE_CUE(cue)->target);
+	if (target != NULL && strcmp(target->_class_name, "StackAudioCue") == 0)
+	{
+		// Make note of the cue
+		STACK_FADE_CUE(cue)->playback_start_target_volume = STACK_AUDIO_CUE(target)->playback_live_volume;
+	}
+	
+	return true;
+}
+
+static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
+{
+	stack_cue_pulse_base(cue, clocktime);
+	
+	// Get the target
+	StackCue *target = stack_cue_get_by_uid(STACK_FADE_CUE(cue)->target);
+	if (target != NULL)
+	{
+		if (cue->action_time > 0.0 && cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+		{
+			// Get the current fade cue action times
+			stack_time_t run_action_time;
+			stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
+	
+			// Calculate a ratio of how far through the queue we are
+			double time_scaler = (double)run_action_time / (double)cue->action_time;
+		
+			double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
+			double vend = stack_db_to_scalar(STACK_FADE_CUE(cue)->target_volume);
+			
+			// TODO: Other fade types
+			switch (STACK_FADE_CUE(cue)->fade_profile)
+			{
+				case STACK_FADE_PROFILE_LINEAR:
+					STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart + (vend - vstart) * time_scaler);
+					break;
+			}
+		}
+	}
+}
+
 // Removes the properties tabs for a fade cue
 static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
@@ -269,7 +318,7 @@ static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 void stack_fade_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, NULL, NULL, NULL, NULL, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs };
 	stack_register_cue_class(fade_cue_class);
 }
 

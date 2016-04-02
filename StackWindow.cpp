@@ -412,7 +412,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20160329-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20160402-3");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2016 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -494,11 +494,23 @@ static gboolean saw_ui_timer(gpointer user_data)
 }
 
 // Callback for cue pulsing timer
-static gboolean stack_pulse_timer(gpointer user_data)
+static void stack_pulse_thread(StackAppWindow* window)
 {
-	stack_cue_list_pulse(&STACK_APP_WINDOW(user_data)->cue_list);
-
-	return true;
+	// Set thread priority
+	struct sched_param param = { 5 };
+	if (pthread_setschedparam(window->pulse_thread.native_handle(), SCHED_RR, &param) != 0)
+	{
+		fprintf(stderr, "stack_pulse_thread(): Failed to set pulse thread priority.\n");
+	}
+	
+	// Loop until we're being destroyed
+	while (!window->kill_thread)
+	{
+		stack_cue_list_pulse(&window->cue_list);
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	
+	return;
 }
 
 // Callback for when the selected cue changes
@@ -562,14 +574,21 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
 	fprintf(stderr, "saw_destroy()\n");
 	
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	
+	// Kill the pulse thread and wait for it to exit
+	window->kill_thread = true;
+	window->pulse_thread.join();
+	
 	// Clear the list store
-	saw_clear_list_store(STACK_APP_WINDOW(user_data));
+	saw_clear_list_store(window);
 	
 	// Get an iterator over the cue list		
-	void *citer = stack_cue_list_iter_front(&STACK_APP_WINDOW(user_data)->cue_list);
+	void *citer = stack_cue_list_iter_front(&window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&STACK_APP_WINDOW(user_data)->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
@@ -585,7 +604,7 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	stack_cue_list_iter_free(citer);
 	
 	// Destroy the cue list
-	stack_cue_list_destroy(&STACK_APP_WINDOW(user_data)->cue_list);
+	stack_cue_list_destroy(&window->cue_list);
 }
 
 // Cue property change (done on focus-out)
@@ -929,8 +948,9 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Set up a timer to periodically refresh the UI
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
-	// Add a high-priority timeout for cue pulsing operations at 1ms intervals
-	g_timeout_add_full(G_PRIORITY_HIGH, 1, (GSourceFunc)stack_pulse_timer, (gpointer)window, NULL);
+	// Start the cue list pulsing thread
+	window->kill_thread = false;
+	window->pulse_thread = std::thread(stack_pulse_thread, window);
 }
 
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)

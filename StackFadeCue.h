@@ -33,6 +33,9 @@ typedef struct StackFadeCue
 	
 	// The fade tab
 	GtkWidget *fade_tab;
+	
+	// The volume of the target when the cue started
+	float playback_start_target_volume;
 } StackFadeCue;
 
 // Functions: Audio cue functions

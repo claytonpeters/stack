@@ -194,6 +194,8 @@
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">0.00 dB</property>
+                <property name="ellipsize">start</property>
+                <property name="width_chars">9</property>
               </object>
               <packing>
                 <property name="expand">False</property>
