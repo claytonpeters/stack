@@ -28,6 +28,9 @@ typedef struct StackFadeCue
 	// Fade profile
 	StackFadeProfile fade_profile;
 	
+	// Whether to stop the target cue after the fade
+	bool stop_target;
+	
 	// The GtkBuilder instance
 	GtkBuilder *builder;
 	

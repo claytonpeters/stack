@@ -24,9 +24,14 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	// We start in error state until we have a target
 	stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 	
+	// Set the default fade (action) time to be five seconds
+	stack_cue_set_action_time(STACK_CUE(cue), 5 * NANOSECS_PER_SEC);
+	
 	// Initialise our variables
 	cue->target = STACK_CUE_UID_NONE;
 	cue->target_volume = -INFINITY;
+	cue->stop_target = true;
+	cue->fade_profile = STACK_FADE_PROFILE_LINEAR;
 	cue->builder = NULL;
 	cue->fade_tab = NULL;
 
@@ -131,25 +136,33 @@ static gboolean fcp_fade_time_changed(GtkWidget *widget, GdkEvent *event, gpoint
 	return false;
 }
 
-static void fcp_fade_type_changed(GtkRadioButton *widget, gpointer user_data)
+static void fcp_fade_type_changed(GtkToggleButton *widget, gpointer user_data)
 {
 	StackFadeCue *cue = STACK_FADE_CUE(user_data);
 	
 	// Get pointers to the four radio button options
-	GtkRadioButton* r1 = GTK_RADIO_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeLinear"));
-	GtkRadioButton* r2 = GTK_RADIO_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeQuadratic"));
-	GtkRadioButton* r3 = GTK_RADIO_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeExponential"));
-	GtkRadioButton* r4 = GTK_RADIO_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeInverseExponential"));
+	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeLinear"));
+	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeQuadratic"));
+	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeExponential"));
+	GtkToggleButton* r4 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeInverseExponential"));
 	
 	// Determine which one is toggled on
-	if (widget == r1 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r1))) { cue->fade_profile = STACK_FADE_PROFILE_LINEAR; }
-	if (widget == r2 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r2))) { cue->fade_profile = STACK_FADE_PROFILE_QUAD; }
-	if (widget == r3 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r3))) { cue->fade_profile = STACK_FADE_PROFILE_EXP; }
-	if (widget == r4 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r4))) { cue->fade_profile = STACK_FADE_PROFILE_INVEXP; }
+	if (widget == r1 && gtk_toggle_button_get_active(r1)) { cue->fade_profile = STACK_FADE_PROFILE_LINEAR; }
+	if (widget == r2 && gtk_toggle_button_get_active(r2)) { cue->fade_profile = STACK_FADE_PROFILE_QUAD; }
+	if (widget == r3 && gtk_toggle_button_get_active(r3)) { cue->fade_profile = STACK_FADE_PROFILE_EXP; }
+	if (widget == r4 && gtk_toggle_button_get_active(r4)) { cue->fade_profile = STACK_FADE_PROFILE_INVEXP; }
 	
 	// No need to update the UI on this one (currently)
 }
+
+static void fcp_stop_target_changed(GtkToggleButton *widget, gpointer user_data)
+{
+	StackFadeCue *cue = STACK_FADE_CUE(user_data);
 	
+	// Update the variable
+	cue->stop_target = gtk_toggle_button_get_active(widget);
+}
+
 static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	StackFadeCue *fcue = STACK_FADE_CUE(cue);
@@ -170,6 +183,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_builder_add_callback_symbol(builder, "fcp_fade_time_changed", G_CALLBACK(fcp_fade_time_changed));
 	gtk_builder_add_callback_symbol(builder, "fcp_volume_changed", G_CALLBACK(fcp_volume_changed));
 	gtk_builder_add_callback_symbol(builder, "fcp_fade_type_changed", G_CALLBACK(fcp_fade_type_changed));
+	gtk_builder_add_callback_symbol(builder, "fcp_stop_target_changed", G_CALLBACK(fcp_stop_target_changed));
 	
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);
@@ -205,6 +219,16 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	stack_format_time_as_string(STACK_CUE(fcue)->action_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "fcpFadeTime")), buffer);
 
+	// Set the values: stop target
+	if (fcue->stop_target)
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpStopTarget")), true);
+	}
+	else
+	{
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpStopTarget")), false);
+	}
+	
 	// Update fade type option
 	switch (fcue->fade_profile)
 	{
@@ -258,30 +282,59 @@ static bool stack_fade_cue_play(StackCue *cue)
 
 static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 {
-	stack_cue_pulse_base(cue, clocktime);
+	// Get the cue state before the base class potentially updates it
+	StackCueState pre_pulse_state = cue->state;
 	
+	// Call superclass
+	stack_cue_pulse_base(cue, clocktime);
+
 	// Get the target
 	StackCue *target = stack_cue_get_by_uid(STACK_FADE_CUE(cue)->target);
+
+	// If the target is valid	
 	if (target != NULL)
 	{
-		if (cue->action_time > 0.0 && cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+		// If the cue state has changed to stopped on this pulse, and we're
+		// supposed to stop our target, then do so
+		if (pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 		{
-			// Get the current fade cue action times
-			stack_time_t run_action_time;
-			stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
-	
-			// Calculate a ratio of how far through the queue we are
-			double time_scaler = (double)run_action_time / (double)cue->action_time;
-		
-			double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
-			double vend = stack_db_to_scalar(STACK_FADE_CUE(cue)->target_volume);
+			// Jump to end volume (handles zero-second, non-stopping fades)
+			STACK_AUDIO_CUE(target)->playback_live_volume = STACK_FADE_CUE(cue)->target_volume;
 			
-			// TODO: Other fade types
-			switch (STACK_FADE_CUE(cue)->fade_profile)
+			// If we're supposed to stop our target, do so
+			if (STACK_FADE_CUE(cue)->stop_target)
 			{
-				case STACK_FADE_PROFILE_LINEAR:
-					STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart + (vend - vstart) * time_scaler);
-					break;
+				// Stop the target
+				stack_cue_stop(target);
+			}
+		}
+		else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+		{
+			// This if statement is to avoid divide by zero errors
+			if (cue->action_time > 0.0)
+			{
+				// Get the current fade cue action times
+				stack_time_t run_action_time;
+				stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
+	
+				// Calculate a ratio of how far through the queue we are
+				double time_scaler = (double)run_action_time / (double)cue->action_time;
+		
+				double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
+				double vend = stack_db_to_scalar(STACK_FADE_CUE(cue)->target_volume);
+			
+				// TODO: Other fade types
+				switch (STACK_FADE_CUE(cue)->fade_profile)
+				{
+					case STACK_FADE_PROFILE_LINEAR:
+						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart + (vend - vstart) * time_scaler);
+						break;
+				}
+			}
+			else
+			{
+				// Immediately jump to target volume
+				STACK_AUDIO_CUE(target)->playback_live_volume = STACK_FADE_CUE(cue)->target_volume;
 			}
 		}
 	}

@@ -480,7 +480,7 @@ static gboolean saw_ui_timer(gpointer user_data)
 		if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
 		{
 			// Update the row
-			saw_update_list_store_from_cue(window->store, STACK_CUE(cue));
+			saw_update_list_store_from_cue(window->store, cue);
 		}
 
 		// Iterate

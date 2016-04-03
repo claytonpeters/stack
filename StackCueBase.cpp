@@ -76,6 +76,9 @@ bool stack_cue_play_base(StackCue *cue)
 		}
 		else
 		{
+			// We should always get at least one pulse in action state even if
+			// our action time is zero, as we may want to do instantaneous things
+			// like immediate fades, for example
 			cue->state = STACK_CUE_STATE_PLAYING_ACTION;
 		}
 	}
