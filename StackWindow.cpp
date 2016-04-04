@@ -451,16 +451,33 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "Stop all cues clicked\n");
 
-	/*int16_t *buffer = new int16_t[32768 * 2];
-	
-	for (size_t i = 0; i < 32768; i++)
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Get an iterator over the cue list		
+	void *citer = stack_cue_list_iter_front(&window->cue_list);
+
+	// Iterate over the cue list
+	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
 	{
-		buffer[i * 2] = buffer[i * 2 + 1] = (uint16_t)(sin(float(i) / 44100.0 * 500.0 * 2.0 * M_PI) * 32767.0);
+		// Get the cue
+		StackCue *cue = stack_cue_list_iter_get(citer);
+
+		if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+		{
+			// Stop the cue
+			stack_cue_stop(cue);
+
+			// Update the row
+			saw_update_list_store_from_cue(window->store, cue);
+		}
+
+		// Iterate
+		citer = stack_cue_list_iter_next(citer);
 	}
 	
-	stack_cue_list_write_audio(&STACK_APP_WINDOW(user_data)->cue_list, -1, (int16_t*)buffer, 2, 32768, true);
-	
-	delete [] buffer;*/
+	// Free the iterator
+	stack_cue_list_iter_free(citer);
 }
 
 // Callback for UI timer
