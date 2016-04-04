@@ -981,6 +981,12 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 		GtkTreeIter iter;
 		gtk_list_store_append(store, &iter);
 		
+		// If we're the current cue, select it
+		if (cue == current)
+		{
+			gtk_tree_selection_select_iter(gtk_tree_view_get_selection(treeview), &iter);
+		}
+		
 		// Build cue number	
 		char cue_number[32];
 		stack_cue_id_to_string(cue->id, cue_number, 32);
