@@ -1,6 +1,7 @@
 // Includes:
 #include "StackCue.h"
 #include <cstring>
+#include <json/json.h>
 
 // The base StackCue create function. This always returns NULL as we disallow the creation of
 // base StackCue objects.
@@ -198,6 +199,36 @@ void stack_cue_set_tabs_base(StackCue *cue, GtkNotebook *notebook)
 void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook)
 {
 	return;
+}
+
+// Returns a JSON string that represents the data contained within the base
+// class
+char *stack_cue_to_json_base(StackCue *cue)
+{
+	Json::Value cue_root;
+
+	cue_root["r"] = cue->r;
+	cue_root["g"] = cue->g;
+	cue_root["b"] = cue->b;
+	cue_root["id"] = cue->id;
+	cue_root["uid"] = (Json::UInt64)cue->uid;
+	cue_root["name"] = cue->name;
+	cue_root["notes"] = cue->notes;
+	cue_root["pre_time"] = (Json::UInt64)cue->pre_time;
+	cue_root["post_time"] = (Json::UInt64)cue->post_time;
+	cue_root["action_time"] = (Json::UInt64)cue->action_time;
+	cue_root["post_trigger"] = cue->post_trigger;
+
+	// Write out the JSON string and return it (to be free'd by 
+	// stack_cue_free_json_base)
+	Json::FastWriter writer;
+	return strdup(writer.write(cue_root).c_str());
+}
+
+// Frees JSON strings returned by stack_cue_to_json_base
+void stack_cue_free_json_base(char *json_data)
+{
+	free(json_data);
 }
 
 // Sets the cue number / ID

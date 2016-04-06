@@ -3,8 +3,9 @@
 #include "StackFadeCue.h"
 #include <cstring>
 #include <cstdlib>
-#include <cmath>
 #include <string>
+#include <math.h>
+#include <json/json.h>
 
 // Creates a fade cue
 static StackCue* stack_fade_cue_create(StackCueList *cue_list)
@@ -367,11 +368,40 @@ static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	STACK_FADE_CUE(cue)->fade_tab = NULL;
 }
 
+static char *stack_fade_cue_to_json(StackCue *cue)
+{
+	StackFadeCue *fcue = STACK_FADE_CUE(cue);
+
+	// Build JSON
+	Json::Value cue_root;
+	cue_root["target"] = (Json::UInt64)fcue->target;
+	if (isfinite(fcue->target_volume))
+	{
+		cue_root["target_volume"] = fcue->target_volume;
+	}
+	else
+	{
+		cue_root["target_volume"] = "-Infinite";
+	}
+	cue_root["stop_target"] = fcue->stop_target;
+	cue_root["fade_profile"] = fcue->fade_profile;
+	
+	// Write out JSON string and return (to be free'd by 
+	// stack_fade_cue_free_json)
+	Json::FastWriter writer;
+	return strdup(writer.write(cue_root).c_str());
+}
+
+static void stack_fade_cue_free_json(char *json_data)
+{
+	free(json_data);
+}
+
 // Registers StackFadeCue with the application
 void stack_fade_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json };
 	stack_register_cue_class(fade_cue_class);
 }
 

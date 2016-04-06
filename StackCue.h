@@ -12,7 +12,7 @@
 // Generic type for time - in nanoseconds
 typedef int64_t stack_time_t;
 typedef int32_t cue_id_t;
-typedef int64_t cue_uid_t;
+typedef uint64_t cue_uid_t;
 
 // Defines: Constants
 #define NANOSECS_PER_SEC ((int64_t)1000000000)
@@ -149,6 +149,8 @@ typedef void(*stack_stop_cue_t)(StackCue*);
 typedef void(*stack_pulse_cue_t)(StackCue*, stack_time_t);
 typedef void(*stack_set_tabs_t)(StackCue*, GtkNotebook*);
 typedef void(*stack_unset_tabs_t)(StackCue*, GtkNotebook*);
+typedef char*(*stack_to_json_t)(StackCue*);
+typedef void(*stack_free_json_t)(char*);
 
 // Defines information about a class
 typedef struct StackCueClass
@@ -163,6 +165,8 @@ typedef struct StackCueClass
 	stack_pulse_cue_t pulse_func;
 	stack_set_tabs_t set_tabs_func;
 	stack_unset_tabs_t unset_tabs_func;
+	stack_to_json_t to_json_func;
+	stack_free_json_t free_json_func;
 } StackCueClass;
 
 // Functions: Helpers
@@ -201,6 +205,8 @@ void stack_cue_pulse(StackCue *cue, stack_time_t clocktime);
 void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total);
+char *stack_cue_to_json(StackCue *cue);
+void stack_cue_free_json(char *json_data);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -212,9 +218,13 @@ void stack_cue_stop_base(StackCue *cue);
 void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime);
 void stack_cue_set_tabs_base(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook);
+char *stack_cue_to_json_base(StackCue *cue);
+void stack_cue_free_json_base(char *json_data);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
+StackCueList *stack_cue_list_new_from_file(const char *uri);
+bool stack_cue_list_save(StackCueList *cue_list, const char *uri);
 void stack_cue_list_destroy(StackCueList *cue_list);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);

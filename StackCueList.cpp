@@ -2,6 +2,7 @@
 #include "StackCue.h"
 #include <list>
 #include <cstring>
+#include <json/json.h>
 using namespace std;
 
 typedef list<StackCue*> stackcue_list_t;
@@ -273,5 +274,57 @@ void stack_cue_list_lock(StackCueList *cue_list)
 void stack_cue_list_unlock(StackCueList *cue_list)
 {
 	cue_list->lock.unlock();
+}
+
+bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
+{
+	// TODO: Better error checking
+	
+	// Open the file
+	GFile *file = g_file_new_for_uri(uri);
+	if (file == NULL)
+	{
+		return false;
+	}
+	
+	// Get a write strea
+	GFileOutputStream *stream = g_file_replace(file, NULL, false, G_FILE_CREATE_NONE, NULL, NULL);
+	if (stream == NULL)
+	{
+		g_object_unref(file);
+		return false;
+	}
+	
+	Json::Value root;
+	root["show_name"] = "";
+	root["designer"] = "";
+	root["channels"] = cue_list->channels;
+	root["cues"] = Json::Value(Json::ValueType::arrayValue);
+	
+	// Iterate over all the cues
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		// Get the JSON representation of the cue
+		Json::Value cue_root;
+		Json::Reader reader;
+		char *cue_json_data = stack_cue_to_json(*iter);
+		reader.parse(cue_json_data, cue_root);
+		stack_cue_free_json(cue_json_data);
+		
+		// Add it to the cues entry
+		root["cues"].append(cue_root);
+	}
+
+	Json::StyledWriter writer;
+	std::string output = writer.write(root);
+
+	// Write to the output stream
+	g_output_stream_printf(G_OUTPUT_STREAM(stream), NULL, NULL, NULL, "%s", output.c_str());
+	
+	// Tidy up
+	g_object_unref(stream);
+	g_object_unref(file);
+	
+	return true;
 }
 

@@ -434,6 +434,22 @@ static void saw_file_save_clicked(void* widget, gpointer user_data)
 static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "File -> Save As clicked\n");
+
+	// Run a Save dialog
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	// If the user chose to Save...	
+	if (response == GTK_RESPONSE_ACCEPT)
+	{
+		// Get the chosen URI and save the file
+		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
+		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
+		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
+		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
+	}
+	
+	gtk_widget_destroy(dialog);
 }
 
 // Menu callback

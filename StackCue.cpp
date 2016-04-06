@@ -4,6 +4,7 @@
 #include <cstring>
 #include <time.h>
 #include <cmath>
+#include <json/json.h>
 using namespace std;
 
 // Map of classes
@@ -43,7 +44,7 @@ static cue_uid_t stack_cue_generate_uid()
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base };
 	stack_register_cue_class(stack_cue_class);
 }
 
@@ -438,5 +439,53 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	
 	// Call the function
 	cue_class_map[string(class_name)]->unset_tabs_func(cue, notebook);
+}
+
+
+char *stack_cue_to_json(StackCue *cue)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+	
+	// Start a JSON response value
+	Json::Value cue_root;
+	cue_root["class"] = cue->_class_name;
+
+	// Iterate up through all the classes
+	while (class_name != NULL)
+	{
+		// Start a node
+		cue_root[class_name] = Json::Value();
+		
+		if (cue_class_map[class_name]->to_json_func)
+		{
+			if (cue_class_map[class_name]->free_json_func)
+			{
+				Json::Reader reader;
+				char *json_data = cue_class_map[class_name]->to_json_func(cue);
+				reader.parse(json_data, cue_root[class_name]);
+			}
+			else
+			{
+				fprintf(stderr, "stack_cue_to_json(): Warning: Class '%s' has no free_json_func - skipping\n", class_name);
+			}
+		}
+		else
+		{
+			fprintf(stderr, "stack_cue_to_json(): Warning: Class '%s' has no to_json_func - skipping\n", class_name);
+		}
+		
+		// Iterate up to superclass
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+	
+	// Generate JSON string and return it (to be free'd by stack_cue_free_json)
+	Json::FastWriter writer;
+	return strdup(writer.write(cue_root).c_str());
+}
+
+void stack_cue_free_json(char *json_data)
+{
+	free(json_data);
 }
 

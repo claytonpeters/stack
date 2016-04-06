@@ -3,7 +3,8 @@
 #include "StackAudioCue.h"
 #include <cstring>
 #include <cstdlib>
-#include <cmath>
+#include <math.h>
+#include <json/json.h>
 
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
@@ -552,11 +553,40 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	((StackAudioCue*)cue)->media_tab = NULL;
 }
 
+static char *stack_audio_cue_to_json(StackCue *cue)
+{
+	StackAudioCue *acue = STACK_AUDIO_CUE(cue);
+	
+	// Build JSON
+	Json::Value cue_root;
+	cue_root["file"] = acue->file;
+	cue_root["media_start_time"] = (Json::Int64)acue->media_start_time;
+	cue_root["media_end_time"] = (Json::Int64)acue->media_end_time;
+	if (isfinite(acue->play_volume))
+	{
+		cue_root["play_volume"] = acue->play_volume;
+	}
+	else
+	{
+		cue_root["play_volume"] = "-Infinite";
+	}
+	
+	// Write out JSON string and return (to be free'd by 
+	// stack_audio_cue_free_json)
+	Json::FastWriter writer;
+	return strdup(writer.write(cue_root).c_str());
+}
+
+static void stack_audio_cue_free_json(char *json_data)
+{
+	free(json_data);
+}
+
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json };
 	stack_register_cue_class(audio_cue_class);
 }
 
