@@ -9,8 +9,13 @@ typedef list<StackCue*>::iterator stackcue_list_iterator_t;
 
 #define SCL_GET_LIST(_scl) ((stackcue_list_t*)(((StackCueList*)(_scl))->cues))
 
-void stack_cue_list_init(StackCueList *cue_list, uint16_t channels)
+StackCueList *stack_cue_list_new(uint16_t channels)
 {
+	StackCueList *cue_list = new StackCueList();
+	
+	// Empty variables
+	cue_list->audio_device = NULL;
+	
 	// Default to a two-channel set up
 	cue_list->channels = channels;
 	
@@ -23,10 +28,19 @@ void stack_cue_list_init(StackCueList *cue_list, uint16_t channels)
 	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(float));
 	cue_list->buffer_idx = 0;
 	cue_list->buffer_time = 0;
+	
+	return cue_list;
 }
 
 void stack_cue_list_destroy(StackCueList *cue_list)
 {
+	// Destroy the audio device
+	if (cue_list->audio_device)
+	{
+		stack_audio_device_destroy(cue_list->audio_device);
+	}
+	
+	// Tidy up memory
 	delete [] cue_list->buffer;
 	delete (stackcue_list_t*)cue_list->cues;
 }
@@ -174,12 +188,6 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Get a single clock time for all the cues
 	stack_time_t clocktime = stack_get_clock_time();
 	
-	// Initial clock setup when we're ready on the first pulse
-	if (cue_list->buffer_time == 0)
-	{
-		cue_list->buffer_time = clocktime;
-	}
-	
 	// Iterate over all the cues
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
@@ -188,7 +196,20 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 			stack_cue_pulse(*iter, clocktime);
 		}
 	}
+
+	// If we don't have an audio device configured, don't attempt to read audio
+	// buffer and write out to the device
+	if (cue_list->audio_device == NULL)
+	{
+		return;
+	}
 	
+	// Initial clock setup when we're ready on the first pulse
+	if (cue_list->buffer_time == 0)
+	{
+		cue_list->buffer_time = clocktime;
+	}
+		
 	size_t index, byte_count;
 	size_t block_size_samples = 1024;
 	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
@@ -202,8 +223,6 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 			underflow_time += clocktime - cue_list->buffer_time;
 			fprintf(stderr, "UNDERFLOW: %ldus (total: %ldus)\n", (clocktime - cue_list->buffer_time) / 1000, underflow_time / 1000);
 		}
-		
-		//fprintf(stderr, "C: %ld, T: %ld, D: %ld, S: %lu\n", clocktime, cue_list->buffer_time, cue_list->buffer_time - clocktime, total_samps);
 		
 		// See if we can write an entire memory block at once
 		if (cue_list->buffer_idx + block_size_samples < cue_list->buffer_len)
@@ -245,3 +264,14 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		cue_list->buffer_time += ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / cue_list->audio_device->sample_rate;
 	}	
 }
+
+void stack_cue_list_lock(StackCueList *cue_list)
+{
+	cue_list->lock.lock();
+}
+
+void stack_cue_list_unlock(StackCueList *cue_list)
+{
+	cue_list->lock.unlock();
+}
+

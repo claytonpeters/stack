@@ -112,6 +112,93 @@ static bool stack_audio_cue_read_wavehdr(GInputStream *stream, WaveHeader *heade
 	return false;
 }
 
+bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
+{
+	// Check to see if file was previously empty
+	bool was_empty = (strlen(cue->file) == 0) && (cue->media_start_time == 0) && (cue->media_end_time == 0);
+	
+	// Open the file
+	GFile *file = g_file_new_for_uri(uri);
+	if (file == NULL)
+	{
+		return false;
+	}
+	
+	// Open a stream
+	GFileInputStream *stream = g_file_read(file, NULL, NULL);
+	if (stream == NULL)
+	{
+		g_object_unref(file);
+		return false;
+	}
+
+	// Assume we fail to start with
+	bool result = false;
+	
+	// Attempt to read a wave header
+	WaveHeader header;
+	if (stack_audio_cue_read_wavehdr((GInputStream*)stream, &header))
+	{						
+		// Query the file info
+		GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
+		if (file_info != NULL)
+		{
+			// Store the filename
+			free(cue->file);
+			cue->file = strdup(uri);
+
+			// Get the file size and work out the length of the file in seconds
+			goffset size = g_file_info_get_size(file_info);
+			double seconds = double(size - 44) / double(header.byte_rate);
+		
+			// Debug
+			fprintf(stderr, "acp_file_changed(): File info: %ld bytes / %d byte rate = %.4f seconds\n", size, header.byte_rate, seconds);
+			
+			// Store the file length
+			cue->file_length = (stack_time_t)(seconds * 1.0e9);
+			
+			// Update the cue state
+			stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
+			
+			// If we were previously empty, or if this new file is shorter
+			// than the previous file, update the media end point
+			if (was_empty || cue->file_length < cue->media_end_time)
+			{
+				cue->media_end_time = cue->file_length;
+			}
+			
+			// If the media start point is past the length of the file, reset it
+			if (cue->media_start_time > cue->file_length)
+			{
+				cue->media_start_time = 0;
+			}
+			
+			// Update the cue action time;
+			stack_audio_cue_update_action_time(cue);
+			
+			// Tidy up
+			g_object_unref(file_info);
+			
+			// Set the result
+			result = true;
+		}
+		else
+		{
+			fprintf(stderr, "acp_file_changed(): Failed to get file info\n");
+		}
+	}
+	else
+	{
+		fprintf(stderr, "acp_file_changed(): Failed to read header\n");
+	}
+		
+	// Tidy up
+	g_object_unref(stream);
+	g_object_unref(file);
+	
+	return result;
+}
+
 static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
@@ -119,92 +206,27 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 	// Get the filename
 	gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(widget));
 	gchar* uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(widget));
-	
-	// Check to see if file was previously empty
-	bool was_empty = (strlen(cue->file) == 0) && (cue->media_start_time == 0) && (cue->media_end_time == 0);
-	
-	// Store the filename
-	free(cue->file);
-	cue->file = strdup(uri);
-	
-	// Open the file
-	GFile *file = g_file_new_for_uri(uri);
-	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 
-	// Read the stream	
-	if (stream != NULL)
+	// Change the file	
+	if (stack_audio_cue_set_file(cue, uri))
 	{
-		// Attempt to read a wave header
-		WaveHeader header;
-		if (stack_audio_cue_read_wavehdr((GInputStream*)stream, &header))
-		{						
-			// Query the file info
-			GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
-			if (file_info != NULL)
-			{
-				// Get the file size and work out the length of the file in seconds
-				goffset size = g_file_info_get_size(file_info);
-				double seconds = double(size - 44) / double(header.byte_rate);
-			
-				// Debug
-				fprintf(stderr, "acp_file_changed(): File info: %ld bytes / %d byte rate = %.4f seconds\n", size, header.byte_rate, seconds);
-				
-				// Store the file length
-				cue->file_length = (stack_time_t)(seconds * 1.0e9);
-				
-				// Update the cue state
-				stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
-				
-				// If we were previously empty, or if this new file is shorter
-				// than the previous file, update the media end point
-				if (was_empty || cue->file_length < cue->media_end_time)
-				{
-					cue->media_end_time = cue->file_length;
-				}
-				
-				// If the media start point is past the length of the file, reset it
-				if (cue->media_start_time > cue->file_length)
-				{
-					cue->media_start_time = 0;
-				}
-				
-				// Update the cue action time;
-				stack_audio_cue_update_action_time(cue);
-				
-				// Display the file length
-				char time_buffer[32], text_buffer[128];
-				stack_format_time_as_string(cue->file_length, time_buffer, 32);
-				snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
-				gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
-				
-				// Update the UI
-				stack_format_time_as_string(cue->media_start_time, time_buffer, 32);
-				gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), time_buffer);
-				stack_format_time_as_string(cue->media_end_time, time_buffer, 32);
-				gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), time_buffer);
-
-				// Tidy up
-				g_object_unref(file_info);
-			}
-			else
-			{
-				fprintf(stderr, "acp_file_changed(): Failed to get file info\n");
-			}
-		}
-		else
-		{
-			fprintf(stderr, "acp_file_changed(): Failed to read header\n");
-		}
+		// Display the file length
+		char time_buffer[32], text_buffer[128];
+		stack_format_time_as_string(cue->file_length, time_buffer, 32);
+		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
+		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
 		
-		// Tidy up
-		g_object_unref(stream);
+		// Update the UI
+		stack_format_time_as_string(cue->media_start_time, time_buffer, 32);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), time_buffer);
+		stack_format_time_as_string(cue->media_end_time, time_buffer, 32);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), time_buffer);
 	}
-	
+
 	// Tidy up
-	g_object_unref(file);
 	g_free(filename);
 	g_free(uri);
-	
+		
 	// Fire an updated-selected-cue signal to signal the UI to change (we might
 	// have changed state)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget));

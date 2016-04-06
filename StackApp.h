@@ -22,10 +22,10 @@ struct StackAppWindow
 	GtkApplicationWindow parent;
 	
 	// Our cue list
-	StackCueList cue_list;
+	StackCueList *cue_list;
 	
 	// Our builder that contains our controls
-	GtkBuilder* builder;
+	GtkBuilder *builder;
 	
 	// Easy access to some of our controls
 	GtkTreeView *treeview;

@@ -186,7 +186,12 @@ bool stack_init_pulse_audio()
 size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 {
 	// Initialise pulse audio
-	stack_init_pulse_audio();
+	if (!stack_init_pulse_audio())
+	{
+		// Failed to initialise, return NULL
+		*outputs = NULL;
+		return 0;	
+	}
 	
 	// Setup sink enumeration data
 	PulseAudioSinkCountData sink_count_data;
@@ -201,7 +206,7 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	sink_count_data.sink_semaphore.wait();
 
 	// If we found some sinks
-	if (sink_data.count > 0)
+	if (sink_count_data.count > 0)
 	{
 		// Setup sink enumeration data
 		sink_data.count = 0;

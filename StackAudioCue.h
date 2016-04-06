@@ -84,6 +84,7 @@ typedef struct StackAudioCue
 
 // Functions: Audio cue functions
 void stack_audio_cue_register();
+bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri);
 
 // Defines:
 #define STACK_AUDIO_CUE(_c) ((StackAudioCue*)(_c))

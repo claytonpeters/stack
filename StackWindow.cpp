@@ -18,6 +18,35 @@ typedef struct ModelFindCue
 	GtkTreePath *path;
 } ModelFindCue;
 
+// Callback for cue pulsing timer
+static void stack_pulse_thread(StackAppWindow* window)
+{
+	// Set thread priority
+	struct sched_param param = { 5 };
+	if (pthread_setschedparam(window->pulse_thread.native_handle(), SCHED_RR, &param) != 0)
+	{
+		fprintf(stderr, "stack_pulse_thread(): Failed to set pulse thread priority.\n");
+	}
+	
+	// Loop until we're being destroyed
+	while (!window->kill_thread)
+	{
+		// Lock the cue list
+		stack_cue_list_lock(window->cue_list);
+
+		// Send pulses to all the active cues	
+		stack_cue_list_pulse(window->cue_list);
+		
+		// Unlock the cue list
+		stack_cue_list_unlock(window->cue_list);
+
+		// Sleep for a millisecond
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	
+	return;
+}
+
 // gtk_tree_model_foreach callback for searching for a cue. Pass a ModelFindCue* as the user_data
 static gboolean saw_model_foreach_find_cue(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
 {
@@ -194,11 +223,14 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 	// An iterator for each row
 	GtkTreeIter iter;
 
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
 	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(&window->cue_list);
+	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
@@ -212,6 +244,9 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
 	
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
@@ -299,6 +334,88 @@ static void saw_select_last_cue(StackAppWindow *window)
 static void saw_file_new_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "File -> New clicked\n");
+
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Kill the cue list pulsing thread
+	window->kill_thread = true;
+	window->pulse_thread.join();
+	
+	// We don't need to worry about the UI timer, as that's running on the same
+	// thread as the event loop that is handling this event handler
+	
+	// Destroy the old cue list
+	stack_cue_list_destroy(window->cue_list);
+
+	// Initialise a new cue list, defaulting to two channels
+	window->cue_list = stack_cue_list_new(2);
+
+	// DEBUG: First cue	
+	StackAudioCue* myCue1 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
+	stack_cue_set_name(STACK_CUE(myCue1), "House music");
+	stack_cue_set_notes(STACK_CUE(myCue1), "Notes\n\nThese are my notes for this cue. There are many of them and things.\nBlah.");
+	stack_cue_set_action_time(STACK_CUE(myCue1), 175200000000);
+	stack_audio_cue_set_file(myCue1, "file:///home/clayton/devel/cpp/stack/test.wav");
+	
+	// DEBUG: Second cue
+	StackFadeCue* myCue2 = STACK_FADE_CUE(stack_cue_new("StackFadeCue", window->cue_list));
+	stack_cue_set_id(STACK_CUE(myCue2), 2000);
+	stack_cue_set_name(STACK_CUE(myCue2), "Fade house music");
+	stack_cue_set_pre_time(STACK_CUE(myCue2), 500000000);
+	stack_cue_set_action_time(STACK_CUE(myCue2), 5000000000);
+	stack_cue_set_post_time(STACK_CUE(myCue2), 2750000000);
+	stack_cue_set_post_trigger(STACK_CUE(myCue2), STACK_CUE_WAIT_TRIGGER_AFTERACTION);
+	stack_cue_set_color(STACK_CUE(myCue2), 220, 0, 0);
+
+	// DEBUG: Third cue
+	StackAudioCue* myCue3 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
+	stack_cue_set_id(STACK_CUE(myCue3), 3000);
+	stack_cue_set_name(STACK_CUE(myCue3), "Introduction");
+	stack_cue_set_action_time(STACK_CUE(myCue3), 22561000000);
+	stack_cue_set_color(STACK_CUE(myCue3), 0, 110, 220);
+	
+	// DEBUG: Put cues in our cue stack
+	stack_cue_list_append(window->cue_list, STACK_CUE(myCue1));
+	stack_cue_list_append(window->cue_list, STACK_CUE(myCue2));
+	stack_cue_list_append(window->cue_list, STACK_CUE(myCue3));
+	
+	// DEBUG: Refresh the cue list
+	saw_refresh_list_store_from_list(window);
+	
+	// DEBUG: Open a PulseAudio device
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+	if (sadc)
+	{
+		StackAudioDeviceDesc *devices;
+		size_t num_outputs = sadc->get_outputs_func(&devices);
+
+		if (devices != NULL && num_outputs > 0)
+		{
+			for (size_t i = 0; i < num_outputs; i++)
+			{
+				fprintf(stderr, "------------------------------------------------------------\n");
+				fprintf(stderr, "Index: %lu\n", i);
+				fprintf(stderr, "Name: %s\n", devices[i].name);
+				fprintf(stderr, "Description: %s\n", devices[i].desc);
+				fprintf(stderr, "Channels: %d\n", devices[i].channels);
+			}
+			fprintf(stderr, "------------------------------------------------------------\n");
+
+			// Create a PulseAudio device for the first output
+			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+		
+			// Store the audio device in the cue list
+			window->cue_list->audio_device = device;
+		}
+		
+		// Free the list of devices
+		sadc->free_outputs_func(&devices, num_outputs);
+	}
+
+	// Start the cue list pulsing thread
+	window->kill_thread = false;
+	window->pulse_thread = std::thread(stack_pulse_thread, window);
 }
 
 // Menu/toolbar callback
@@ -364,11 +481,17 @@ static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
 	// Create the new cue
-	StackAudioCue* new_cue = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", &window->cue_list));
+	StackAudioCue* new_cue = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
 	
 	// Add the list to our cue stack
-	stack_cue_list_append(&window->cue_list, STACK_CUE(new_cue));
+	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
 
 	// Append a row to the list store and get an iterator
 	GtkTreeIter iter;
@@ -389,11 +512,17 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
 	// Create the new cue
-	StackFadeCue* new_cue = STACK_FADE_CUE(stack_cue_new("StackFadeCue", &window->cue_list));
+	StackFadeCue* new_cue = STACK_FADE_CUE(stack_cue_new("StackFadeCue", window->cue_list));
 	
 	// Add the list to our cue stack
-	stack_cue_list_append(&window->cue_list, STACK_CUE(new_cue));
+	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
 
 	// Append a row to the list store and get an iterator
 	GtkTreeIter iter;
@@ -454,11 +583,14 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
 	// Get an iterator over the cue list		
-	void *citer = stack_cue_list_iter_front(&window->cue_list);
+	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
@@ -476,6 +608,9 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 		citer = stack_cue_list_iter_next(citer);
 	}
 	
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
+
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
 }
@@ -484,12 +619,15 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 static gboolean saw_ui_timer(gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
 	
 	// Get an iterator over the cue list		
-	void *citer = stack_cue_list_iter_front(&window->cue_list);
+	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
@@ -504,30 +642,13 @@ static gboolean saw_ui_timer(gpointer user_data)
 		citer = stack_cue_list_iter_next(citer);
 	}
 	
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
+
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
 	
 	return true;
-}
-
-// Callback for cue pulsing timer
-static void stack_pulse_thread(StackAppWindow* window)
-{
-	// Set thread priority
-	struct sched_param param = { 5 };
-	if (pthread_setschedparam(window->pulse_thread.native_handle(), SCHED_RR, &param) != 0)
-	{
-		fprintf(stderr, "stack_pulse_thread(): Failed to set pulse thread priority.\n");
-	}
-	
-	// Loop until we're being destroyed
-	while (!window->kill_thread)
-	{
-		stack_cue_list_pulse(&window->cue_list);
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
-	
-	return;
 }
 
 // Callback for when the selected cue changes
@@ -601,11 +722,14 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	// Clear the list store
 	saw_clear_list_store(window);
 	
-	// Get an iterator over the cue list		
-	void *citer = stack_cue_list_iter_front(&window->cue_list);
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+	
+	// Get an iterator over the cue list
+	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
@@ -619,9 +743,12 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
 	
 	// Destroy the cue list
-	stack_cue_list_destroy(&window->cue_list);
+	stack_cue_list_destroy(window->cue_list);
 }
 
 // Cue property change (done on focus-out)
@@ -818,7 +945,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	g_signal_connect(window, "update-selected-cue", G_CALLBACK(saw_update_selected_cue), (gpointer)window);
 	
 	// Initialise this windows cue stack, defaulting to two channels
-	stack_cue_list_init(&window->cue_list, 2);
+	window->cue_list = stack_cue_list_new(2);
 	
 	if (window->use_custom_style)
 	{
@@ -901,67 +1028,6 @@ static void stack_app_window_init(StackAppWindow *window)
 	window->store = GTK_LIST_STORE(gtk_tree_view_get_model(window->treeview));
 	window->notebook = GTK_NOTEBOOK(gtk_builder_get_object(window->builder, "sawCuePropsTabs"));
 	
-	// DEBUG: First cue	
-	StackAudioCue* myCue1 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", &window->cue_list));
-	stack_cue_set_name(STACK_CUE(myCue1), "House music");
-	stack_cue_set_notes(STACK_CUE(myCue1), "Notes\n\nThese are my notes for this cue. There are many of them and things.\nBlah.");
-	stack_cue_set_action_time(STACK_CUE(myCue1), 175200000000);
-	free(myCue1->file);
-	myCue1->file = strdup("file:///home/clayton/devel/cpp/stack/test.wav");
-	stack_cue_set_state(STACK_CUE(myCue1), STACK_CUE_STATE_STOPPED);	
-	
-	// DEBUG: Second cue
-	StackFadeCue* myCue2 = STACK_FADE_CUE(stack_cue_new("StackFadeCue", &window->cue_list));
-	stack_cue_set_id(STACK_CUE(myCue2), 2000);
-	stack_cue_set_name(STACK_CUE(myCue2), "Fade house music");
-	stack_cue_set_pre_time(STACK_CUE(myCue2), 500000000);
-	stack_cue_set_action_time(STACK_CUE(myCue2), 5000000000);
-	stack_cue_set_post_time(STACK_CUE(myCue2), 2750000000);
-	stack_cue_set_post_trigger(STACK_CUE(myCue2), STACK_CUE_WAIT_TRIGGER_AFTERACTION);
-	stack_cue_set_color(STACK_CUE(myCue2), 220, 0, 0);
-
-	// DEBUG: Third cue
-	StackAudioCue* myCue3 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", &window->cue_list));
-	stack_cue_set_id(STACK_CUE(myCue3), 3000);
-	stack_cue_set_name(STACK_CUE(myCue3), "Introduction");
-	stack_cue_set_action_time(STACK_CUE(myCue3), 22561000000);
-	stack_cue_set_color(STACK_CUE(myCue3), 0, 110, 220);
-	
-	// DEBUG: Put cues in our cue stack
-	stack_cue_list_append(&window->cue_list, STACK_CUE(myCue1));
-	stack_cue_list_append(&window->cue_list, STACK_CUE(myCue2));
-	stack_cue_list_append(&window->cue_list, STACK_CUE(myCue3));
-	
-	// DEBUG: Refresh the cue list
-	saw_refresh_list_store_from_list(window);
-	
-	// DEBUG: Open a PulseAudio device
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-	if (sadc)
-	{
-		StackAudioDeviceDesc *devices;
-		size_t num_outputs = sadc->get_outputs_func(&devices);
-
-		for (size_t i = 0; i < num_outputs; i++)
-		{
-			fprintf(stderr, "------------------------------------------------------------\n");
-			fprintf(stderr, "Index: %lu\n", i);
-			fprintf(stderr, "Name: %s\n", devices[i].name);
-			fprintf(stderr, "Description: %s\n", devices[i].desc);
-			fprintf(stderr, "Channels: %d\n", devices[i].channels);
-		}
-		fprintf(stderr, "------------------------------------------------------------\n");
-
-		// Create a PulseAudio device for the first output
-		StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
-		
-		// Free the list of devices
-		sadc->free_outputs_func(&devices, num_outputs);
-		
-		// Store the audio device in the cue list
-		window->cue_list.audio_device = device;
-	}
-	
 	// Set up a timer to periodically refresh the UI
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
@@ -986,10 +1052,10 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 	GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(treeview));
 	
 	// Get an iterator over the cue list		
-	void *citer = stack_cue_list_iter_front(&window->cue_list);
+	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(&window->cue_list, citer))
+	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);

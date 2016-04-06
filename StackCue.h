@@ -7,6 +7,7 @@
 #include <gtk/gtk.h>
 #include <cstdint>
 #include <cstdlib>
+#include <mutex>
 
 // Generic type for time - in nanoseconds
 typedef int64_t stack_time_t;
@@ -67,6 +68,9 @@ typedef struct StackCueList
 	
 	// The time at the start of the data
 	stack_time_t buffer_time;
+	
+	// Mutex lock
+	std::mutex lock;
 } StackCueList;
 
 // Base class for cues
@@ -210,7 +214,7 @@ void stack_cue_set_tabs_base(StackCue *cue, GtkNotebook *notebook);
 void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook);
 
 // Functions: Cue list count
-void stack_cue_list_init(StackCueList *cue_list, uint16_t channels);
+StackCueList *stack_cue_list_new(uint16_t channels);
 void stack_cue_list_destroy(StackCueList *cue_list);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);
@@ -221,6 +225,8 @@ void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
 void stack_cue_list_pulse(StackCueList *cue_list);
 size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, float *data, uint16_t channels, size_t samples, bool interleaved);
+void stack_cue_list_lock(StackCueList *cue_list);
+void stack_cue_list_unlock(StackCueList *cue_list);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))
