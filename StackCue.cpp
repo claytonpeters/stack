@@ -40,14 +40,6 @@ static cue_uid_t stack_cue_generate_uid()
 	return uid;
 }
 
-// Initialise the StackCue system
-void stack_cue_initsystem()
-{
-	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base };
-	stack_register_cue_class(stack_cue_class);
-}
-
 // Initialises a base cue object
 // @param cue The cue to initialise
 void stack_cue_init(StackCue *cue, StackCueList *cue_list)
@@ -441,7 +433,6 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	cue_class_map[string(class_name)]->unset_tabs_func(cue, notebook);
 }
 
-
 char *stack_cue_to_json(StackCue *cue)
 {
 	// Get the class name
@@ -487,5 +478,44 @@ char *stack_cue_to_json(StackCue *cue)
 void stack_cue_free_json(char *json_data)
 {
 	free(json_data);
+}
+
+// Generates the cue from JSON data
+void stack_cue_from_json(StackCue *cue, const char *json_data)
+{
+	// DEBUG:
+	fprintf(stderr, "stack_cue_from_json()\n");
+	
+	if (cue == NULL)
+	{
+		fprintf(stderr, "stack_cue_from_json(): NULL cue passed\n");
+		return;
+	}
+	
+	// Get the class name
+	const char *class_name = cue->_class_name;
+	
+	// Look for a from_json tabs function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->from_json_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+	
+	// Call the function
+	cue_class_map[string(class_name)]->from_json_func(cue, json_data);
+}
+
+static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
+{
+	// Does nothing in the base implementation
+	fprintf(stderr, "stack_cue_from_json_void()\n");
+}
+
+// Initialise the StackCue system
+void stack_cue_initsystem()
+{
+	// Register base cue type
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void };
+	stack_register_cue_class(stack_cue_class);
 }
 

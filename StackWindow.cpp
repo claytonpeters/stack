@@ -380,7 +380,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	stack_cue_list_append(window->cue_list, STACK_CUE(myCue2));
 	stack_cue_list_append(window->cue_list, STACK_CUE(myCue3));
 	
-	// DEBUG: Refresh the cue list
+	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
 	
 	// DEBUG: Open a PulseAudio device
@@ -422,6 +422,81 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 static void saw_file_open_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "File -> Open clicked\n");
+
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Run an Open dialog
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open Show", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, NULL);
+	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	// If the user chose to Open...
+	if (response == GTK_RESPONSE_ACCEPT)
+	{
+		// Get the chosen URI
+		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
+
+		// Open the file
+		StackCueList *new_cue_list = stack_cue_list_new_from_file(uri);
+
+		if (new_cue_list != NULL)
+		{
+			// Kill the cue list pulsing thread
+			window->kill_thread = true;
+			window->pulse_thread.join();
+	
+			// We don't need to worry about the UI timer, as that's running on the same
+			// thread as the event loop that is handling this event handler
+	
+			// Destroy the old cue list
+			stack_cue_list_destroy(window->cue_list);
+			
+			// Store the new cue list
+			window->cue_list = new_cue_list;
+			
+			// Refresh the cue list
+			saw_refresh_list_store_from_list(window);
+	
+			// DEBUG: Open a PulseAudio device
+			const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+			if (sadc)
+			{
+				StackAudioDeviceDesc *devices;
+				size_t num_outputs = sadc->get_outputs_func(&devices);
+
+				if (devices != NULL && num_outputs > 0)
+				{
+					for (size_t i = 0; i < num_outputs; i++)
+					{
+						fprintf(stderr, "------------------------------------------------------------\n");
+						fprintf(stderr, "Index: %lu\n", i);
+						fprintf(stderr, "Name: %s\n", devices[i].name);
+						fprintf(stderr, "Description: %s\n", devices[i].desc);
+						fprintf(stderr, "Channels: %d\n", devices[i].channels);
+					}
+					fprintf(stderr, "------------------------------------------------------------\n");
+
+					// Create a PulseAudio device for the first output
+					StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+		
+					// Store the audio device in the cue list
+					window->cue_list->audio_device = device;
+				}
+		
+				// Free the list of devices
+				sadc->free_outputs_func(&devices, num_outputs);
+			}
+
+			// Start the cue list pulsing thread
+			window->kill_thread = false;
+			window->pulse_thread = std::thread(stack_pulse_thread, window);
+		}
+		
+		// Tidy up
+		g_free(uri);
+	}
+
+	gtk_widget_destroy(dialog);
 }
 
 // Menu/toolbar callback
@@ -442,11 +517,16 @@ static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 	// If the user chose to Save...	
 	if (response == GTK_RESPONSE_ACCEPT)
 	{
-		// Get the chosen URI and save the file
+		// Get the chosen URI
 		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
+		
+		// Save the cue list to the file
 		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
 		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
 		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
+		
+		// Tidy up
+		g_free(uri);
 	}
 	
 	gtk_widget_destroy(dialog);
@@ -575,7 +655,9 @@ static void saw_cue_play_clicked(void* widget, gpointer user_data)
 	fprintf(stderr, "Play cue clicked\n");
 	if (STACK_APP_WINDOW(user_data)->selected_cue != NULL)
 	{
+		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
 		stack_cue_play(STACK_APP_WINDOW(user_data)->selected_cue);
+		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
 		saw_update_list_store_from_cue(STACK_APP_WINDOW(user_data)->store, STACK_APP_WINDOW(user_data)->selected_cue);
 	}
 }
@@ -586,7 +668,9 @@ static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 	fprintf(stderr, "Stop cue clicked\n");
 	if (STACK_APP_WINDOW(user_data)->selected_cue != NULL)
 	{
+		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
 		stack_cue_stop(STACK_APP_WINDOW(user_data)->selected_cue);
+		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
 		saw_update_list_store_from_cue(STACK_APP_WINDOW(user_data)->store, STACK_APP_WINDOW(user_data)->selected_cue);
 	}
 }

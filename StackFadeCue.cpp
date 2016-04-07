@@ -397,11 +397,55 @@ static void stack_fade_cue_free_json(char *json_data)
 	free(json_data);
 }
 
+// Re-initialises this cue from JSON Data
+void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
+{
+	fprintf(stderr, "stack_fade_cue_from_json()\n");
+	
+	Json::Value cue_root;
+	Json::Reader reader;
+	
+	// Parse JSON data
+	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	
+	// Get the data that's pertinent to us
+	if (!cue_root.isMember("StackFadeCue"))
+	{
+		fprintf(stderr, "stack_fade_cue_from_json(): Missing StackFadeCue class\n");
+		return;
+	}
+	
+	Json::Value& cue_data = cue_root["StackFadeCue"];
+
+	// Load in values from JSON
+	STACK_FADE_CUE(cue)->target = stack_cue_list_remap(STACK_CUE(cue)->parent, (cue_uid_t)cue_data["target"].asUInt64());
+	if (cue_data["target_volume"].isString() && cue_data["target_volume"].asString() == "-Infinite")
+	{
+		STACK_FADE_CUE(cue)->target_volume = -INFINITY;
+	}
+	else
+	{
+		STACK_FADE_CUE(cue)->target_volume = cue_data["target_volume"].asDouble();
+	}
+	STACK_FADE_CUE(cue)->stop_target = 	cue_data["stop_target"].asBool();
+	STACK_FADE_CUE(cue)->fade_profile = (StackFadeProfile)cue_data["fade_profile"].asInt();
+	
+	// Update cue state as to whether we're ready to play or not
+	if (STACK_FADE_CUE(cue)->target != STACK_CUE_UID_NONE)
+	{
+		stack_cue_set_state(cue, STACK_CUE_STATE_STOPPED);
+	}
+	else
+	{
+		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+	}
+}
+
 // Registers StackFadeCue with the application
 void stack_fade_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json };
 	stack_register_cue_class(fade_cue_class);
 }
 

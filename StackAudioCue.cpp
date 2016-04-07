@@ -571,8 +571,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 		cue_root["play_volume"] = "-Infinite";
 	}
 	
-	// Write out JSON string and return (to be free'd by 
-	// stack_audio_cue_free_json)
+	// Write out JSON string and return (to be free'd by stack_audio_cue_free_json)
 	Json::FastWriter writer;
 	return strdup(writer.write(cue_root).c_str());
 }
@@ -582,11 +581,56 @@ static void stack_audio_cue_free_json(char *json_data)
 	free(json_data);
 }
 
+// Re-initialises this cue from JSON Data
+void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
+{
+	fprintf(stderr, "stack_audio_cue_from_json()\n");
+	
+	Json::Value cue_root;
+	Json::Reader reader;
+	
+	// Parse JSON data
+	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	
+	// Get the data that's pertinent to us
+	if (!cue_root.isMember("StackAudioCue"))
+	{
+		fprintf(stderr, "stack_audio_cue_from_json(): Missing StackFadeCue class\n");
+		return;
+	}
+	
+	Json::Value& cue_data = cue_root["StackAudioCue"];
+
+	// Load in our audio file, and set the state based on whether it succeeds
+	if (stack_audio_cue_set_file(STACK_AUDIO_CUE(cue), cue_data["file"].asString().c_str()))
+	{
+		stack_cue_set_state(cue, STACK_CUE_STATE_STOPPED);
+	}
+	else
+	{
+		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+	}
+	
+	// Load media start and end times
+	STACK_AUDIO_CUE(cue)->media_start_time = cue_data["media_start_time"].asInt64();
+	STACK_AUDIO_CUE(cue)->media_end_time = cue_data["media_end_time"].asInt64();
+	
+	// Load playback volume
+	if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
+	{
+		STACK_AUDIO_CUE(cue)->play_volume = -INFINITY;
+	}
+	else
+	{
+		STACK_AUDIO_CUE(cue)->play_volume = cue_data["play_volume"].asDouble();
+	}
+}
+
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json };
 	stack_register_cue_class(audio_cue_class);
 }
 

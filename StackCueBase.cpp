@@ -214,9 +214,9 @@ char *stack_cue_to_json_base(StackCue *cue)
 	cue_root["uid"] = (Json::UInt64)cue->uid;
 	cue_root["name"] = cue->name;
 	cue_root["notes"] = cue->notes;
-	cue_root["pre_time"] = (Json::UInt64)cue->pre_time;
-	cue_root["post_time"] = (Json::UInt64)cue->post_time;
-	cue_root["action_time"] = (Json::UInt64)cue->action_time;
+	cue_root["pre_time"] = (Json::Int64)cue->pre_time;
+	cue_root["post_time"] = (Json::Int64)cue->post_time;
+	cue_root["action_time"] = (Json::Int64)cue->action_time;
 	cue_root["post_trigger"] = cue->post_trigger;
 
 	// Write out the JSON string and return it (to be free'd by 
@@ -229,6 +229,31 @@ char *stack_cue_to_json_base(StackCue *cue)
 void stack_cue_free_json_base(char *json_data)
 {
 	free(json_data);
+}
+
+// Re-initialises this cue from JSON Data
+void stack_cue_from_json_base(StackCue *cue, const char *json_data)
+{
+	fprintf(stderr, "stack_cue_from_json_base()\n");
+	
+	Json::Value cue_root;
+	Json::Reader reader;
+	
+	// Parse JSON data
+	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	
+	// Get the data that's pertinent to us
+	Json::Value& stack_cue_data = cue_root["StackCue"];
+	
+	// Copy the data in to the cue
+	stack_cue_set_color(cue, stack_cue_data["r"].asDouble(), stack_cue_data["g"].asDouble(), stack_cue_data["b"].asDouble());
+	stack_cue_set_id(cue, stack_cue_data["id"].asInt());
+	stack_cue_set_name(cue, stack_cue_data["name"].asString().c_str());
+	stack_cue_set_notes(cue, stack_cue_data["notes"].asString().c_str());
+	stack_cue_set_pre_time(cue, stack_cue_data["pre_time"].asInt64());
+	stack_cue_set_post_time(cue, stack_cue_data["post_time"].asInt64());
+	stack_cue_set_action_time(cue, stack_cue_data["action_time"].asInt64());
+	stack_cue_set_post_trigger(cue, (StackCueWaitTrigger)stack_cue_data["post_trigger"].asInt());
 }
 
 // Sets the cue number / ID
