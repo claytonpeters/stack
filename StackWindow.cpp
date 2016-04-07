@@ -604,6 +604,55 @@ static void saw_edit_paste_clicked(void* widget, gpointer user_data)
 static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "Edit -> Delete clicked\n");
+
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	
+	// Store a pointer to the cue we're deleting (as the selection will change 
+	// during this function)
+	StackCue *cue_to_delete = window->selected_cue;
+	
+	// If a cue has been selected
+	if (cue_to_delete != NULL)
+	{
+		// Deselect the cue
+		stack_cue_unset_tabs(cue_to_delete, window->notebook);
+		window->selected_cue = NULL;
+
+		GtkTreeModel *model;
+		GList *list;
+		
+		// Get the selected cue
+		list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
+
+		// If there is a selection
+		if (list != NULL)
+		{
+			// Choose the last element in the selection (in case we're multi-select)
+			list = g_list_last(list);
+	
+			// Get the path to the selected row
+			GtkTreePath *path = (GtkTreePath*)(list->data);
+	
+			// Get the data from the tree model for that row
+			GtkTreeIter iter;
+			gtk_tree_model_get_iter(model, &iter, path);
+
+			// Remove the cue from the cue list
+			stack_cue_list_lock(window->cue_list);
+			stack_cue_list_remove(window->cue_list, cue_to_delete);
+			stack_cue_list_unlock(window->cue_list);
+
+			// Destroy the cue
+			stack_cue_destroy(cue_to_delete);				
+
+			// Remove the cue from the cue store
+			gtk_list_store_remove(GTK_LIST_STORE(model), &iter);
+		
+			// Tidy up
+			g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
+		}
+	}
 }
 
 // Menu callback

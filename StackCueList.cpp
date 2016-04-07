@@ -565,14 +565,70 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 }
 
 /// Returns the new UID of a cue after it's been remapped during opening
+/// @param cue_list The cue list
+/// @param old_uid The old UID that exists in the file we opened
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 {
 	return SCL_UID_REMAP(cue_list->uid_remap)[old_uid];
 }
 
 /// Called by child cues to let us know that something about them has changed
+/// @param cue_list The cue list
+/// @param cue The cue that caused the change (currently unused)
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue)
 {
 	cue_list->changed = true;
+}
+
+/// Removes a cue from the cue list
+/// @param cue_list The cue list
+/// @param cue The cue to remove
+void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
+{
+	// Iterate over all the cues
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		// If we've found the cue
+		if (*iter == cue)
+		{
+			// Erase it
+			SCL_GET_LIST(cue_list)->erase(iter);
+			
+			// Note that the cue list has been modified
+			stack_cue_list_changed(cue_list, cue);
+			
+			// Stop searching
+			return;
+		}
+	}
+}
+
+/// Gets the cue that follows 'cue' in the 'cue_list'
+/// @param cue_list The cue list
+/// @param cue The cue to find the following cue of
+StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
+{
+	// Iterate over all the cues
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		// If we've found the cue
+		if (*iter == cue)
+		{
+			// Increment the iterator to the next cue
+			++iter;
+			
+			// If we're now past the end of the cue list
+			if (iter == SCL_GET_LIST(cue_list)->end())
+			{
+				return NULL;
+			}
+			else
+			{
+				return *iter;
+			}
+		}
+	}
+	
+	return NULL;
 }
 

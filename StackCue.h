@@ -138,6 +138,9 @@ typedef struct StackCue
 	// Runtime data: The amount of time the cue had been paused for when it was
 	// paused (will be zero the first time the queue is paused)
 	stack_time_t pause_paused_time;
+	
+	// Runtime data: Determines if the post-wait trigger has run or not
+	bool post_has_run;
 } StackCue;
 
 typedef struct StackGroupCue
@@ -253,6 +256,8 @@ void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue);
+void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
+StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

@@ -70,6 +70,9 @@ bool stack_cue_play_base(StackCue *cue)
 	{
 		// Cue is stopped (and possibly prepared), start the cue
 		cue->start_time = clocktime;
+		
+		// Mark the post as having not run
+		cue->post_has_run = false;
 
 		if (cue->pre_time > 0)
 		{
@@ -121,6 +124,29 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	stack_time_t run_pre_time, run_action_time, run_post_time;
 	stack_cue_get_running_times(cue, clocktime, &run_pre_time, &run_action_time, &run_post_time, NULL, NULL, NULL);
 
+	// If we have a post-wait trigger, which hasn't executed
+	if (cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && !cue->post_has_run)
+	{
+		// If we've reached the end of our post-wait time, and our trigger
+		// condition has been met
+		if ((cue->post_time == run_post_time) &&
+		     ((cue->post_trigger == STACK_CUE_WAIT_TRIGGER_IMMEDIATE) ||
+		      (cue->post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERPRE && cue->pre_time == run_pre_time) ||
+		      (cue->post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERACTION && cue->action_time == run_action_time)))
+		{
+			// Mark it as having run
+			cue->post_has_run = true;
+		
+			// Find the next cue
+			StackCue *next_cue = stack_cue_list_get_cue_after(cue->parent, cue);
+			if (next_cue)
+			{
+				// Play it
+				stack_cue_play(next_cue);
+			}
+		}
+	}
+	
 	// If pre hasn't finished, return
 	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time < cue->pre_time)
 	{
@@ -140,7 +166,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			return;
 		}
 
-		// We're no longer in action time, see if post is still running
+		// See if post is still running
 		if (run_post_time > 0)
 		{
 			if (run_post_time < cue->post_time)
@@ -155,6 +181,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 				// Stop the cue
 				fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to stopped\n");
 				stack_cue_stop(cue);
+
 				return;
 			}
 		}
@@ -176,6 +203,8 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			// Stop the cue
 			fprintf(stderr, "stack_cue_pulse_base(): Moving from action to stopped\n");
 			stack_cue_stop(cue);
+			
+			return;
 		}
 	}
 		
@@ -185,6 +214,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		// Stop the cue
 		fprintf(stderr, "stack_cue_pulse_base(): Moving from post to stopped\n");
 		stack_cue_stop(cue);
+		
 		return;
 	}
 }
