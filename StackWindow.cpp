@@ -315,19 +315,60 @@ static void saw_update_cue_properties(StackAppWindow *window, StackCue *cue)
 	stack_cue_set_tabs(window->selected_cue, window->notebook);
 }
 
+// Selects the next cue in the list
+static void saw_select_next_cue(StackAppWindow *window)
+{
+	GList *list;
+	GtkTreeModel *model;
+
+	// Get the selected cue
+	list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
+
+	// If there is a selection
+	if (list != NULL)
+	{
+		// Choose the last element in the selection (in case we're multi-select)
+		list = g_list_last(list);
+
+		// Get the path to the selected row
+		GtkTreePath *path = (GtkTreePath*)(list->data);
+
+		// Get an iterator to that node
+		GtkTreeIter iter;
+		gtk_tree_model_get_iter(model, &iter, path);
+		
+		// Move the iterator forward one
+		gtk_tree_model_iter_next(model, &iter);
+		path = gtk_tree_model_get_path(model, &iter);	// Allocates!
+		
+		// Select that row	
+		gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+		gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+		
+		// Tidy up 
+		gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+		g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
+	}
+}
+
 // Selects the last cue on the list
 static void saw_select_last_cue(StackAppWindow *window)
 {
-	GtkTreeIter iter_last;
+	GtkTreeIter iter;
 	
 	// Get the number of entries in the model
 	gint entries = gtk_tree_model_iter_n_children(gtk_tree_view_get_model(window->treeview), NULL);
 
-	// Select the last row in the model
-	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter_last, NULL, entries - 1);
+	// Get an iterator and path to the last row in the model
+	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter, NULL, entries - 1);
+	GtkTreePath *path = gtk_tree_model_get_path(gtk_tree_view_get_model(window->treeview), &iter);	// Allocates!
 
 	// Select that row	
-	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter_last);
+	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+	gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+
+	// Tidy up 
+	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
 }
 
 // Menu callback
@@ -648,7 +689,7 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 
 			// Remove the cue from the cue store
 			gtk_list_store_remove(GTK_LIST_STORE(model), &iter);
-		
+
 			// Tidy up
 			g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
 		}
@@ -689,7 +730,7 @@ static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 	saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
 
 	// Select the new cue
-	saw_select_last_cue(window);	
+	saw_select_last_cue(window);
 }
 
 // Menu callback
@@ -745,12 +786,17 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 static void saw_cue_play_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "Play cue clicked\n");
-	if (STACK_APP_WINDOW(user_data)->selected_cue != NULL)
+
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (window->selected_cue != NULL)
 	{
-		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
-		stack_cue_play(STACK_APP_WINDOW(user_data)->selected_cue);
-		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
-		saw_update_list_store_from_cue(STACK_APP_WINDOW(user_data)->store, STACK_APP_WINDOW(user_data)->selected_cue);
+		stack_cue_list_lock(window->cue_list);
+		stack_cue_play(window->selected_cue);
+		stack_cue_list_unlock(window->cue_list);
+		saw_update_list_store_from_cue(window->store, window->selected_cue);
+		saw_select_next_cue(window);
 	}
 }
 
@@ -758,12 +804,16 @@ static void saw_cue_play_clicked(void* widget, gpointer user_data)
 static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 {
 	fprintf(stderr, "Stop cue clicked\n");
-	if (STACK_APP_WINDOW(user_data)->selected_cue != NULL)
+
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (window->selected_cue != NULL)
 	{
-		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
-		stack_cue_stop(STACK_APP_WINDOW(user_data)->selected_cue);
-		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
-		saw_update_list_store_from_cue(STACK_APP_WINDOW(user_data)->store, STACK_APP_WINDOW(user_data)->selected_cue);
+		stack_cue_list_lock(window->cue_list);
+		stack_cue_stop(window->selected_cue);
+		stack_cue_list_unlock(window->cue_list);
+		saw_update_list_store_from_cue(window->store, window->selected_cue);
 	}
 }
 
