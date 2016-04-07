@@ -350,35 +350,6 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 
 	// Initialise a new cue list, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
-
-	// DEBUG: First cue	
-	StackAudioCue* myCue1 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
-	stack_cue_set_name(STACK_CUE(myCue1), "House music");
-	stack_cue_set_notes(STACK_CUE(myCue1), "Notes\n\nThese are my notes for this cue. There are many of them and things.\nBlah.");
-	stack_cue_set_action_time(STACK_CUE(myCue1), 175200000000);
-	stack_audio_cue_set_file(myCue1, "file:///home/clayton/devel/cpp/stack/test.wav");
-	
-	// DEBUG: Second cue
-	StackFadeCue* myCue2 = STACK_FADE_CUE(stack_cue_new("StackFadeCue", window->cue_list));
-	stack_cue_set_id(STACK_CUE(myCue2), 2000);
-	stack_cue_set_name(STACK_CUE(myCue2), "Fade house music");
-	stack_cue_set_pre_time(STACK_CUE(myCue2), 500000000);
-	stack_cue_set_action_time(STACK_CUE(myCue2), 5000000000);
-	stack_cue_set_post_time(STACK_CUE(myCue2), 2750000000);
-	stack_cue_set_post_trigger(STACK_CUE(myCue2), STACK_CUE_WAIT_TRIGGER_AFTERACTION);
-	stack_cue_set_color(STACK_CUE(myCue2), 220, 0, 0);
-
-	// DEBUG: Third cue
-	StackAudioCue* myCue3 = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
-	stack_cue_set_id(STACK_CUE(myCue3), 3000);
-	stack_cue_set_name(STACK_CUE(myCue3), "Introduction");
-	stack_cue_set_action_time(STACK_CUE(myCue3), 22561000000);
-	stack_cue_set_color(STACK_CUE(myCue3), 0, 110, 220);
-	
-	// DEBUG: Put cues in our cue stack
-	stack_cue_list_append(window->cue_list, STACK_CUE(myCue1));
-	stack_cue_list_append(window->cue_list, STACK_CUE(myCue2));
-	stack_cue_list_append(window->cue_list, STACK_CUE(myCue3));
 	
 	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
