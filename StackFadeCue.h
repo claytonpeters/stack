@@ -26,7 +26,7 @@ typedef struct StackFadeCue
 	double target_volume;
 	
 	// Fade profile
-	StackFadeProfile fade_profile;
+	StackFadeProfile profile;
 	
 	// Whether to stop the target cue after the fade
 	bool stop_target;
@@ -43,6 +43,7 @@ typedef struct StackFadeCue
 
 // Functions: Audio cue functions
 void stack_fade_cue_register();
+void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target);
 
 // Defines:
 #define STACK_FADE_CUE(_c) ((StackFadeCue*)(_c))
