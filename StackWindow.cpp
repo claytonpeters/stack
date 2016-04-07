@@ -374,8 +374,6 @@ static void saw_select_last_cue(StackAppWindow *window)
 // Menu callback
 static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> Save As clicked\n");
-
 	// Run a Save dialog
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
 	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -401,8 +399,6 @@ static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_file_save_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> Save clicked\n");
-	
 	// If the current cue list has no cue list
 	if (STACK_APP_WINDOW(user_data)->cue_list->uri == NULL)
 	{
@@ -421,8 +417,6 @@ static void saw_file_save_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_file_open_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> Open clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -463,66 +457,15 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 	if (response == GTK_RESPONSE_ACCEPT)
 	{
 		// Get the chosen URI
-		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
+		//gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
 
-		// Open the file
-		StackCueList *new_cue_list = stack_cue_list_new_from_file(uri);
-
-		if (new_cue_list != NULL)
-		{
-			// Kill the cue list pulsing thread
-			window->kill_thread = true;
-			window->pulse_thread.join();
-	
-			// We don't need to worry about the UI timer, as that's running on the same
-			// thread as the event loop that is handling this event handler
-	
-			// Destroy the old cue list
-			stack_cue_list_destroy(window->cue_list);
-			
-			// Store the new cue list
-			window->cue_list = new_cue_list;
-			
-			// Refresh the cue list
-			saw_refresh_list_store_from_list(window);
-	
-			// DEBUG: Open a PulseAudio device
-			const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-			if (sadc)
-			{
-				StackAudioDeviceDesc *devices;
-				size_t num_outputs = sadc->get_outputs_func(&devices);
-
-				if (devices != NULL && num_outputs > 0)
-				{
-					for (size_t i = 0; i < num_outputs; i++)
-					{
-						fprintf(stderr, "------------------------------------------------------------\n");
-						fprintf(stderr, "Index: %lu\n", i);
-						fprintf(stderr, "Name: %s\n", devices[i].name);
-						fprintf(stderr, "Description: %s\n", devices[i].desc);
-						fprintf(stderr, "Channels: %d\n", devices[i].channels);
-					}
-					fprintf(stderr, "------------------------------------------------------------\n");
-
-					// Create a PulseAudio device for the first output
-					StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
-		
-					// Store the audio device in the cue list
-					window->cue_list->audio_device = device;
-				}
-		
-				// Free the list of devices
-				sadc->free_outputs_func(&devices, num_outputs);
-			}
-
-			// Start the cue list pulsing thread
-			window->kill_thread = false;
-			window->pulse_thread = std::thread(stack_pulse_thread, window);
-		}
+		// Get the file and open it
+		GFile *file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+		stack_app_window_open(window, file);
 		
 		// Tidy up
-		g_free(uri);
+		//g_free(uri);
+		g_object_unref(file);
 	}
 
 	gtk_widget_destroy(dialog);
@@ -531,8 +474,6 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_file_new_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> New clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -619,7 +560,6 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_file_quit_clicked(void* item, gpointer user_data)
 {
-	fprintf(stderr, "File -> Quit clicked\n");
 	gtk_window_close((GtkWindow*)user_data);
 }
 
@@ -644,8 +584,6 @@ static void saw_edit_paste_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Edit -> Delete clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	
@@ -705,8 +643,6 @@ static void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Cue -> Add Audio clicked\n");
-	
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	
@@ -736,8 +672,6 @@ static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Cue -> Add Fade clicked\n");
-	
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	
@@ -770,7 +704,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20160402-3");
+	gtk_about_dialog_set_version(about, "Version 0.1.20160408-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2016 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -785,8 +719,6 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_cue_play_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Play cue clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -803,8 +735,6 @@ static void saw_cue_play_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Stop cue clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -820,8 +750,6 @@ static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Stop all cues clicked\n");
-
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -862,9 +790,25 @@ static gboolean saw_ui_timer(gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// Let the app know that we're running
+	if (window->timer_state == 0)
+	{
+		window->timer_state = 1;
+	}
+	
+	// If the timer is supposed to be stopping...
+	if (window->timer_state == 2)
+	{
+		// Set the timer state to stopped
+		window->timer_state = 3;
+
+		// Prevent timer re-occurence
+		return false;
+	}
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
-	
+		
 	// Get an iterator over the cue list		
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
@@ -964,9 +908,16 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	// Clear the list store
 	saw_clear_list_store(window);
 	
+	// Stop the timer
+	window->timer_state = 2;
+
+	// Busy wait whilst we wait for the timer to stop (this probably should be
+	// done with a semaphore...)
+	while (window->timer_state == 3) {}
+	
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
-	
+		
 	// Get an iterator over the cue list
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
@@ -1228,6 +1179,8 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 // Initialises the window
 static void stack_app_window_init(StackAppWindow *window)
 {
+	fprintf(stderr, "stack_app_window_init()\n");
+	
 	// Object set up:
 	window->selected_cue = NULL;
 	window->use_custom_style = true;
@@ -1313,10 +1266,8 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_window_add_accel_group(GTK_WINDOW(window), ag);
 
 	// Add on the non-stock accelerators that Glade doesn't want to make work for some reason
-	//gtk_accel_group_connect(ag, ' ', (GdkModifierType)0, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_play_clicked, 0, 0));
 	//gtk_accel_group_connect(ag, 'G', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_add_group_clicked, 0, 0));
 	//gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_add_audio_clicked, 0, 0));
-	//gtk_accel_group_connect(ag, GDK_KEY_Escape, (GdkModifierType)0, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_stop_all_clicked, 0, 0));
 	
 	// Store some things in our class for easiness
 	window->treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawCuesTreeView"));
@@ -1324,6 +1275,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	window->notebook = GTK_NOTEBOOK(gtk_builder_get_object(window->builder, "sawCuePropsTabs"));
 	
 	// Set up a timer to periodically refresh the UI
+	window->timer_state = 0;
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
 	// Start the cue list pulsing thread
@@ -1462,8 +1414,71 @@ StackAppWindow* stack_app_window_new(StackApp *app)
 	return (StackAppWindow*)g_object_new(stack_app_window_get_type(), "application", app, NULL);
 }
 
-// Opens a StackAppWindow with a given file
+// Opens a given file in the StackAppWindow
 void stack_app_window_open(StackAppWindow *window, GFile *file)
 {
+	fprintf(stderr, "stack_app_window_open()\n");
+	
+	// Get the URI of the File
+	char *uri = g_file_get_uri(file);
+	
+	// Open the file
+	StackCueList *new_cue_list = stack_cue_list_new_from_file(uri);
+
+	if (new_cue_list != NULL)
+	{
+		// Kill the cue list pulsing thread
+		window->kill_thread = true;
+		window->pulse_thread.join();
+
+		// We don't need to worry about the UI timer, as that's running on the same
+		// thread as the event loop that is handling this event handler
+
+		// Destroy the old cue list
+		stack_cue_list_destroy(window->cue_list);
+		
+		// Store the new cue list
+		window->cue_list = new_cue_list;
+		
+		// Refresh the cue list
+		saw_refresh_list_store_from_list(window);
+
+		// DEBUG: Open a PulseAudio device
+		const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+		if (sadc)
+		{
+			StackAudioDeviceDesc *devices;
+			size_t num_outputs = sadc->get_outputs_func(&devices);
+
+			if (devices != NULL && num_outputs > 0)
+			{
+				for (size_t i = 0; i < num_outputs; i++)
+				{
+					fprintf(stderr, "------------------------------------------------------------\n");
+					fprintf(stderr, "Index: %lu\n", i);
+					fprintf(stderr, "Name: %s\n", devices[i].name);
+					fprintf(stderr, "Description: %s\n", devices[i].desc);
+					fprintf(stderr, "Channels: %d\n", devices[i].channels);
+				}
+				fprintf(stderr, "------------------------------------------------------------\n");
+
+				// Create a PulseAudio device for the first output
+				StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+	
+				// Store the audio device in the cue list
+				window->cue_list->audio_device = device;
+			}
+	
+			// Free the list of devices
+			sadc->free_outputs_func(&devices, num_outputs);
+		}
+
+		// Start the cue list pulsing thread
+		window->kill_thread = false;
+		window->pulse_thread = std::thread(stack_pulse_thread, window);
+	}
+	
+	// Tidy up
+	g_free(uri);
 }
 

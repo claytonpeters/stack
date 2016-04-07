@@ -21,6 +21,15 @@ static void stack_app_init(StackApp *app)
 // Files are passed to the application
 static void stack_app_open(GApplication *app, GFile **files, gint file_count, const gchar *hint)
 {
+	// Iterate over all the files
+	for (gint i = 0; i < file_count; i++)
+	{
+		// Create a new window for each file
+		StackAppWindow *window;
+		window = stack_app_window_new((StackApp*)app);
+		stack_app_window_open(window, files[i]);
+		gtk_window_present(GTK_WINDOW(window));
+	}
 }
 
 // Application activation

@@ -44,6 +44,9 @@ struct StackAppWindow
 	// The thread which handles pulsing the cue list
 	std::thread pulse_thread;
 	bool kill_thread;
+	
+	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
+	int timer_state;
 };
 
 struct StackAppWindowClass
