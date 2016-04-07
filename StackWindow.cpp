@@ -330,63 +330,51 @@ static void saw_select_last_cue(StackAppWindow *window)
 	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter_last);
 }
 
-// Menu/toolbar callback
-static void saw_file_new_clicked(void* widget, gpointer user_data)
+// Menu callback
+static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> New clicked\n");
+	fprintf(stderr, "File -> Save As clicked\n");
 
-	// Get the window
-	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	// Run a Save dialog
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
+	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
 
-	// Kill the cue list pulsing thread
-	window->kill_thread = true;
-	window->pulse_thread.join();
-	
-	// We don't need to worry about the UI timer, as that's running on the same
-	// thread as the event loop that is handling this event handler
-	
-	// Destroy the old cue list
-	stack_cue_list_destroy(window->cue_list);
-
-	// Initialise a new cue list, defaulting to two channels
-	window->cue_list = stack_cue_list_new(2);
-	
-	// Refresh the cue list
-	saw_refresh_list_store_from_list(window);
-	
-	// DEBUG: Open a PulseAudio device
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-	if (sadc)
+	// If the user chose to Save...	
+	if (response == GTK_RESPONSE_ACCEPT)
 	{
-		StackAudioDeviceDesc *devices;
-		size_t num_outputs = sadc->get_outputs_func(&devices);
-
-		if (devices != NULL && num_outputs > 0)
-		{
-			for (size_t i = 0; i < num_outputs; i++)
-			{
-				fprintf(stderr, "------------------------------------------------------------\n");
-				fprintf(stderr, "Index: %lu\n", i);
-				fprintf(stderr, "Name: %s\n", devices[i].name);
-				fprintf(stderr, "Description: %s\n", devices[i].desc);
-				fprintf(stderr, "Channels: %d\n", devices[i].channels);
-			}
-			fprintf(stderr, "------------------------------------------------------------\n");
-
-			// Create a PulseAudio device for the first output
-			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+		// Get the chosen URI
+		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
 		
-			// Store the audio device in the cue list
-			window->cue_list->audio_device = device;
-		}
+		// Save the cue list to the file
+		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
+		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
+		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
 		
-		// Free the list of devices
-		sadc->free_outputs_func(&devices, num_outputs);
+		// Tidy up
+		g_free(uri);
 	}
+	
+	gtk_widget_destroy(dialog);
+}
 
-	// Start the cue list pulsing thread
-	window->kill_thread = false;
-	window->pulse_thread = std::thread(stack_pulse_thread, window);
+// Menu/toolbar callback
+static void saw_file_save_clicked(void* widget, gpointer user_data)
+{
+	fprintf(stderr, "File -> Save clicked\n");
+	
+	// If the current cue list has no cue list
+	if (STACK_APP_WINDOW(user_data)->cue_list->uri == NULL)
+	{
+		// ...call Save As instead
+		saw_file_save_as_clicked(widget, user_data);
+	}
+	else
+	{
+		/// ...otherwise overwrite
+		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
+		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, STACK_APP_WINDOW(user_data)->cue_list->uri);
+		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
+	}
 }
 
 // Menu/toolbar callback
@@ -397,6 +385,35 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// See if the current cue list has changed
+	if (window->cue_list->changed)
+	{
+		// Make the user decide if they want to save changes
+		GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "The current show has changed. Do you wish to save your changes?");
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Save Changes", GTK_RESPONSE_YES);
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Discard Changes", GTK_RESPONSE_NO);
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
+		gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		
+		// If they press Cancel, then stop doing anything
+		if (result == GTK_RESPONSE_CANCEL)
+		{
+			return;
+		}
+		else if (result == GTK_RESPONSE_YES)
+		{
+			saw_file_save_clicked(widget, user_data);
+			
+			// If the file wasn't saved as a result of the above...
+			if (window->cue_list->changed)
+			{
+				// Don't open a file
+				return;
+			}
+		}
+	}
+	
 	// Run an Open dialog
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open Show", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, NULL);
 	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -471,36 +488,91 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_file_save_clicked(void* widget, gpointer user_data)
+static void saw_file_new_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "File -> Save clicked\n");
-}
+	fprintf(stderr, "File -> New clicked\n");
 
-// Menu callback
-static void saw_file_save_as_clicked(void* widget, gpointer user_data)
-{
-	fprintf(stderr, "File -> Save As clicked\n");
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	// Run a Save dialog
-	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
-	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
-
-	// If the user chose to Save...	
-	if (response == GTK_RESPONSE_ACCEPT)
+	// See if the current cue list has changed
+	if (window->cue_list->changed)
 	{
-		// Get the chosen URI
-		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
+		// Make the user decide if they want to save changes
+		GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "The current show has changed. Do you wish to save your changes?");
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Save Changes", GTK_RESPONSE_YES);
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Discard Changes", GTK_RESPONSE_NO);
+		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
+		gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
 		
-		// Save the cue list to the file
-		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
-		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
-		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
-		
-		// Tidy up
-		g_free(uri);
+		// If they press Cancel, then stop doing anything
+		if (result == GTK_RESPONSE_CANCEL)
+		{
+			return;
+		}
+		else if (result == GTK_RESPONSE_YES)
+		{
+			saw_file_save_clicked(widget, user_data);
+
+			// If the file wasn't saved as a result of the above...
+			if (window->cue_list->changed)
+			{
+				// Don't start a new file
+				return;
+			}
+		}
 	}
 	
-	gtk_widget_destroy(dialog);
+	// Kill the cue list pulsing thread
+	window->kill_thread = true;
+	window->pulse_thread.join();
+	
+	// We don't need to worry about the UI timer, as that's running on the same
+	// thread as the event loop that is handling this event handler
+	
+	// Destroy the old cue list
+	stack_cue_list_destroy(window->cue_list);
+
+	// Initialise a new cue list, defaulting to two channels
+	window->cue_list = stack_cue_list_new(2);
+	
+	// Refresh the cue list
+	saw_refresh_list_store_from_list(window);
+	
+	// DEBUG: Open a PulseAudio device
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+	if (sadc)
+	{
+		StackAudioDeviceDesc *devices;
+		size_t num_outputs = sadc->get_outputs_func(&devices);
+
+		if (devices != NULL && num_outputs > 0)
+		{
+			for (size_t i = 0; i < num_outputs; i++)
+			{
+				fprintf(stderr, "------------------------------------------------------------\n");
+				fprintf(stderr, "Index: %lu\n", i);
+				fprintf(stderr, "Name: %s\n", devices[i].name);
+				fprintf(stderr, "Description: %s\n", devices[i].desc);
+				fprintf(stderr, "Channels: %d\n", devices[i].channels);
+			}
+			fprintf(stderr, "------------------------------------------------------------\n");
+
+			// Create a PulseAudio device for the first output
+			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+		
+			// Store the audio device in the cue list
+			window->cue_list->audio_device = device;
+		}
+		
+		// Free the list of devices
+		sadc->free_outputs_func(&devices, num_outputs);
+	}
+
+	// Start the cue list pulsing thread
+	window->kill_thread = false;
+	window->pulse_thread = std::thread(stack_pulse_thread, window);
 }
 
 // Menu callback

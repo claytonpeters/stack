@@ -21,6 +21,8 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	
 	// Empty variables
 	cue_list->audio_device = NULL;
+	cue_list->changed = false;
+	cue_list->uri = NULL;
 	
 	// Default to a two-channel set up
 	cue_list->channels = channels;
@@ -52,7 +54,13 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		{
 			stack_audio_device_destroy(cue_list->audio_device);
 		}
-	
+
+		// If we've got a URI, free that
+		if (cue_list->uri)
+		{	
+			free(cue_list->uri);
+		}
+
 		// Tidy up memory
 		delete [] cue_list->buffer;
 		delete (stackcue_list_t*)cue_list->cues;
@@ -378,6 +386,9 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	g_object_unref(stream);
 	g_object_unref(file);
 	
+	// We've saved the cue list, so set it to not have been changed
+	cue_list->changed = false;
+	
 	return true;
 }
 
@@ -544,11 +555,24 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 		fprintf(stderr, "stack_cue_list_new_from_file(): Missing 'cues' option\n");
 	}
 	
+	// Flag that the cue list hasn't changed
+	cue_list->changed = false;
+	
+	// Store the URI of the file we opened
+	cue_list->uri = strdup(uri);
+	
 	return cue_list;
 }
 
+/// Returns the new UID of a cue after it's been remapped during opening
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 {
 	return SCL_UID_REMAP(cue_list->uid_remap)[old_uid];
+}
+
+/// Called by child cues to let us know that something about them has changed
+void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue)
+{
+	cue_list->changed = true;
 }
 

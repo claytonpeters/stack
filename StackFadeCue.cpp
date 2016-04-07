@@ -81,6 +81,9 @@ void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 		cue->target = target->uid;
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
 	}
+	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
 
 /// Sets the change in volume of the target cue
@@ -94,18 +97,27 @@ void stack_fade_cue_set_target_volume(StackFadeCue *cue, double volume)
 	{
 		cue->target_volume = volume;
 	}
+	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
 
 /// Sets whether the Stop Target flag is enabled
 void stack_fade_cue_set_stop_target(StackFadeCue *cue, bool stop_target)
 {
 	cue->stop_target = stop_target;
+	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
 
 /// Sets the fade profile
 void stack_fade_cue_set_profile(StackFadeCue *cue, StackFadeProfile profile)
 {
 	cue->profile = profile;
+	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

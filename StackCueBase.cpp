@@ -262,6 +262,7 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 void stack_cue_set_id(StackCue *cue, cue_id_t id)
 {
 	cue->id = id;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue name
@@ -271,6 +272,7 @@ void stack_cue_set_name(StackCue *cue, const char *name)
 {
 	free(cue->name);
 	cue->name = strdup(name);
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue notes
@@ -280,6 +282,7 @@ void stack_cue_set_notes(StackCue *cue, const char *notes)
 {
 	free(cue->notes);
 	cue->notes = strdup(notes);
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue pre-wait time
@@ -288,6 +291,7 @@ void stack_cue_set_notes(StackCue *cue, const char *notes)
 void stack_cue_set_pre_time(StackCue *cue, stack_time_t pre_time)
 {
 	cue->pre_time = pre_time;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue action time
@@ -296,6 +300,7 @@ void stack_cue_set_pre_time(StackCue *cue, stack_time_t pre_time)
 void stack_cue_set_action_time(StackCue *cue, stack_time_t action_time)
 {
 	cue->action_time = action_time;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue post-wait time
@@ -304,6 +309,7 @@ void stack_cue_set_action_time(StackCue *cue, stack_time_t action_time)
 void stack_cue_set_post_time(StackCue *cue, stack_time_t post_time)
 {
 	cue->post_time = post_time;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue state
@@ -312,6 +318,7 @@ void stack_cue_set_post_time(StackCue *cue, stack_time_t post_time)
 void stack_cue_set_state(StackCue *cue, StackCueState state)
 {
 	cue->state = state;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue color
@@ -324,6 +331,7 @@ void stack_cue_set_color(StackCue *cue, uint8_t r, uint8_t g, uint8_t b)
 	cue->r = r;
 	cue->g = g;
 	cue->b = b;
+	stack_cue_list_changed(cue->parent, cue);
 }
 
 // Sets the cue post-wait trigger
@@ -332,4 +340,6 @@ void stack_cue_set_color(StackCue *cue, uint8_t r, uint8_t g, uint8_t b)
 void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 {
 	cue->post_trigger = post_trigger;
+	stack_cue_list_changed(cue->parent, cue);
 }
+

@@ -72,8 +72,14 @@ typedef struct StackCueList
 	// Mutex lock
 	std::mutex lock;
 	
-	// Cue UID remapping (this is a std::map internally)
+	// Cue UID remapping (this is a std::map internally). Used during loading.
 	void *uid_remap;
+	
+	// Changed since we were initialised?
+	bool changed;
+	
+	// The URI of the currently loaded cue list (may be NULL)
+	char* uri;
 } StackCueList;
 
 // Base class for cues
@@ -246,6 +252,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, floa
 void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
+void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

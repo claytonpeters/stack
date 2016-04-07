@@ -196,7 +196,10 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	// Tidy up
 	g_object_unref(stream);
 	g_object_unref(file);
-	
+
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
 	return result;
 }
 
@@ -263,6 +266,9 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	
 	return false;
 }
 
@@ -295,6 +301,9 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	
 	return false;
 }
 
@@ -320,6 +329,9 @@ static void acp_volume_changed(GtkRange *range, gpointer user_data)
 	
 	// Get the volume label and update it's value
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpVolumeValueLabel")), buffer);
+	
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
 
 // Called when we're being played
