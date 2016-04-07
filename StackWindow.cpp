@@ -1125,6 +1125,56 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 	// No need to update the UI on this one (currently)
 }
 
+// Key event whilst treeview has focus
+static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	
+	// On key release
+	if (event->type == GDK_KEY_RELEASE)
+	{
+		// Only attempt to invoke if we have a selected cue and delete was hit
+		if (window->selected_cue != NULL && ((GdkEventKey*)event)->keyval == GDK_KEY_Delete)
+		{
+			// Call Edit -> Delete
+			saw_edit_delete_clicked(widget, user_data);
+			return true;
+		}
+	
+		// If Escape was hit
+		if (((GdkEventKey*)event)->keyval == GDK_KEY_Escape)
+		{
+			// Last time escape was pressed (note: static!)
+			static stack_time_t last_escape_time = 0;
+		
+			// Only run if Escape is pressed twice within a short time (350ms)	
+			if (last_escape_time > 0 && stack_get_clock_time() - last_escape_time < 350000000)
+			{
+				// Call Stop All
+				saw_cue_stop_all_clicked(widget, user_data);
+			}
+			
+			// Keep track of the last time escape was pressed
+			last_escape_time = stack_get_clock_time();
+			
+			return true;
+		}
+	}
+	else if (event->type == GDK_KEY_PRESS)
+	{
+		// If Space was hit
+		if (((GdkEventKey*)event)->keyval == GDK_KEY_space)
+		{
+			// Call Play
+			saw_cue_play_clicked(widget, user_data);
+			return true;
+		}		
+	}
+	
+	return false;
+}
+
 // Initialises the window
 static void stack_app_window_init(StackAppWindow *window)
 {
@@ -1188,6 +1238,9 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_postwait_changed", G_CALLBACK(saw_cue_postwait_changed));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_postwait_trigger_changed", G_CALLBACK(saw_cue_postwait_trigger_changed));
 
+	// Set up the callbacks - other
+	gtk_builder_add_callback_symbol(window->builder, "saw_treeview_key_event", G_CALLBACK(saw_treeview_key_event));
+	
 	// Connect the signals
 	gtk_builder_connect_signals(window->builder, (gpointer)window);
 
@@ -1203,7 +1256,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up the window
 	gtk_window_set_title(GTK_WINDOW(window), "Stack");
-	gtk_window_set_default_size(GTK_WINDOW(window), 700, 500);
+	gtk_window_set_default_size(GTK_WINDOW(window), 850, 550);
 
 	// Set up accelerators
 	GtkAccelGroup* ag = GTK_ACCEL_GROUP(gtk_builder_get_object(window->builder, "sawAccelGroup"));

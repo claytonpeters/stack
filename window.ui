@@ -325,7 +325,7 @@
               <object class="GtkToolButton" id="sawPlayTButton">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Run selected cue</property>
+                <property name="tooltip_text" translatable="yes">Run selected cue [Space]</property>
                 <property name="label" translatable="yes">Play Cue</property>
                 <property name="stock_id">gtk-media-play</property>
                 <signal name="clicked" handler="saw_cue_play_clicked" swapped="no"/>
@@ -353,7 +353,7 @@
               <object class="GtkToolButton" id="sawStopAllTButton">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Stop all cues</property>
+                <property name="tooltip_text" translatable="yes">Stop all cues [Escape, Escape]</property>
                 <property name="label" translatable="yes">Stop All</property>
                 <property name="stock_id">gtk-delete</property>
                 <signal name="clicked" handler="saw_cue_stop_all_clicked" swapped="no"/>
@@ -437,7 +437,7 @@
           <object class="GtkPaned" id="sawHPanel">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <property name="position">500</property>
+            <property name="position">660</property>
             <property name="position_set">True</property>
             <child>
               <object class="GtkPaned" id="sawVPanel">
@@ -462,6 +462,8 @@
                         <property name="search_column">0</property>
                         <property name="show_expanders">False</property>
                         <property name="enable_grid_lines">vertical</property>
+                        <signal name="key-press-event" handler="saw_treeview_key_event" swapped="no"/>
+                        <signal name="key-release-event" handler="saw_treeview_key_event" swapped="no"/>
                         <child internal-child="selection">
                           <object class="GtkTreeSelection" id="treeview-selection">
                             <signal name="changed" handler="saw_cue_selected" swapped="no"/>
