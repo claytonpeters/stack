@@ -44,6 +44,11 @@ typedef enum StackCueWaitTrigger
 	STACK_CUE_WAIT_TRIGGER_AFTERACTION = 3,
 } StackCuePostWaitTrigger;
 
+struct StackCue;
+struct StackCueList;
+
+typedef void(*state_changed_t)(StackCueList*, StackCue*, void*);
+
 // Cue list
 typedef struct StackCueList
 {
@@ -80,6 +85,10 @@ typedef struct StackCueList
 	
 	// The URI of the currently loaded cue list (may be NULL)
 	char* uri;
+	
+	// Function to call on state change
+	state_changed_t state_change_func;
+	void* state_change_func_data;
 } StackCueList;
 
 // Base class for cues
@@ -256,6 +265,7 @@ void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue);
+void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
 

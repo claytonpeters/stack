@@ -23,6 +23,8 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->audio_device = NULL;
 	cue_list->changed = false;
 	cue_list->uri = NULL;
+	cue_list->state_change_func = NULL;
+	cue_list->state_change_func_data = NULL;
 	
 	// Default to a two-channel set up
 	cue_list->channels = channels;
@@ -573,11 +575,23 @@ cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 }
 
 /// Called by child cues to let us know that something about them has changed
+/// (but not their state!)
 /// @param cue_list The cue list
 /// @param cue The cue that caused the change (currently unused)
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue)
 {
 	cue_list->changed = true;
+}
+
+/// Called by child cues to let us know that their state has changed
+/// @param cue_list The cue list
+/// @param cue The cue that caused the change (currently unused)
+void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue)
+{
+	if (cue_list->state_change_func != NULL)
+	{
+		cue_list->state_change_func(cue_list, cue, cue_list->state_change_func_data);
+	}
 }
 
 /// Removes a cue from the cue list

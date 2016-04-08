@@ -25,8 +25,6 @@ void stack_cue_destroy_base(StackCue *cue)
 // Plays a base cue
 bool stack_cue_play_base(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_play_base()\n");
-
 	// We can only play a cue that is stopped, prepared or paused
 	if (cue->state != STACK_CUE_STATE_STOPPED && cue->state != STACK_CUE_STATE_PREPARED && cue->state != STACK_CUE_STATE_PAUSED)
 	{
@@ -55,15 +53,15 @@ bool stack_cue_play_base(StackCue *cue)
 		// Put us in the right playing state depending on where we are
 		if (cue_elapsed < cue->pre_time)
 		{
-			cue->state = STACK_CUE_STATE_PLAYING_PRE;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_PRE);
 		}
 		else if (cue_elapsed < cue->pre_time + cue->action_time)
 		{
-			cue->state = STACK_CUE_STATE_PLAYING_ACTION;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 		}
 		else
 		{
-			cue->state = STACK_CUE_STATE_PLAYING_POST;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
 		}
 	}
 	else
@@ -76,14 +74,14 @@ bool stack_cue_play_base(StackCue *cue)
 
 		if (cue->pre_time > 0)
 		{
-			cue->state = STACK_CUE_STATE_PLAYING_PRE;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_PRE);
 		}
 		else
 		{
 			// We should always get at least one pulse in action state even if
 			// our action time is zero, as we may want to do instantaneous things
 			// like immediate fades, for example
-			cue->state = STACK_CUE_STATE_PLAYING_ACTION;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 		}
 	}
 	
@@ -93,8 +91,6 @@ bool stack_cue_play_base(StackCue *cue)
 // Pauses a base cue
 void stack_cue_pause_base(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_pause_base()\n");
-
 	cue->pause_time = stack_get_clock_time();
 	cue->pause_paused_time = cue->paused_time;
 }
@@ -102,13 +98,11 @@ void stack_cue_pause_base(StackCue *cue)
 // Stops a base cue
 void stack_cue_stop_base(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_stop_base()\n");
-
 	cue->start_time = 0;
 	cue->pause_time = 0;
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
-	cue->state = STACK_CUE_STATE_STOPPED;
+	stack_cue_set_state(cue, STACK_CUE_STATE_STOPPED);
 }
 
 // Provides the pulse for a base cue
@@ -161,8 +155,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		if (run_action_time < cue->action_time)
 		{
 			// Change us to the action state
-			fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to action\n");
-			cue->state = STACK_CUE_STATE_PLAYING_ACTION;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 			return;
 		}
 
@@ -172,14 +165,12 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			if (run_post_time < cue->post_time)
 			{
 				// Change us to the post state
-				fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to post\n");
-				cue->state = STACK_CUE_STATE_PLAYING_POST;
+				stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
 				return;
 			}
 			else
 			{
 				// Stop the cue
-				fprintf(stderr, "stack_cue_pulse_base(): Moving from pre to stopped\n");
 				stack_cue_stop(cue);
 
 				return;
@@ -194,14 +185,12 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		if (run_post_time < cue->post_time)
 		{
 			// Change us to the post state
-			fprintf(stderr, "stack_cue_pulse_base(): Moving from action to post\n");
-			cue->state = STACK_CUE_STATE_PLAYING_POST;
+			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
 			return;
 		}
 		else
 		{
 			// Stop the cue
-			fprintf(stderr, "stack_cue_pulse_base(): Moving from action to stopped\n");
 			stack_cue_stop(cue);
 			
 			return;
@@ -212,7 +201,6 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	if (cue->state == STACK_CUE_STATE_PLAYING_POST && run_post_time == cue->post_time)
 	{
 		// Stop the cue
-		fprintf(stderr, "stack_cue_pulse_base(): Moving from post to stopped\n");
 		stack_cue_stop(cue);
 		
 		return;
@@ -264,8 +252,6 @@ void stack_cue_free_json_base(char *json_data)
 // Re-initialises this cue from JSON Data
 void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 {
-	fprintf(stderr, "stack_cue_from_json_base()\n");
-	
 	Json::Value cue_root;
 	Json::Reader reader;
 	
@@ -348,7 +334,7 @@ void stack_cue_set_post_time(StackCue *cue, stack_time_t post_time)
 void stack_cue_set_state(StackCue *cue, StackCueState state)
 {
 	cue->state = state;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_cue_list_state_changed(cue->parent, cue);
 }
 
 // Sets the cue color

@@ -190,6 +190,22 @@ static void saw_update_selected_cue(gpointer user_data)
 	}
 }
 
+// Helper function that updates the list store with updated information about
+// a specific cue. A wrapper around saw_update_list_store_from_cue.
+// Also callable via the signal "update-cue", hence the gpointer rather
+// than an explicit StackAppWindow
+static void saw_update_cue(gpointer user_data, StackCue* cue)
+{
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	if (cue)
+	{
+		saw_update_list_store_from_cue(window->store, cue);
+		
+		// Make the widget redraw
+		gtk_widget_queue_draw(GTK_WIDGET(window->treeview));
+	}
+}
+
 // Clears the entire list store. Also deselects any active cue
 static void saw_clear_list_store(StackAppWindow *window)
 {
@@ -250,6 +266,15 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 	
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
+}
+
+static void saw_cue_state_changed(StackCueList *cue_list, StackCue *cue, void *user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Update the list store
+	saw_update_cue((gpointer)window, cue);
 }
 
 // Updates a pre/post wait time on the properties panel
@@ -338,15 +363,23 @@ static void saw_select_next_cue(StackAppWindow *window)
 		gtk_tree_model_get_iter(model, &iter, path);
 		
 		// Move the iterator forward one
-		gtk_tree_model_iter_next(model, &iter);
-		path = gtk_tree_model_get_path(model, &iter);	// Allocates!
+		if (gtk_tree_model_iter_next(model, &iter))
+		{
+			// Get a path to the iterator (this allocates a GtkTreePath!)
+			path = gtk_tree_model_get_path(model, &iter);
 		
-		// Select that row	
-		gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
-		gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+			if (path != NULL)
+			{
+				// Select that row	
+				gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+				gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
 		
-		// Tidy up 
-		gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+				// Tidy up 
+				gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+			}
+		}
+		
+		// Tidy up
 		g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
 	}
 }
@@ -518,6 +551,8 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 
 	// Initialise a new cue list, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
+	window->cue_list->state_change_func = saw_cue_state_changed;
+	window->cue_list->state_change_func_data = (void*)window;
 	
 	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
@@ -1188,9 +1223,12 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Set up window signal handlers
 	g_signal_connect(window, "destroy", G_CALLBACK(saw_destroy), (gpointer)window);
 	g_signal_connect(window, "update-selected-cue", G_CALLBACK(saw_update_selected_cue), (gpointer)window);
+	g_signal_connect(window, "update-cue", G_CALLBACK(saw_update_cue), (gpointer)window);
 	
 	// Initialise this windows cue stack, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
+	window->cue_list->state_change_func = saw_cue_state_changed;
+	window->cue_list->state_change_func_data = (void*)window;
 	
 	if (window->use_custom_style)
 	{
@@ -1406,6 +1444,7 @@ static void stack_app_window_class_init(StackAppWindowClass *cls)
 {
 	// Define an "update-selected-cue" signal for StackAppWindow
 	g_signal_new("update-selected-cue", stack_app_window_get_type(), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+	g_signal_new("update-cue", stack_app_window_get_type(), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_POINTER);
 }
 
 // Creates a new StackAppWindow
@@ -1427,6 +1466,10 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 	if (new_cue_list != NULL)
 	{
+		// Set up state change notification
+		new_cue_list->state_change_func = saw_cue_state_changed;
+		new_cue_list->state_change_func_data = (void*)window;
+
 		// Kill the cue list pulsing thread
 		window->kill_thread = true;
 		window->pulse_thread.join();

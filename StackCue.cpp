@@ -280,9 +280,6 @@ int stack_register_cue_class(const StackCueClass *cue_class)
 // @param cue_list The cue list it's going to become part of
 StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 {
-	// Debug
-	fprintf(stderr, "stack_cue_new(): Calling create for type '%s'\n", type);
-	
 	// Locate the class
 	auto iter = cue_class_map.find(string(type));
 	if (iter == cue_class_map.end())
@@ -300,9 +297,6 @@ StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 // @param cue The cue to destroy. 
 void stack_cue_destroy(StackCue *cue)
 {
-	// Debug
-	fprintf(stderr, "stack_cue_destroy(): Calling destroy for UID '%016lx' of type '%s'\n", cue->uid, cue->_class_name);
-	
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));
 	if (iter == cue_class_map.end())
@@ -330,8 +324,6 @@ void stack_cue_destroy(StackCue *cue)
 // Starts cue playback
 bool stack_cue_play(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_play()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
@@ -348,8 +340,6 @@ bool stack_cue_play(StackCue *cue)
 // Pauses cue playback
 void stack_cue_pause(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_pause()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
@@ -366,8 +356,6 @@ void stack_cue_pause(StackCue *cue)
 // Stops cue playback
 void stack_cue_stop(StackCue *cue)
 {
-	fprintf(stderr, "stack_cue_stop()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
@@ -400,8 +388,6 @@ void stack_cue_pulse(StackCue *cue, stack_time_t clock)
 // Sets up the properties tabs on the given notebook
 void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
-	fprintf(stderr, "stack_cue_set_tabs()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
@@ -418,8 +404,6 @@ void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 // Removes the properties tabs on the given notebook
 void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
-	fprintf(stderr, "stack_cue_unset_tabs()\n");
-	
 	// Get the class name
 	const char *class_name = cue->_class_name;
 	
@@ -483,9 +467,6 @@ void stack_cue_free_json(char *json_data)
 // Generates the cue from JSON data
 void stack_cue_from_json(StackCue *cue, const char *json_data)
 {
-	// DEBUG:
-	fprintf(stderr, "stack_cue_from_json()\n");
-	
 	if (cue == NULL)
 	{
 		fprintf(stderr, "stack_cue_from_json(): NULL cue passed\n");
@@ -508,7 +489,6 @@ void stack_cue_from_json(StackCue *cue, const char *json_data)
 static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
 {
 	// Does nothing in the base implementation
-	fprintf(stderr, "stack_cue_from_json_void()\n");
 }
 
 // Initialise the StackCue system

@@ -13,9 +13,6 @@
 /// Creates a fade cue
 static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 {
-	// Debug
-	fprintf(stderr, "stack_fade_cue_create() called\n");
-	
 	// Allocate the cue
 	StackFadeCue* cue = new StackFadeCue();
 	
@@ -45,9 +42,6 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 /// Destroys a fade cue
 static void stack_fade_cue_destroy(StackCue *cue)
 {
-	// Debug
-	fprintf(stderr, "stack_fade_cue_destroy() called\n");
-
 	// Tidy up
 	if (STACK_FADE_CUE(cue)->builder)
 	{
@@ -324,9 +318,6 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	StackFadeCue *fcue = STACK_FADE_CUE(cue);
 	
-	// Debug
-	fprintf(stderr, "stack_fade_cue_set_tabs() called\n");
-
 	// Create the tab
 	GtkWidget *label = gtk_label_new("Fade");
 	
@@ -422,9 +413,6 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 /// Removes the properties tabs for a fade cue
 static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
-	// Debug
-	fprintf(stderr, "stack_fade_cue_unset_tabs() called\n");
-	
 	// Find our media page
 	gint page = gtk_notebook_page_num(notebook, STACK_FADE_CUE(cue)->fade_tab);
 	
@@ -483,8 +471,6 @@ static void stack_fade_cue_free_json(char *json_data)
 /// Re-initialises this cue from JSON Data
 void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 {
-	fprintf(stderr, "stack_fade_cue_from_json()\n");
-	
 	Json::Value cue_root;
 	Json::Reader reader;
 	
