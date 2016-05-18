@@ -292,15 +292,44 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	
 				// Calculate a ratio of how far through the queue we are
 				double time_scaler = (double)run_action_time / (double)cue->action_time;
-		
+				
+				// Convert start and end volumes from dB to linear scalars
 				double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
 				double vend = stack_db_to_scalar(STACK_FADE_CUE(cue)->target_volume);
+				double vrange = vstart - vend;
 			
-				// TODO: Other fade types
 				switch (STACK_FADE_CUE(cue)->profile)
 				{
 					case STACK_FADE_PROFILE_LINEAR:
-						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart + (vend - vstart) * time_scaler);
+						// time_scaler goes 0.0 -> 1.0
+						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * time_scaler);
+						break;
+						
+					case STACK_FADE_PROFILE_QUAD:
+						// time_scaler goes 0.0 -> 1.0. Build a vol_scaler that is a two-part square curve from 0.0->0.5 then 0.5->1.0
+						double vol_scaler;
+						if (time_scaler < 0.5)
+						{
+							vol_scaler = (time_scaler * time_scaler * 2.0);
+						}
+						else
+						{
+							vol_scaler = 1.0 - ((1.0 - time_scaler) * (1.0 - time_scaler) * 2.0);
+						}
+
+						// Scale between vstart and vend based on vol_scaler and convert back to dB
+						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * vol_scaler);
+						break;
+						
+					case STACK_FADE_PROFILE_EXP:
+						//STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - (vstart - vend) * (1.0 - (((4.0 / pow(time_scaler + 1.0, 2.0)) - 1.0) / 3.0)));
+						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * (1.0 - pow(1.0 - time_scaler, 2.0)));
+
+						break;
+						
+					case STACK_FADE_PROFILE_INVEXP:
+						//STACK_AUDIO_CUE(target)->playback_live_volume =
+						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * pow(time_scaler, 2.0));
 						break;
 				}
 			}
