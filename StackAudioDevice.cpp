@@ -108,7 +108,7 @@ void stack_audio_device_write(StackAudioDevice *adev, const char *data, size_t b
 		return;
 	}
 	
-	// Look for a wrtie function. Iterate through superclasses if we don't have one
+	// Look for a write function. Iterate through superclasses if we don't have one
 	while (adev_class_map[class_name]->write_func == NULL && class_name != NULL)
 	{
 		class_name = adev_class_map[class_name]->super_class_name;

@@ -1336,6 +1336,9 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(builder, "csdTreeView"));
 	GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(treeview));
 	
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
 	// Get an iterator over the cue list		
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
@@ -1376,6 +1379,9 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 	
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
 	
 	// Run the dialog
 	gint response = gtk_dialog_run(dialog);
