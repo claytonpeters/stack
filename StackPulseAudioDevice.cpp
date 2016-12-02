@@ -210,7 +210,7 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	{
 		// Setup sink enumeration data
 		sink_data.count = 0;
-		sink_data.devices = new StackAudioDeviceDesc[sink_data.count];
+		sink_data.devices = new StackAudioDeviceDesc[sink_count_data.count];
 
 		// Enumerate the sinks
 		pa_operation* o = pa_context_get_sink_info_list(context, (pa_sink_info_cb_t)stack_pulse_audio_sink_info_callback, &sink_data);
@@ -280,7 +280,9 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	samplespec.rate = sample_rate;
 
 	// Create a new stream (on the application-global context)
-	device->stream = pa_stream_new(context, "PulseAudio Stream", &samplespec, NULL);
+	pa_proplist* proplist = pa_proplist_new();
+	device->stream = pa_stream_new_with_proplist(context, "PulseAudio Stream", &samplespec, NULL, proplist);
+	pa_proplist_free(proplist);
 
 	// Set up a callback
 	pa_stream_set_state_callback(device->stream, (pa_stream_notify_cb_t)stack_pulse_audio_stream_notify_callback, device);

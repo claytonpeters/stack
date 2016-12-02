@@ -18,6 +18,10 @@ GtkContainer {
 	color: @text_color;
 }
 
+GtkPaned {
+	border: 1px solid @bg_color;
+}
+
 GtkScrolledWindow {
 	border: 1px solid @edge_color;
 	border-radius: 2px;
@@ -56,17 +60,27 @@ GtkTreeView row:selected {
 .notebook
 {
 	-GtkNotebook-initial-gap: 4;
+	-GtkNotebook-tab-overlap: -4;
+	border-width: 0px 1px 0px 0px;
+	border-style: solid;
+	border-color: @edge_color;
 }
 
 .notebook tab
 {
 	background: -gtk-gradient(linear, left top, left bottom, from (@half_color), to (@bg_color));
 	border: 1px solid @edge_color;
+	border-radius: 3px 3px 0px 0px;
+	color: #00f;
 }
 
-.notebook tab:active
+.notebook tab GtkLabel
 {
-	background: @bg_color;
+	color: @text_color;
+}
+
+.notebook tab.active-page GtkLabel, .notebook tab GtkLabel.active-page {
+	color: @selected_fg_color;
 }
 
 GtkTextView.view, GtkEntry.entry

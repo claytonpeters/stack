@@ -54,10 +54,10 @@ typedef struct StackCueList
 {
 	// The array of cues (this is a std::list internally)
 	void *cues;
-		
+	
 	// Channels - the number of channels configured for playback
 	uint16_t channels;
-
+	
 	// The audio device to play out of (in the future we'd have many of these 
 	// and a map between virtual channels and device channels)
 	StackAudioDevice *audio_device;
@@ -70,22 +70,22 @@ typedef struct StackCueList
 
 	// Index of the current start of our audio_data ring buffer
 	size_t buffer_idx;
-	
+
 	// The time at the start of the data
 	stack_time_t buffer_time;
-	
+
 	// Mutex lock
 	std::mutex lock;
-	
+
 	// Cue UID remapping (this is a std::map internally). Used during loading.
 	void *uid_remap;
-	
+
 	// Changed since we were initialised?
 	bool changed;
-	
+
 	// The URI of the currently loaded cue list (may be NULL)
 	char* uri;
-	
+
 	// Function to call on state change
 	state_changed_t state_change_func;
 	void* state_change_func_data;

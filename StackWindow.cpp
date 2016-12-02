@@ -18,8 +18,7 @@ typedef struct ModelFindCue
 	GtkTreePath *path;
 } ModelFindCue;
 
-// Callback for cue pulsing timer
-static void stack_pulse_thread(StackAppWindow* window)
+static void set_stack_pulse_thread_priority(StackAppWindow* window)
 {
 	// Set thread priority
 	struct sched_param param = { 5 };
@@ -27,7 +26,11 @@ static void stack_pulse_thread(StackAppWindow* window)
 	{
 		fprintf(stderr, "stack_pulse_thread(): Failed to set pulse thread priority.\n");
 	}
-	
+}
+
+// Callback for cue pulsing timer
+static void stack_pulse_thread(StackAppWindow* window)
+{
 	// Loop until we're being destroyed
 	while (!window->kill_thread)
 	{
@@ -561,7 +564,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
 	if (sadc)
 	{
-		StackAudioDeviceDesc *devices;
+		StackAudioDeviceDesc *devices = NULL;
 		size_t num_outputs = sadc->get_outputs_func(&devices);
 
 		if (devices != NULL && num_outputs > 0)
@@ -577,7 +580,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 			fprintf(stderr, "------------------------------------------------------------\n");
 
 			// Create a PulseAudio device for the first output
-			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
+			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[1].name, devices[1].channels, 44100);
 		
 			// Store the audio device in the cue list
 			window->cue_list->audio_device = device;
@@ -590,6 +593,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	// Start the cue list pulsing thread
 	window->kill_thread = false;
 	window->pulse_thread = std::thread(stack_pulse_thread, window);
+	set_stack_pulse_thread_priority(window);
 }
 
 // Menu callback
@@ -1319,6 +1323,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Start the cue list pulsing thread
 	window->kill_thread = false;
 	window->pulse_thread = std::thread(stack_pulse_thread, window);
+	set_stack_pulse_thread_priority(window);
 }
 
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
@@ -1496,7 +1501,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
 		if (sadc)
 		{
-			StackAudioDeviceDesc *devices;
+			StackAudioDeviceDesc *devices = NULL;
 			size_t num_outputs = sadc->get_outputs_func(&devices);
 
 			if (devices != NULL && num_outputs > 0)
@@ -1525,6 +1530,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		// Start the cue list pulsing thread
 		window->kill_thread = false;
 		window->pulse_thread = std::thread(stack_pulse_thread, window);
+		set_stack_pulse_thread_priority(window);
 	}
 	
 	// Tidy up
