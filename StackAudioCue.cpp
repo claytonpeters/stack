@@ -439,29 +439,32 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	// If we've sent no data, or we've running behind, or we're about to need more data
 	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000)
 	{
-		size_t samples = 1024;
-		size_t out_buffer_size = samples * audio_cue->playback_header.num_channels;
+		size_t samples_per_channel = 1024;
+		size_t total_samples = samples_per_channel * audio_cue->playback_header.num_channels;
 		
 		// Set up buffer for the number of samples of each channel
-		size_t bytes_to_read = samples * audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8;
+		size_t bytes_to_read = total_samples * audio_cue->playback_header.bits_per_sample / 8;
 
 		// Allocate buffers		
 		char *read_buffer = new char[bytes_to_read];
-		float *out_buffer = new float[samples * out_buffer_size];
+		float *out_buffer = new float[total_samples];
 		
 		// Read data
 		gssize bytes_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, read_buffer, bytes_to_read, NULL, NULL);
 
-		// If we attempted to read past the end of the file, work out how many samples we got
+		// If we attempted to read past the end of the file (or at least if we
+		// didn't get the number of bytes we were expecting), work out how many
+		// samples we got based on the number of bytes read
 		if (bytes_read < bytes_to_read)
 		{
-			samples = bytes_read / (audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8);
+			samples_per_channel = bytes_read / (audio_cue->playback_header.num_channels * audio_cue->playback_header.bits_per_sample / 8);
+			total_samples = samples_per_channel * audio_cue->playback_header.num_channels;
 		}
 
 		// Convert to float Apply audio scaling
 		float *obp = out_buffer;
 		int16_t *ibp = (int16_t*)read_buffer;
-		for (size_t i = 0; i < out_buffer_size; i++)
+		for (size_t i = 0; i < total_samples; i++)
 		{
 			*(obp++) = *(ibp++) * audio_scaler;
 		}
@@ -469,7 +472,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		// Write the audio data to the cue list, which handles the output
 		if (audio_cue->playback_header.num_channels == 1)
 		{
-			audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 0, out_buffer, samples, 1);
+			audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 0, out_buffer, samples_per_channel, 1);
 		}
 		else
 		{
@@ -477,7 +480,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 			for (uint16_t channel = 0; channel < audio_cue->playback_header.num_channels; channel++)
 			{
-				audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, initial_audio_ptr, channel, &out_buffer[channel], samples, audio_cue->playback_header.num_channels);
+				audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, initial_audio_ptr, channel, &out_buffer[channel], samples_per_channel, audio_cue->playback_header.num_channels);
 			}
 		}
 		
@@ -486,7 +489,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		delete [] out_buffer;
 		
 		// Keep track of how much data we've sent to the audio device
-		audio_cue->playback_data_sent += ((stack_time_t)samples * NANOSECS_PER_SEC) / (stack_time_t)audio_cue->playback_header.sample_rate;
+		audio_cue->playback_data_sent += ((stack_time_t)samples_per_channel * NANOSECS_PER_SEC) / (stack_time_t)audio_cue->playback_header.sample_rate;
 	}
 }
 
