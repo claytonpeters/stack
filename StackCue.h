@@ -260,7 +260,7 @@ StackCue *stack_cue_list_iter_get(void *iter);
 void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
 void stack_cue_list_pulse(StackCueList *cue_list);
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t write_ptr, float *data, uint16_t channels, size_t samples, bool interleaved);
+size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t channel, float *data, size_t samples, uint16_t interleaving);
 void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);

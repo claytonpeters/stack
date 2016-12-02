@@ -75,105 +75,80 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	}
 }
 
-/// Writes audio to the cue lists audio buffer
+/// Writes one channel of audio data to the cue lists audio buffer. 'data' 
+/// should contain 'samples' audio samples. If 'interleaving' is greater than 
+/// one, then 'data' should contain 'samples * interleaving' samples, with only 
+/// very 'interleaving' samples being used. 
 /// @param cue_list The cue list whose buffer is to be written to
 /// @param ptr The index within the buffer to write to (-1 to write at the read pointer)
 /// @param data The data to write
-/// @param channels The number of channels in the input data
+/// @param channel The zero-based index of the output channel to write to
 /// @param samples The number of samples in the input data
-/// @param interleaved If true, then the input data is interleaved as one sample per channel. If false then the data is 'samples' samples of each channel
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, float *data, uint16_t channels, size_t samples, bool interleaved)
+/// @param interleaved If greater than one, then the input data is interleaved as one sample per channel for this many channels. If 0 or 1, read 'samples' continuos samples.
+size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t channel, float *data, size_t samples, uint16_t interleaving)
 {
-	// data should contain [channels * samples] audio samples
-	
+	uint16_t cue_list_channels = cue_list->channels;
+
 	// If the caller doesn't know where to write to, just write to the read pointer
 	if (ptr == -1)
 	{
 		ptr = (cue_list->buffer_idx) % cue_list->buffer_len;
 	}
 	
+	// If interleaving is 0, the default to one sample
+	if (interleaving == 0)
+	{
+		interleaving = 1;
+	}
+
 	// If the entire data set fits at the current start of our ring buffer
 	if (ptr + samples < cue_list->buffer_len)
 	{
-		// We want interleaved data in our ring buffer, so if we have
-		// interleaved data, we can just copy it in
-		if (interleaved)
-		{
-			// Calculate source and destination pointers
-			float *src = data;
-			float *dst = &cue_list->buffer[(ptr * cue_list->channels)];
-			size_t count = channels * samples;
+		// Calculate source and destination pointers
+		float *src = data;
+		float *dst = &cue_list->buffer[((ptr + channel) * cue_list_channels)];
 
-			for (size_t i = 0; i < count; i++)
-			{
-				*dst += *src;
-				
-				// Increment source pointer
-				src++;
-				
-				// Increment destination point
-				dst++;
-			}
-		}
-		else
+		for (size_t i = 0; i < samples; i++)
 		{
-			for (size_t ch = 0; ch < channels; ch++)
-			{
-				// Calculate source and destination pointers
-				float *src = &data[ch * samples];
-				float *dst = &cue_list->buffer[(ptr * cue_list->channels) + ch];
-				
-				// Copy one channels worth of data
-				for (size_t i = 0; i < samples; i++)
-				{
-					*dst += *src;
-					
-					// Increment source pointer
-					src++;
-					
-					// Increment destination point
-					*dst += channels;
-				}
-			}
+			*dst += *src;
+			
+			// Increment source pointer
+			src += interleaving;
+			
+			// Increment destination point
+			dst += cue_list_channels;
 		}
 	}
 	else
 	{
-		if (interleaved)
+		// Copy whatever fits at the end of our ring buffer
+		float *src = data;
+		float *dst = &cue_list->buffer[((ptr + channel) * cue_list_channels)];
+		size_t count = cue_list->buffer_len - ptr;
+		for (size_t i = 0; i < count; i++)
 		{
-			// Copy whatever fits at the end of our ring buffer
-			float *src = data;
-			float *dst = &cue_list->buffer[(ptr * cue_list->channels)];
-			size_t count = channels * (cue_list->buffer_len - ptr);
-			for (size_t i = 0; i < count; i++)
-			{
-				*dst += *src;
-				
-				// Increment source pointer
-				src++;
-				
-				// Increment destination point
-				dst++;
-			}
+			*dst += *src;
 			
-			// Copy the rest to the beginning
-			src = &data[channels * (cue_list->buffer_len - ptr)];
-			dst = cue_list->buffer;
-			count = channels * (samples - (cue_list->buffer_len - ptr));
-			for (size_t i = 0; i < count; i++)
-			{
-				*dst += *src;
-				
-				// Increment source pointer
-				src++;
-				
-				// Increment destination point
-				dst++;
-			}
+			// Increment source pointer
+			src += interleaving;
+			
+			// Increment destination point
+			dst += cue_list_channels;
 		}
-		else
+		
+		// Copy the rest to the beginning
+		src = &data[interleaving * (cue_list->buffer_len - ptr)];
+		dst = cue_list->buffer;
+		count = samples - count;
+		for (size_t i = 0; i < count; i++)
 		{
-			// TODO: Not yet implemented
+			*dst += *src;
+			
+			// Increment source pointer
+			src += interleaving;
+			
+			// Increment destination point
+			dst += cue_list_channels;
 		}
 	}
 
