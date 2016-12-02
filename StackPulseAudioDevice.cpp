@@ -7,6 +7,7 @@ pa_threaded_mainloop *mainloop = NULL;
 pa_mainloop_api *mainloop_api = NULL;
 pa_context *context = NULL;
 semaphore state_semaphore;
+char *default_sink_name = NULL;
 
 // Device enumeration structures:
 typedef struct PulseAudioSinkCountData
@@ -143,6 +144,29 @@ void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *userdata)
 	}
 }
 
+// PULSEAUDIO CALLBACK: Server info callback
+void stack_pulse_audio_server_info_callback(pa_context *context, const pa_server_info *info, void *userdata)
+{
+	// Get the device
+	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(userdata);
+	
+	// We don't do a great deal if we haven't got a device
+	if (device == NULL)
+	{
+		return;
+	}
+
+	// Get the default sink name if we don't already have it
+	if (default_sink_name == NULL)
+	{
+		// Store this in our global
+		default_sink_name = strdup(info->default_sink_name);
+	}
+
+	// Notify the creation to continue
+	device->sync_semaphore.notify();
+}
+
 // Initialises PulseAudio
 bool stack_init_pulse_audio()
 {
@@ -268,11 +292,26 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	StackPulseAudioDevice *device = new StackPulseAudioDevice();
 	device->stream = NULL;
 	
+	// If we've not been given a device name...	
+	if (name == NULL)
+	{
+		// Default to two channels
+		channels = 2;
+
+		if (default_sink_name == NULL)
+		{
+			pa_context_get_server_info(context, (pa_server_info_cb_t)stack_pulse_audio_server_info_callback, device);
+			device->sync_semaphore.wait();
+		}
+
+		fprintf(stderr, "stack_pulse_audio_device_create(): Using default sink, %s\n", default_sink_name);
+	}
+
 	// Set up superclass
 	STACK_AUDIO_DEVICE(device)->_class_name = "StackPulseAudioDevice";
 	STACK_AUDIO_DEVICE(device)->channels = channels;
 	STACK_AUDIO_DEVICE(device)->sample_rate = sample_rate;
-	
+
 	// Create a PulseAudio sample spec
 	pa_sample_spec samplespec;
 	samplespec.channels = channels;
@@ -294,7 +333,7 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	attr.prebuf = 0;
 	attr.minreq = 0xffffffff;
 	fprintf(stderr, "stack_pulse_audio_device_create(): Connecting playback stream...\n");
-	pa_stream_connect_playback(device->stream, name, &attr, (pa_stream_flags_t)(PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_INTERPOLATE_TIMING), NULL, NULL);
+	pa_stream_connect_playback(device->stream, name != NULL ? name : default_sink_name, &attr, (pa_stream_flags_t)(PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_INTERPOLATE_TIMING), NULL, NULL);
 
 	// Wait for connection
 	device->sync_semaphore.wait();

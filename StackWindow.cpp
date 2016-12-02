@@ -407,6 +407,45 @@ static void saw_select_last_cue(StackAppWindow *window)
 	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
 }
 
+// Sets up an initial playback device
+static void saw_setup_default_device(StackAppWindow *window)
+{
+	// DEBUG: Open a PulseAudio device
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
+	if (sadc)
+	{
+		StackAudioDeviceDesc *devices = NULL;
+		size_t num_outputs = sadc->get_outputs_func(&devices);
+
+		if (devices != NULL && num_outputs > 0)
+		{
+			for (size_t i = 0; i < num_outputs; i++)
+			{
+				fprintf(stderr, "------------------------------------------------------------\n");
+				fprintf(stderr, "Index: %lu\n", i);
+				fprintf(stderr, "Name: %s\n", devices[i].name);
+				fprintf(stderr, "Description: %s\n", devices[i].desc);
+				fprintf(stderr, "Channels: %d\n", devices[i].channels);
+			}
+			fprintf(stderr, "------------------------------------------------------------\n");
+
+			// Create a PulseAudio device using the default device
+			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 0, 44100);
+		
+			// Store the audio device in the cue list
+			window->cue_list->audio_device = device;
+		}
+		
+		// Free the list of devices
+		sadc->free_outputs_func(&devices, num_outputs);
+	}
+
+	// Start the cue list pulsing thread
+	window->kill_thread = false;
+	window->pulse_thread = std::thread(stack_pulse_thread, window);
+	set_stack_pulse_thread_priority(window);
+}
+
 // Menu callback
 static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 {
@@ -559,41 +598,9 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	
 	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
-	
-	// DEBUG: Open a PulseAudio device
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-	if (sadc)
-	{
-		StackAudioDeviceDesc *devices = NULL;
-		size_t num_outputs = sadc->get_outputs_func(&devices);
 
-		if (devices != NULL && num_outputs > 0)
-		{
-			for (size_t i = 0; i < num_outputs; i++)
-			{
-				fprintf(stderr, "------------------------------------------------------------\n");
-				fprintf(stderr, "Index: %lu\n", i);
-				fprintf(stderr, "Name: %s\n", devices[i].name);
-				fprintf(stderr, "Description: %s\n", devices[i].desc);
-				fprintf(stderr, "Channels: %d\n", devices[i].channels);
-			}
-			fprintf(stderr, "------------------------------------------------------------\n");
-
-			// Create a PulseAudio device for the first output
-			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[1].name, devices[1].channels, 44100);
-		
-			// Store the audio device in the cue list
-			window->cue_list->audio_device = device;
-		}
-		
-		// Free the list of devices
-		sadc->free_outputs_func(&devices, num_outputs);
-	}
-
-	// Start the cue list pulsing thread
-	window->kill_thread = false;
-	window->pulse_thread = std::thread(stack_pulse_thread, window);
-	set_stack_pulse_thread_priority(window);
+	// Setup the default device
+	saw_setup_default_device(window);
 }
 
 // Menu callback
@@ -1320,10 +1327,8 @@ static void stack_app_window_init(StackAppWindow *window)
 	window->timer_state = 0;
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
-	// Start the cue list pulsing thread
-	window->kill_thread = false;
-	window->pulse_thread = std::thread(stack_pulse_thread, window);
-	set_stack_pulse_thread_priority(window);
+	// Setup the default device
+	saw_setup_default_device(window);
 }
 
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
@@ -1497,40 +1502,8 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		// Refresh the cue list
 		saw_refresh_list_store_from_list(window);
 
-		// DEBUG: Open a PulseAudio device
-		const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-		if (sadc)
-		{
-			StackAudioDeviceDesc *devices = NULL;
-			size_t num_outputs = sadc->get_outputs_func(&devices);
-
-			if (devices != NULL && num_outputs > 0)
-			{
-				for (size_t i = 0; i < num_outputs; i++)
-				{
-					fprintf(stderr, "------------------------------------------------------------\n");
-					fprintf(stderr, "Index: %lu\n", i);
-					fprintf(stderr, "Name: %s\n", devices[i].name);
-					fprintf(stderr, "Description: %s\n", devices[i].desc);
-					fprintf(stderr, "Channels: %d\n", devices[i].channels);
-				}
-				fprintf(stderr, "------------------------------------------------------------\n");
-
-				// Create a PulseAudio device for the first output
-				StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", devices[0].name, devices[0].channels, 44100);
-	
-				// Store the audio device in the cue list
-				window->cue_list->audio_device = device;
-			}
-	
-			// Free the list of devices
-			sadc->free_outputs_func(&devices, num_outputs);
-		}
-
-		// Start the cue list pulsing thread
-		window->kill_thread = false;
-		window->pulse_thread = std::thread(stack_pulse_thread, window);
-		set_stack_pulse_thread_priority(window);
+		// Setup the default device
+		saw_setup_default_device(window);
 	}
 	
 	// Tidy up
