@@ -106,7 +106,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 	{
 		// Calculate source and destination pointers
 		float *src = data;
-		float *dst = &cue_list->buffer[((ptr + channel) * cue_list_channels)];
+		float *dst = &cue_list->buffer[(ptr * cue_list_channels) + channel];
 
 		for (size_t i = 0; i < samples; i++)
 		{
@@ -123,7 +123,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 	{
 		// Copy whatever fits at the end of our ring buffer
 		float *src = data;
-		float *dst = &cue_list->buffer[((ptr + channel) * cue_list_channels)];
+		float *dst = &cue_list->buffer[(ptr * cue_list_channels) + channel];
 		size_t count = cue_list->buffer_len - ptr;
 		for (size_t i = 0; i < count; i++)
 		{
@@ -138,7 +138,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 		
 		// Copy the rest to the beginning
 		src = &data[interleaving * (cue_list->buffer_len - ptr)];
-		dst = cue_list->buffer;
+		dst = &cue_list->buffer[channel];
 		count = samples - count;
 		for (size_t i = 0; i < count; i++)
 		{

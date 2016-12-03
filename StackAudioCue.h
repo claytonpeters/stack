@@ -24,6 +24,13 @@ typedef struct WaveHeader
 } WaveHeader;
 #pragma pack(pop)
 
+// Supported file formats
+typedef enum StackAudioFileFormat
+{
+	STACK_AUDIO_FILE_FORMAT_WAVE = 0,
+	STACK_AUDIO_FILE_FORMAT_MP3 = 1,
+} StackAudioFileFormat;
+
 // An audio cue
 typedef struct StackAudioCue
 {
@@ -65,6 +72,9 @@ typedef struct StackAudioCue
 	// The media tab
 	GtkWidget *media_tab;
 
+	// The audio format
+	StackAudioFileFormat format;
+
 	// Amount of audio data sent so far in playback
 	stack_time_t playback_data_sent;
 	
@@ -80,6 +90,9 @@ typedef struct StackAudioCue
 	
 	// Audio pointer
 	size_t playback_audio_ptr;
+
+	// Arbitrary per-file playback data
+	void *playback_data;
 } StackAudioCue;
 
 // Functions: Audio cue functions
