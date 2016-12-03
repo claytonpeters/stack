@@ -9,6 +9,7 @@
 #include <lame.h>
 #endif
 
+#ifndef NO_MP3LAME
 // We need some additional data for MP3 playback
 typedef struct PlaybackDataMP3
 {
@@ -19,6 +20,7 @@ typedef struct PlaybackDataMP3
 	int16_t *right;
 	uint32_t size;
 } PlaybackDataMP3;
+#endif
 
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
@@ -532,6 +534,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		// Skip to the appropriate point in the file
 		g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), audio_cue->media_start_time * (stack_time_t)audio_cue->playback_header.byte_rate / NANOSECS_PER_SEC, G_SEEK_CUR, NULL, NULL);
 	}
+#ifndef NO_MP3LAME
 	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
 	{
 		// Read the header
@@ -561,6 +564,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		pbdata->right = new int16_t[100000];
 		pbdata->size = 100000;
 	}
+#endif
 	
 	return true;
 }
