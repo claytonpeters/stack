@@ -168,6 +168,7 @@ size_t stack_cue_list_count(StackCueList *cue_list)
 /// @param cue The cue to append.
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue)
 {
+	cue_list->changed = true;
 	SCL_GET_LIST(cue_list)->push_back(cue);
 }
 

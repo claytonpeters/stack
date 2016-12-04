@@ -6,7 +6,7 @@
 #include <math.h>
 #include <json/json.h>
 #ifndef NO_MP3LAME
-#include <lame.h>
+#include <lame/lame.h>
 #endif
 #include <vector>
 
@@ -243,8 +243,8 @@ static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_d
 	}
 
 	// Allocate buffers
-	uint8_t buffer;
-	short *garbage = new short[20000];	// This size is arbitrary
+	uint8_t buffer[4096];
+	short *garbage = new short[100000];	// This size is arbitrary
 
 	// Skip past the ID3 tags (if there is one, keeping track of the number of bytes)
 	size_t bytes_read = stack_audio_cue_skip_id3(stream);
@@ -253,32 +253,53 @@ static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_d
 		return false;
 	}
 
+	// Logging:
+	fprintf(stderr, "stack_audio_cue_process_mp3(): Processing file...\n");
+
 	// Read the entire file (as some MP3s don't know how long they are until
 	// they are entirely decoded). Note that we also do this one byte at a time
 	// so that we can discover the location of all of the MP3 frames (for quick
 	// seeking later)
 	uint32_t total_samples_per_channel = 0;
 	int frame = 0;
-	while (g_input_stream_read(stream, &buffer, 1, NULL, NULL) > 0)
+	bool escape = false;
+	gssize block_size = 0;
+	size_t frame_start = bytes_read;
+	while (!escape && (block_size = g_input_stream_read(stream, buffer, 4096, NULL, NULL)) > 0)
 	{
-		bytes_read++;
-
-		// Decode the MP3 (and get headers and ignoring the amount of data)
-		int decoded_samples = hip_decode_headers(decoder, &buffer, 1, garbage, garbage, &mp3header);
-		if (decoded_samples > 0)
+		// We read data in 4k blocks to reduce the number of calls to 
+		// g_input_stream_read, but we still want to process the data one byte
+		// at a time so we can figure out where the frames start
+		for (gssize i = 0; i < block_size; i++)
 		{
-			total_samples_per_channel += decoded_samples;
-			fprintf(stderr, "stack_audio_cue_process_mp3(): Decoded frame %d after %d bytes with %d samples\n", frame, bytes_read, total_samples_per_channel);
-			frame++;
-		}
-		else if (decoded_samples < 0)
-		{
-			fprintf(stderr, "stack_audio_cue_process_mp3(): Call returned -1\n");
-			break;
+			bytes_read++;
+
+			// Decode the MP3 (and get headers and ignoring the amount of data)
+			int decoded_samples = hip_decode_headers(decoder, &buffer[i], 1, garbage, garbage, &mp3header);
+			if (decoded_samples > 0)
+			{
+				total_samples_per_channel += decoded_samples;
+				//fprintf(stderr, "stack_audio_cue_process_mp3(): Decoded frame %d after %d bytes from position %d with %d samples (size: %d bytes)\n", frame, bytes_read, frame_start, total_samples_per_channel, bytes_read - frame_start);
+				frame++;
+				frame_start = bytes_read + 1;
+			}
+			else if (decoded_samples < 0)
+			{
+				fprintf(stderr, "stack_audio_cue_process_mp3(): Call returned -1\n");
+				escape = true;
+				break;
+			}
+
+			// If we've parsed the header and we don't need the length, then exit
+			if (mp3header.header_parsed == 1 && !need_length)
+			{
+				escape = true;
+				break;
+			}
 		}
 
-		// If we've parsed the header and we don't need the length, then exit
-		if (mp3header.header_parsed == 1 && !need_length)
+		// If we're finished or something went wrong, then escape
+		if (escape)
 		{
 			break;
 		}
@@ -1027,6 +1048,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	// Load media start and end times
 	STACK_AUDIO_CUE(cue)->media_start_time = cue_data["media_start_time"].asInt64();
 	STACK_AUDIO_CUE(cue)->media_end_time = cue_data["media_end_time"].asInt64();
+	stack_cue_set_action_time(STACK_CUE(cue), STACK_AUDIO_CUE(cue)->media_end_time - STACK_AUDIO_CUE(cue)->media_start_time);
 	
 	// Load playback volume
 	if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
