@@ -4,31 +4,12 @@
 // Includes:
 #include "StackCue.h"
 
-// RIFF Wave header structure
-#pragma pack(push, 2)
-typedef struct WaveHeader
-{
-	char chunk_id[4];
-	uint32_t chunk_size;
-	char format[4];
-	char subchunk_1_id[4];
-	uint32_t subchunk_1_size;
-	uint16_t audio_format;
-	uint16_t num_channels;
-	uint32_t sample_rate;
-	uint32_t byte_rate;
-	uint16_t block_align;
-	uint16_t bits_per_sample;
-	char subchunk_2_id[4];
-	uint32_t subchunk_2_size;
-} WaveHeader;
-#pragma pack(pop)
-
 // Supported file formats
 typedef enum StackAudioFileFormat
 {
-	STACK_AUDIO_FILE_FORMAT_WAVE = 0,
-	STACK_AUDIO_FILE_FORMAT_MP3 = 1,
+	STACK_AUDIO_FILE_FORMAT_NONE = 0,
+	STACK_AUDIO_FILE_FORMAT_WAVE = 1,
+	STACK_AUDIO_FILE_FORMAT_MP3 = 2,
 } StackAudioFileFormat;
 
 // An audio cue
@@ -75,6 +56,9 @@ typedef struct StackAudioCue
 	// The audio format
 	StackAudioFileFormat format;
 
+	// Arbitrary per-file data
+	void *file_data;
+
 	// Amount of audio data sent so far in playback
 	stack_time_t playback_data_sent;
 	
@@ -84,9 +68,6 @@ typedef struct StackAudioCue
 	// The currently open file
 	GFile *playback_file;
 	GFileInputStream *playback_file_stream;
-	
-	// The wave header of the open file
-	WaveHeader playback_header;
 	
 	// Audio pointer
 	size_t playback_audio_ptr;
