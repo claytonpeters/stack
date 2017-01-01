@@ -28,7 +28,7 @@
 @define-color wm_bg_b @theme_bg_color;
 @define-color wm_shadow alpha(black, 0.35);
 @define-color wm_border alpha(black, 0.18);
-8define-color wm_button_hover_color_a shade(#404050, 1.3);
+@define-color wm_button_hover_color_a shade(#404050, 1.3);
 @define-color wm_button_hover_color_b #404050;
 @define-color wm_button_active_color_a shade(#404050, 0.85);
 @define-color wm_button_active_color_b shade(#404050, 0.89);
@@ -86,7 +86,7 @@
   -gtk-image-effect: dim; }
 
 .gtkstyle-fallback {
-  background-color: @theme_#f00bg_color;
+  background-color: @theme_bg_color;
   color: @theme_fg_color; }
   .gtkstyle-fallback:prelight {
     background-color: white;
@@ -144,7 +144,7 @@ GtkTextView.view, GtkTextView.view:insensitive, GtkTextView.view:backdrop
 {
   padding: 4px;
   border: 0px;
-  border-style: transparent;
+  border-style: none;
   background: transparent;
   color: @text_entry;
   box-shadow: none;
@@ -1706,7 +1706,7 @@ GtkCalendar {
         border-width: 2px;
         border-style: solid;
         color: @theme_fg_color;
-        border-color: @half_color;
+        border-color: @half_color; }
       .message-dialog.csd .dialog-action-area .button:active {
         border-width: 2px;
         border-style: solid;

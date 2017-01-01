@@ -358,4 +358,3 @@ void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 	cue->post_trigger = post_trigger;
 	stack_cue_list_changed(cue->parent, cue);
 }
-

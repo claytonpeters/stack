@@ -276,8 +276,10 @@ static void saw_cue_state_changed(StackCueList *cue_list, StackCue *cue, void *u
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	// Update the list store
-	saw_update_cue((gpointer)window, cue);
+	// Update the list store. We emit a signal here rather than calling 
+	// saw_update_cue to prevent the draw happening on the wrong thread when
+	// called from the pulse thread
+	g_signal_emit_by_name(window, "update-cue", cue);
 }
 
 // Updates a pre/post wait time on the properties panel

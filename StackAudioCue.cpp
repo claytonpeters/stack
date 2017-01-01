@@ -50,8 +50,9 @@ typedef struct PlaybackDataMP3
 
 typedef struct MP3FrameInfo
 {
-	size_t byte_position;		// Location of frame in the file
-	size_t sample_position;		// The first sample of this frame
+	size_t byte_position;       // Location of frame in the file
+	size_t sample_position;	    // The first sample of this frame
+	size_t frame_size_samples;  // The size of the frame in samples
 } MP3FrameInfo;
 
 // ID3 Header structure (so we can skip the header that LAME can't handle)
@@ -278,6 +279,7 @@ static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_d
 			int decoded_samples = hip_decode_headers(decoder, &buffer[i], 1, garbage, garbage, &mp3header);
 			if (decoded_samples > 0)
 			{
+				mp3_data->frames.push_back(MP3FrameInfo{frame_start, total_samples_per_channel, decoded_samples});
 				total_samples_per_channel += decoded_samples;
 				//fprintf(stderr, "stack_audio_cue_process_mp3(): Decoded frame %d after %d bytes from position %d with %d samples (size: %d bytes)\n", frame, bytes_read, frame_start, total_samples_per_channel, bytes_read - frame_start);
 				frame++;
@@ -677,6 +679,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		fprintf(stderr, "stack_audio_cue_play(): Failed to open playback stream\n");
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
 		g_object_unref(audio_cue->playback_file);
+		audio_cue->playback_file = NULL;
 		return false;
 	}
 
@@ -700,8 +703,24 @@ static bool stack_audio_cue_play(StackCue *cue)
 		pbdata->right = new int16_t[100000];
 		pbdata->size = 100000;
 
+		FileDataMP3* file_data = (FileDataMP3*)audio_cue->file_data;
+		int64_t start_sample = ((double)file_data->sample_rate * (double)audio_cue->media_start_time / NANOSECS_PER_SEC);
+
+		// Iterate through the known frames
+		for (auto frame : file_data->frames)
+		{
+			// If the frame we're looking at contains our start_sample
+			if (frame.sample_position + frame.frame_size_samples >= start_sample)
+			{
+				// Seek to the start of the frame
+				fprintf(stderr, "start_sample = %d, frame sample_position = %d, frame byte_position = %d\n", start_sample, frame.sample_position, frame.byte_position);
+				g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), frame.byte_position, G_SEEK_SET, NULL, NULL);
+				break;
+			}
+		}
+
 		// Skip past the ID3 tags (if there are any)
-		size_t bytes_read = stack_audio_cue_skip_id3((GInputStream*)audio_cue->playback_file_stream);
+		//size_t bytes_read = stack_audio_cue_skip_id3((GInputStream*)audio_cue->playback_file_stream);
 	}
 #endif
 	
