@@ -91,8 +91,13 @@ bool stack_cue_play_base(StackCue *cue)
 // Pauses a base cue
 void stack_cue_pause_base(StackCue *cue)
 {
-	cue->pause_time = stack_get_clock_time();
-	cue->pause_paused_time = cue->paused_time;
+	// Only pause if we're currently playing
+	if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+	{
+		cue->pause_time = stack_get_clock_time();
+		cue->pause_paused_time = cue->paused_time;
+		stack_cue_set_state(cue, STACK_CUE_STATE_PAUSED);		
+	}
 }
 
 // Stops a base cue
@@ -149,7 +154,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	}
 	
 	// If we're in pre, but pre has finished
-	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_action_time > 0)
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time == cue->pre_time)
 	{
 		// If we're still in action time
 		if (run_action_time < cue->action_time)
@@ -159,22 +164,33 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			return;
 		}
 
-		// See if post is still running
-		if (run_post_time > 0)
+		// See if we have a post-wait
+		if (cue->post_time > 0)
 		{
-			if (run_post_time < cue->post_time)
+			// Is that post running
+			if (run_post_time > 0)
 			{
-				// Change us to the post state
-				stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
-				return;
-			}
-			else
-			{
-				// Stop the cue
-				stack_cue_stop(cue);
+				if (run_post_time < cue->post_time)
+				{
+					// Change us to the post state
+					stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
+					return;
+				}
+				else
+				{
+					// Stop the cue
+					stack_cue_stop(cue);
 
-				return;
+					return;
+				}
 			}
+		}
+		else
+		{
+			// Stop the cue
+			stack_cue_stop(cue);
+
+			return;
 		}
 	}
 	

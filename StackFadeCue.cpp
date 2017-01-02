@@ -19,7 +19,7 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	// Initialise the superclass
 	stack_cue_init(&cue->super, cue_list);
 
-	// Make this class a StackAudioCue
+	// Make this class a StackFadeCue
 	cue->super._class_name = "StackFadeCue";
 	
 	// We start in error state until we have a target

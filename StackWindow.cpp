@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackAudioCue.h"
 #include "StackFadeCue.h"
+#include "StackActionCue.h"
 #include "StackAudioDevice.h"
 #include <cstring>
 #include <cstdlib>
@@ -747,6 +748,35 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
+static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
+	// Create the new cue
+	StackActionCue* new_cue = STACK_ACTION_CUE(stack_cue_new("StackActionCue", window->cue_list));
+	
+	// Add the list to our cue stack
+	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
+
+	// Append a row to the list store and get an iterator
+	GtkTreeIter iter;
+	gtk_list_store_append(window->store, &iter);
+
+	// Update that last row in the list store with the basics of the cue
+	saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
+
+	// Select the new cue
+	saw_select_last_cue(window);	
+}
+
+// Menu callback
 static void saw_help_about_clicked(void* widget, gpointer user_data)
 {
 	// Build an about dialog
@@ -756,6 +786,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2016 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
+	gtk_window_set_transient_for(GTK_WINDOW(about), GTK_WINDOW(user_data));
 	
 	// Show the dialog
 	gtk_dialog_run(GTK_DIALOG(about));
@@ -1277,6 +1308,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_group_clicked", G_CALLBACK(saw_cue_add_group_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_fade_clicked", G_CALLBACK(saw_cue_add_fade_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_action_clicked", G_CALLBACK(saw_cue_add_action_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_help_about_clicked", G_CALLBACK(saw_help_about_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_play_clicked", G_CALLBACK(saw_cue_play_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_clicked", G_CALLBACK(saw_cue_stop_clicked));

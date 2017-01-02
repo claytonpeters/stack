@@ -649,12 +649,22 @@ static void acp_volume_changed(GtkRange *range, gpointer user_data)
 // Called when we're being played
 static bool stack_audio_cue_play(StackCue *cue)
 {
+	// Get the state of the cue before we call the base function
+	StackCueState pre_play_state = cue->state;
+
 	// Call the super class
 	if (!stack_cue_play_base(cue))
 	{
 		return false;
 	}
 	
+	// If we were paused before...
+	if (pre_play_state == STACK_CUE_STATE_PAUSED)
+	{
+		// ...then we don't need to do anything!
+		return true;
+	}
+
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
 	

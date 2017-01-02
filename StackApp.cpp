@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackAudioCue.h"
 #include "StackFadeCue.h"
+#include "StackActionCue.h"
 #include "StackPulseAudioDevice.h"
 
 // GTK stuff
@@ -14,6 +15,7 @@ static void stack_app_init(StackApp *app)
 	stack_cue_initsystem();
 	stack_audio_cue_register();
 	stack_fade_cue_register();
+	stack_action_cue_register();
 	stack_audio_device_initsystem();
 	stack_pulse_audio_device_register();
 }
