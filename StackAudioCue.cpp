@@ -657,16 +657,18 @@ static bool stack_audio_cue_play(StackCue *cue)
 	{
 		return false;
 	}
-	
-	// If we were paused before...
-	if (pre_play_state == STACK_CUE_STATE_PAUSED)
-	{
-		// ...then we don't need to do anything!
-		return true;
-	}
 
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
+
+	// If we were paused before...
+	if (pre_play_state == STACK_CUE_STATE_PAUSED)
+	{
+		// ...then we need to reset the pointer into the audio buffer
+		audio_cue->playback_audio_ptr = -1;
+
+		return true;
+	}
 	
 	// Initialise playback
 	audio_cue->playback_data_sent = 0;
