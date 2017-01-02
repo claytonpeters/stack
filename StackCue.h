@@ -268,6 +268,7 @@ void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
+cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

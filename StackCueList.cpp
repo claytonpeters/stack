@@ -622,3 +622,27 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 	return NULL;
 }
 
+/// Gets the cue number that should be inserted next
+/// @param cue_list The cue list to search
+cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list)
+{
+	cue_id_t max_cue_id = 0;
+
+	// Iterate over all the cues, seraching for the maximum cue ID
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		if ((*iter)->id > max_cue_id)
+		{
+			max_cue_id = (*iter)->id;
+		}
+	}
+
+	// Edge case: there are no cues in the list so return cue number 1
+	if (max_cue_id == 0)
+	{
+		return 1000;
+	}
+
+	// Return the next integer cue number
+	return max_cue_id - (max_cue_id % 1000) + 1000;
+}

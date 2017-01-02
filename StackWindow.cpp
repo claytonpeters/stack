@@ -265,7 +265,7 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 		citer = stack_cue_list_iter_next(citer);
 	}
 
-	// Unlock the cue list
+	// Unlock the cue cue_list
 	stack_cue_list_unlock(window->cue_list);
 	
 	// Free the iterator
@@ -294,9 +294,12 @@ static void saw_ucp_wait(StackAppWindow *window, StackCue *cue, bool pre)
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, pre ? "sawPreWait" : "sawPostWait")), waitTime);
 }
 
-// Updates the cue properties window with information from the given 'cue'
-static void saw_update_cue_properties(StackAppWindow *window, StackCue *cue)
+// Updates the cue properties window with information from the given 'cue'.
+// Can also be called by the signal 'update-cue-properties'
+static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 {
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
 	// Update cue number
 	char cue_number[32];
 	stack_cue_id_to_string(cue->id, cue_number, 32);
@@ -1268,6 +1271,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	g_signal_connect(window, "destroy", G_CALLBACK(saw_destroy), (gpointer)window);
 	g_signal_connect(window, "update-selected-cue", G_CALLBACK(saw_update_selected_cue), (gpointer)window);
 	g_signal_connect(window, "update-cue", G_CALLBACK(saw_update_cue), (gpointer)window);
+	g_signal_connect(window, "update-cue-properties", G_CALLBACK(saw_update_cue_properties), (gpointer)window);
 	
 	// Initialise this windows cue stack, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
@@ -1495,6 +1499,7 @@ static void stack_app_window_class_init(StackAppWindowClass *cls)
 	// Define an "update-selected-cue" signal for StackAppWindow
 	g_signal_new("update-selected-cue", stack_app_window_get_type(), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 	g_signal_new("update-cue", stack_app_window_get_type(), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_POINTER);
+	g_signal_new("update-cue-properties", stack_app_window_get_type(), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_POINTER);
 }
 
 // Creates a new StackAppWindow

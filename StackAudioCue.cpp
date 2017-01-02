@@ -500,6 +500,14 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 			cue->media_start_time = 0;
 		}
 		
+		// Update the name if we don't currently have one
+		if (STACK_CUE(cue)->name == NULL || strlen(STACK_CUE(cue)->name) == 0)
+		{
+			gchar* filename = g_filename_from_uri(uri, NULL, NULL);
+			stack_cue_set_name(STACK_CUE(cue), basename(filename));
+			free(filename);
+		}
+
 		// Update the cue action time;
 		stack_audio_cue_update_action_time(cue);
 
@@ -547,6 +555,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 	// have changed state)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget));
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+	g_signal_emit_by_name((gpointer)window, "update-cue-properties", STACK_CUE(cue));
 }
 
 static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)

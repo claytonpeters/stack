@@ -47,7 +47,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->_class_name = "StackCue";
 	cue->parent = cue_list;
 	cue->can_have_children = false;
-	cue->id = 1000;
+	cue->id = stack_cue_list_get_next_cue_number(cue_list);
 	cue->uid = stack_cue_generate_uid();
 	cue->name = strdup("");
 	cue->notes = strdup("");
