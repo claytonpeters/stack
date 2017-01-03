@@ -246,8 +246,8 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	size_t block_size_samples = 1024;
 	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
 	
-	// Write data to the audio streams if necessary (i.e. if there's less than 2x our block size in the buffer)
-	if (clocktime > cue_list->buffer_time - block_size_time * 2)
+	// Write data to the audio streams if necessary (i.e. if there's less than 3x our block size in the buffer)
+	while (clocktime > cue_list->buffer_time - block_size_time * 3)
 	{
 		// A test attempt at underflow detection
 		if (clocktime > cue_list->buffer_time)
