@@ -45,6 +45,11 @@ typedef struct PlaybackDataMP3
 	int32_t read_buffer_size;
 	int16_t *left;
 	int16_t *right;
+	int16_t *left_ring;
+	int16_t *right_ring;
+	size_t ring_read_pointer;
+	size_t ring_write_pointer;
+	size_t ring_used;
 	uint32_t size;
 } PlaybackDataMP3;
 
@@ -120,7 +125,6 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->playback_file_stream = NULL;
 	cue->playback_audio_ptr = 0;
 	cue->playback_data = NULL;
-	cue->rebuffer_amount = 0;
 
 	return STACK_CUE(cue);
 }
@@ -677,9 +681,6 @@ static bool stack_audio_cue_play(StackCue *cue)
 		// ...then we need to reset the pointer into the audio buffer
 		audio_cue->playback_audio_ptr = -1;
 
-		// And we also want to rebuffer
-		audio_cue->rebuffer_amount = 40000000;
-
 		return true;
 	}
 	
@@ -724,9 +725,14 @@ static bool stack_audio_cue_play(StackCue *cue)
 		pbdata->decoder = hip_decode_init();
 		pbdata->read_buffer = new uint8_t[1024];
 		pbdata->read_buffer_size = 1024;
-		pbdata->left = new int16_t[100000];
-		pbdata->right = new int16_t[100000];
 		pbdata->size = 100000;
+		pbdata->left = new int16_t[pbdata->size];
+		pbdata->right = new int16_t[pbdata->size];
+		pbdata->left_ring = new int16_t[pbdata->size];
+		pbdata->right_ring = new int16_t[pbdata->size];
+		pbdata->ring_read_pointer = 0;
+		pbdata->ring_write_pointer = 0;
+		pbdata->ring_used = 0;
 
 		FileDataMP3* file_data = (FileDataMP3*)audio_cue->file_data;
 		int64_t start_sample = ((double)file_data->sample_rate * (double)audio_cue->media_start_time / NANOSECS_PER_SEC);
@@ -773,6 +779,8 @@ static void stack_audio_cue_stop(StackCue *cue)
 		delete [] pbdata->read_buffer;
 		delete [] pbdata->left;
 		delete [] pbdata->right;
+		delete [] pbdata->left_ring;
+		delete [] pbdata->right_ring;
 
 		// Tidy up the playback data structure
 		delete pbdata;
@@ -798,6 +806,8 @@ static void stack_audio_cue_stop(StackCue *cue)
 // Called when we're pulsed (every few milliseconds whilst the cue is in playback)
 static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 {
+	bool no_more_data = false;
+
 	// Call the super class
 	stack_cue_pulse_base(cue, clocktime);
 	
@@ -819,8 +829,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	float audio_scaler = stack_db_to_scalar(audio_cue->playback_live_volume) / 32768.0;
 	
 	// If we've sent no data, or we've running behind, or we're about to need more data
-	//fprintf(stderr, "sent: %lld, action_time + 20ms = %lld, rebuffer_amount = %lld\n", audio_cue->playback_data_sent, action_time + 20000000, audio_cue->rebuffer_amount);
-	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000 || audio_cue->rebuffer_amount > 0)
+	while (!no_more_data && (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000))
 	{
 		stack_time_t just_sent = 0;
 
@@ -841,38 +850,47 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 			// Read data
 			gssize bytes_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, read_buffer, bytes_to_read, NULL, NULL);
 
-			// If we attempted to read past the end of the file (or at least if we
-			// didn't get the number of bytes we were expecting), work out how many
-			// samples we got based on the number of bytes read
-			if (bytes_read < bytes_to_read)
+			// If we've read data
+			if (bytes_read > 0)
 			{
-				samples_per_channel = bytes_read / (wave_data->header.num_channels * wave_data->header.bits_per_sample / 8);
-				total_samples = samples_per_channel * wave_data->header.num_channels;
-			}
+				// If we attempted to read past the end of the file (or at least if we
+				// didn't get the number of bytes we were expecting), work out how many
+				// samples we got based on the number of bytes read
+				if (bytes_read < bytes_to_read)
+				{
+					samples_per_channel = bytes_read / (wave_data->header.num_channels * wave_data->header.bits_per_sample / 8);
+					total_samples = samples_per_channel * wave_data->header.num_channels;
+				}
 
-			// Convert to float Apply audio scaling
-			float *obp = out_buffer;
-			int16_t *ibp = (int16_t*)read_buffer;
-			for (size_t i = 0; i < total_samples; i++)
-			{
-				*(obp++) = *(ibp++) * audio_scaler;
-			}
-			
-			// Write the audio data to the cue list, which handles the output
-			if (wave_data->header.num_channels == 1)
-			{
-				// Write the same to both output channels (assumes two for now)
-				stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 0, out_buffer, samples_per_channel, 1);
-				audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 1, out_buffer, samples_per_channel, 1);
+				// Convert to float Apply audio scaling
+				float *obp = out_buffer;
+				int16_t *ibp = (int16_t*)read_buffer;
+				for (size_t i = 0; i < total_samples; i++)
+				{
+					*(obp++) = *(ibp++) * audio_scaler;
+				}
+				
+				// Write the audio data to the cue list, which handles the output
+				if (wave_data->header.num_channels == 1)
+				{
+					// Write the same to both output channels (assumes two for now)
+					stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 0, out_buffer, samples_per_channel, 1);
+					audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 1, out_buffer, samples_per_channel, 1);
+				}
+				else
+				{
+					size_t initial_audio_ptr = audio_cue->playback_audio_ptr;
+
+					for (uint16_t channel = 0; channel < wave_data->header.num_channels; channel++)
+					{
+						audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, initial_audio_ptr, channel, &out_buffer[channel], samples_per_channel, wave_data->header.num_channels);
+					}
+				}
 			}
 			else
 			{
-				size_t initial_audio_ptr = audio_cue->playback_audio_ptr;
-
-				for (uint16_t channel = 0; channel < wave_data->header.num_channels; channel++)
-				{
-					audio_cue->playback_audio_ptr = stack_cue_list_write_audio(cue->parent, initial_audio_ptr, channel, &out_buffer[channel], samples_per_channel, wave_data->header.num_channels);
-				}
+				// Break out of the outer loop
+				no_more_data = true;
 			}
 			
 			// Tidy up
@@ -889,15 +907,43 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 			gssize data_read = 0;
 			int total_samples = 0;
 
-			// While there's data left and we don't have enough (at least 1024 samples)
-			while (total_samples < 1024 && (data_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, pbdata->read_buffer, pbdata->read_buffer_size, NULL, NULL)) > 0)
+			// While we don't have enough to play in the ring buffers (at least 1024 samples)
+			while (pbdata->ring_used < 1024)
 			{
-				// Decode more of the MP3 (ignoring headers), putting the data 
-				// at the end of the buffer
-				int decoded_samples = hip_decode(pbdata->decoder, pbdata->read_buffer, data_read, &pbdata->left[total_samples], &pbdata->right[total_samples]);
+				// Read some more data
+				data_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, pbdata->read_buffer, pbdata->read_buffer_size, NULL, NULL);
+				if (data_read <= 0)
+				{
+					// Assume EOF, break out of both the inner most and outermost loop
+					no_more_data = true;
+					break;
+				}
+
+				// Decode more of the MP3 (ignoring headers), putting it into our left/right (non-ring) buffers
+				int decoded_samples = hip_decode(pbdata->decoder, pbdata->read_buffer, data_read, pbdata->left, pbdata->right);
 				if (decoded_samples > 0)
 				{
-					total_samples += decoded_samples;
+					// If it can all be written to the ring buffers at once
+					if (pbdata->ring_write_pointer + decoded_samples <= pbdata->size)
+					{
+						// Write left and right data into ring buffers
+						memcpy(&pbdata->left_ring[pbdata->ring_write_pointer], pbdata->left, sizeof(int16_t) * decoded_samples);
+						memcpy(&pbdata->right_ring[pbdata->ring_write_pointer], pbdata->right, sizeof(int16_t) * decoded_samples);
+					}
+					else
+					{
+						// Write left and right into end of ring buffer
+						memcpy(&pbdata->left_ring[pbdata->ring_write_pointer], pbdata->left, sizeof(int16_t) * (pbdata->size - pbdata->ring_write_pointer));
+						memcpy(&pbdata->right_ring[pbdata->ring_write_pointer], pbdata->right, sizeof(int16_t) * (pbdata->size - pbdata->ring_write_pointer));
+
+						// Write remaining left and right into start of ring buffer
+						memcpy(pbdata->left_ring, &pbdata->left[pbdata->size - pbdata->ring_write_pointer], sizeof(int16_t) * (decoded_samples - (pbdata->size - pbdata->ring_write_pointer)));
+						memcpy(pbdata->right_ring, &pbdata->right[pbdata->size - pbdata->ring_write_pointer], sizeof(int16_t) * (decoded_samples - (pbdata->size - pbdata->ring_write_pointer)));
+					}
+
+					// Update ring buffer details
+					pbdata->ring_write_pointer = (pbdata->ring_write_pointer + decoded_samples) % pbdata->size;
+					pbdata->ring_used += decoded_samples;
 				}
 				else if (decoded_samples < 0)
 				{
@@ -906,28 +952,81 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				}
 			}
 
-			if (total_samples > 0)
+			// If there's data in the ring buffer
+			if (pbdata->ring_used > 0)
 			{
+				// Figure out how much to write, up to 1024 samples
+				if (pbdata->ring_used >= 1024)
+				{
+					total_samples = 1024;
+				}
+				else
+				{
+					total_samples = pbdata->ring_used;
+				}
+
 				// Allocate a buffer for float conversion and scaling
 				float *out_buffer = new float[total_samples];
 
 				// Convert to float, and apply audio scaling to left channel
-				float *obp = out_buffer;
-				int16_t *ibp = (int16_t*)pbdata->left;
-				for (size_t i = 0; i < total_samples; i++)
+				if (pbdata->ring_read_pointer + total_samples < pbdata->size)
 				{
-					*(obp++) = *(ibp++) * audio_scaler;
+					float *obp = out_buffer;
+					int16_t *ibp = (int16_t*)&pbdata->left_ring[pbdata->ring_read_pointer];
+					for (size_t i = 0; i < total_samples; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
+				}
+				else
+				{
+					float *obp = out_buffer;
+
+					// End of ring buffer
+					int16_t *ibp = (int16_t*)&pbdata->left_ring[pbdata->ring_read_pointer];
+					for (size_t i = pbdata->ring_read_pointer; i < pbdata->size; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
+
+					// Start of ring buffer
+					ibp = (int16_t*)pbdata->left_ring;
+					for (size_t i = pbdata->size - pbdata->ring_read_pointer; i < total_samples; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
 				}
 
 				// Write left buffer to stream (don't update the stream pointer this time)
 				stack_cue_list_write_audio(cue->parent, audio_cue->playback_audio_ptr, 0, out_buffer, total_samples, 1);
 
 				// Convert to float, and apply audio scaling to right channel
-				obp = out_buffer;
-				ibp = (int16_t*)pbdata->right;
-				for (size_t i = 0; i < total_samples; i++)
+				if (pbdata->ring_read_pointer + total_samples < pbdata->size)
 				{
-					*(obp++) = *(ibp++) * audio_scaler;
+					float *obp = out_buffer;
+					int16_t *ibp = (int16_t*)&pbdata->right_ring[pbdata->ring_read_pointer];
+					for (size_t i = 0; i < total_samples; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
+				}
+				else
+				{
+					float *obp = out_buffer;
+
+					// End of ring buffer
+					int16_t *ibp = (int16_t*)&pbdata->right_ring[pbdata->ring_read_pointer];
+					for (size_t i = pbdata->ring_read_pointer; i < pbdata->size; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
+
+					// Start of ring buffer
+					ibp = (int16_t*)pbdata->right_ring;
+					for (size_t i = pbdata->size - pbdata->ring_read_pointer; i < total_samples; i++)
+					{
+						*(obp++) = *(ibp++) * audio_scaler;
+					}
 				}
 
 				// Write right buffer to stream
@@ -936,23 +1035,16 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				// Tidy up
 				delete [] out_buffer;
 			
+				// Update ring buffer details
+				pbdata->ring_read_pointer = (pbdata->ring_read_pointer + total_samples) % pbdata->size;
+				pbdata->ring_used -= total_samples;
+
 				// Keep track of how much data we've sent to the audio device
 				just_sent = ((stack_time_t)(total_samples) * NANOSECS_PER_SEC) / (stack_time_t)((FileDataMP3*)audio_cue->file_data)->sample_rate;
 			}
 		}
 
 		audio_cue->playback_data_sent += just_sent;
-		if (audio_cue->rebuffer_amount > 0)
-		{
-			if (audio_cue->rebuffer_amount > just_sent)
-			{
-				audio_cue->rebuffer_amount -= just_sent;
-			}
-			else
-			{
-				audio_cue->rebuffer_amount = 0;
-			}
-		}
 #endif
 	}
 }
