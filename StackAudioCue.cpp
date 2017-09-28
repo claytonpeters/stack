@@ -120,6 +120,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->playback_file_stream = NULL;
 	cue->playback_audio_ptr = 0;
 	cue->playback_data = NULL;
+	cue->rebuffer_amount = 0;
 
 	return STACK_CUE(cue);
 }
@@ -676,6 +677,9 @@ static bool stack_audio_cue_play(StackCue *cue)
 		// ...then we need to reset the pointer into the audio buffer
 		audio_cue->playback_audio_ptr = -1;
 
+		// And we also want to rebuffer
+		audio_cue->rebuffer_amount = 40000000;
+
 		return true;
 	}
 	
@@ -815,8 +819,11 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	float audio_scaler = stack_db_to_scalar(audio_cue->playback_live_volume) / 32768.0;
 	
 	// If we've sent no data, or we've running behind, or we're about to need more data
-	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000)
+	//fprintf(stderr, "sent: %lld, action_time + 20ms = %lld, rebuffer_amount = %lld\n", audio_cue->playback_data_sent, action_time + 20000000, audio_cue->rebuffer_amount);
+	if (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000 || audio_cue->rebuffer_amount > 0)
 	{
+		stack_time_t just_sent = 0;
+
 		if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE)
 		{
 			FileDataWave* wave_data = ((FileDataWave*)audio_cue->file_data);
@@ -873,7 +880,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 			delete [] out_buffer;
 		
 			// Keep track of how much data we've sent to the audio device
-			audio_cue->playback_data_sent += ((stack_time_t)samples_per_channel * NANOSECS_PER_SEC) / (stack_time_t)wave_data->header.sample_rate;
+			just_sent = ((stack_time_t)samples_per_channel * NANOSECS_PER_SEC) / (stack_time_t)wave_data->header.sample_rate;
 		}
 #ifndef NO_MP3LAME
 		else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
@@ -930,7 +937,20 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				delete [] out_buffer;
 			
 				// Keep track of how much data we've sent to the audio device
-				audio_cue->playback_data_sent += ((stack_time_t)(total_samples) * NANOSECS_PER_SEC) / (stack_time_t)((FileDataMP3*)audio_cue->file_data)->sample_rate;
+				just_sent = ((stack_time_t)(total_samples) * NANOSECS_PER_SEC) / (stack_time_t)((FileDataMP3*)audio_cue->file_data)->sample_rate;
+			}
+		}
+
+		audio_cue->playback_data_sent += just_sent;
+		if (audio_cue->rebuffer_amount > 0)
+		{
+			if (audio_cue->rebuffer_amount > just_sent)
+			{
+				audio_cue->rebuffer_amount -= just_sent;
+			}
+			else
+			{
+				audio_cue->rebuffer_amount = 0;
 			}
 		}
 #endif

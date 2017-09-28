@@ -74,6 +74,9 @@ typedef struct StackAudioCue
 
 	// Arbitrary per-file playback data
 	void *playback_data;
+
+	// Rebuffer after pause
+	long rebuffer_amount;
 } StackAudioCue;
 
 // Functions: Audio cue functions
