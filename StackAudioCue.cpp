@@ -125,6 +125,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->playback_file_stream = NULL;
 	cue->playback_audio_ptr = 0;
 	cue->playback_data = NULL;
+	cue->rebuffer_amount = 0;
 
 	return STACK_CUE(cue);
 }
@@ -680,6 +681,9 @@ static bool stack_audio_cue_play(StackCue *cue)
 	{
 		// ...then we need to reset the pointer into the audio buffer
 		audio_cue->playback_audio_ptr = -1;
+
+		// And we also want to rebuffer
+		audio_cue->rebuffer_amount = 40000000;
 
 		return true;
 	}
