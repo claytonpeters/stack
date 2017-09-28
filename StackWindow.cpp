@@ -1258,6 +1258,71 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 	return false;
 }
 
+// Callback for a dragged row
+void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info, guint time, gpointer user_data)
+{
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	GtkTreePath *dest_path = NULL;
+	GtkTreeViewDropPosition pos;
+
+	// This seems to be the condition of whether a drop has actually happened...
+	if (x != 0 && y != 0)
+	{
+		// Get the index of the drop
+		size_t new_index = 0;
+
+		// Check to see if there is a row at (x,y) where we are being dropped
+		if (gtk_tree_view_get_dest_row_at_pos(window->treeview, x, y, &dest_path, &pos))
+		{
+			// We have a row, figure out where we're going
+			new_index = gtk_tree_path_get_indices(dest_path)[0];
+			if (pos == GTK_TREE_VIEW_DROP_AFTER)
+			{
+				new_index++;
+			}
+		}
+		else
+		{
+			// We have no row, assume end of list
+			new_index = stack_cue_list_count(window->cue_list);
+		}
+
+		GtkTreeModel *model;
+		GList *list;
+		
+		// Get the selected cue
+		list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
+
+		// If there is a selection
+		if (list != NULL)
+		{
+			list = g_list_first(list);
+	
+			// Get the path to the selected row
+			GtkTreePath *path = (GtkTreePath*)(list->data);
+
+			// Get the data from the tree model for that row
+			GtkTreeIter iter;
+			gtk_tree_model_get_iter(model, &iter, path);
+
+			// Get the cue
+			gpointer cue;
+			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
+
+			fprintf(stderr, "saw_row_dragged(): Moving cue %lld (uid: 0x%016x) to index %u\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
+
+			// Remove the cue from the cue list and move it to it's new location
+			stack_cue_list_lock(window->cue_list);
+			stack_cue_list_move(window->cue_list, STACK_CUE(cue), new_index);
+			stack_cue_list_unlock(window->cue_list);
+
+			// Tidy up
+			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);				
+		}
+	}
+}
+
 // Initialises the window
 static void stack_app_window_init(StackAppWindow *window)
 {
@@ -1361,6 +1426,9 @@ static void stack_app_window_init(StackAppWindow *window)
 	window->store = GTK_LIST_STORE(gtk_tree_view_get_model(window->treeview));
 	window->notebook = GTK_NOTEBOOK(gtk_builder_get_object(window->builder, "sawCuePropsTabs"));
 	
+	// Set up signal handler for drag-drop in cue list
+	g_signal_connect(window->treeview, "drag-data-received", G_CALLBACK(saw_row_dragged), (gpointer)window);
+
 	// Set up a timer to periodically refresh the UI
 	window->timer_state = 0;
 	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);

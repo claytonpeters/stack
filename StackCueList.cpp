@@ -172,6 +172,56 @@ void stack_cue_list_append(StackCueList *cue_list, StackCue *cue)
 	SCL_GET_LIST(cue_list)->push_back(cue);
 }
 
+/// Moves an existing cue within the stack
+/// @param cue_list The cue list
+/// @param cue The cue to be moved
+/// @param index The new position of the cue within the cue list. If greater than the length of the list, it will be put at the end
+void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, size_t index)
+{
+	stackcue_list_t* cues = SCL_GET_LIST(cue_list);
+	bool found = false;
+
+	// Search for the cue to move
+	for (auto iter = cues->begin(); iter != cues->end(); ++iter)
+	{
+		if (*iter == cue)
+		{
+			// If found, erase it from the list temporarily and stop searching
+			cue_list->changed = true;
+			cues->erase(iter);
+			found = true;
+			break;
+		}
+	}
+
+	// If we found the cue, but it back in at it's new location
+	if (found)
+	{
+		// If it's past the end of the list, the append it
+		if (index >= cues->size())
+		{
+			stack_cue_list_append(cue_list, cue);
+		}
+		else
+		{
+			// std::list requires an iterator for postion, so find one
+			size_t i = 0;
+			for (auto iter = cues->begin(); iter != cues->end(); ++iter)
+			{
+				if (i == index)
+				{
+					cues->insert(iter, cue);
+					break;
+				}
+				else
+				{
+					i++;
+				}
+			}
+		}
+	}
+}
+
 /// Returns an iterator to the front of the cue list
 /// @param cue_list The cue list
 /// @returns An iterator
@@ -182,7 +232,7 @@ void *stack_cue_list_iter_front(StackCueList *cue_list)
 	return result;
 }
 
-/// Increments an interator to the next cue
+/// Increments an iterator to the next cue
 /// @param iter A cue list iterator as returned by stack_cue_list_iter_front for example
 void *stack_cue_list_iter_next(void *iter)
 {
@@ -223,11 +273,17 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Iterate over all the cues
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
-		if ((*iter)->state >= STACK_CUE_STATE_PLAYING_PRE && (*iter)->state <= STACK_CUE_STATE_PLAYING_POST)
+		// If the cue is in one of the playing states
+		auto cue_state = (*iter)->state;	
+		if (cue_state >= STACK_CUE_STATE_PLAYING_PRE && cue_state <= STACK_CUE_STATE_PLAYING_POST)
 		{
+			// Pulse the cue
 			stack_cue_pulse(*iter, clocktime);
 		}
 	}
+
+	// Track how long the cue pulses took
+	stack_time_t cue_pulse_time = stack_get_clock_time() - clocktime;
 
 	// If we don't have an audio device configured, don't attempt to read audio
 	// buffer and write out to the device
@@ -241,14 +297,17 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	{
 		cue_list->buffer_time = clocktime;
 	}
-		
-	size_t index, byte_count;
+	
+	size_t index, byte_count, blocks_written = 0;
 	size_t block_size_samples = 1024;
 	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
 	
 	// Write data to the audio streams if necessary (i.e. if there's less than 3x our block size in the buffer)
 	while (clocktime > cue_list->buffer_time - block_size_time * 3)
 	{
+		// Keep track of how many blocks we've written
+		blocks_written++;
+
 		// A test attempt at underflow detection
 		if (clocktime > cue_list->buffer_time)
 		{
@@ -293,8 +352,12 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		
 		// Increment ring buffer and wrap around
 		cue_list->buffer_idx = (cue_list->buffer_idx + block_size_samples) % cue_list->buffer_len;
-		cue_list->buffer_time += ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / cue_list->audio_device->sample_rate;
+		cue_list->buffer_time += block_size_time;
 	}	
+
+	// Statistics: Gather how long it took to do this pulse
+	stack_time_t pulse_time = stack_get_clock_time() - clocktime;
+	//fprintf(stderr, "stack_cue_list_pulse(): Pulse took %lldns (of which cues: %lldns) (wrote %d blocks)\n", pulse_time, cue_pulse_time, blocks_written);
 }
 
 /// Locks a mutex for the cue list
