@@ -549,6 +549,17 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 				// Create a new cue of the correct type
 				const char *class_name = cue_json["class"].asString().c_str();
 				StackCue *cue = stack_cue_new(class_name, cue_list);
+				if (cue == NULL)
+				{
+					fprintf(stderr, "stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
+					cue_json["_skip"] = 1;
+
+					// TODO: It would be nice if we have some sort of "error cue" which
+					// contained the JSON for the cue, so we didn't just drop cues from
+					// the stack
+					
+					continue;
+				}
 
 				// Get the UID of the newly created cue and put a mapping from
 				// the old UID to the new UID. Also store it in the JSON object
@@ -556,14 +567,6 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 				SCL_UID_REMAP(cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
 				cue_json["_new_uid"] = (Json::UInt64)cue->uid;
 				
-				// Ensure we made a cue
-				if (cue == NULL)
-				{
-					cue_json["_skip"] = 1;
-					fprintf(stderr, "stack_cue_from_file(): Failed to create cue of type '%s', skipping\n", cue_json["class"].asString().c_str());
-					continue;
-				}
-
 				// Call base constructor
 				stack_cue_from_json_base(cue, cue_json.toStyledString().c_str());
 				
