@@ -381,7 +381,7 @@ void stack_pulse_audio_device_register()
 }
 
 // The entry point for the plugin that Stack calls
-extern "C" bool stack_initialise_plugin()
+extern "C" bool stack_init_plugin()
 {
 	stack_pulse_audio_device_register();
 	return true;

@@ -49,9 +49,9 @@ static void stack_app_init(StackApp *app)
 
 				if (dl_handle != NULL)
 				{
-					// If we succeeded, try to locate the stack_initialise_plugin symbol
+					// If we succeeded, try to locate the stack_init_plugin symbol
 					bool (*sip_ptr)(void);
-					*(void **)(&sip_ptr) = dlsym(dl_handle, "stack_initialise_plugin");
+					*(void **)(&sip_ptr) = dlsym(dl_handle, "stack_init_plugin");
 
 					if (sip_ptr != NULL)
 					{
