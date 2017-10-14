@@ -601,6 +601,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	
 	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
+	gtk_window_set_title(GTK_WINDOW(window), "Stack");
 
 	// Setup the default device
 	saw_setup_default_device(window);
@@ -1605,6 +1606,9 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		
 		// Refresh the cue list
 		saw_refresh_list_store_from_list(window);
+		char title_buffer[512];
+		snprintf(title_buffer, 512, "%s - Stack", uri);
+		gtk_window_set_title(GTK_WINDOW(window), title_buffer);
 
 		// Setup the default device
 		saw_setup_default_device(window);
