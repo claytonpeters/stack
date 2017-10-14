@@ -1,8 +1,5 @@
 // Includes:
 #include "StackApp.h"
-#include "StackAudioCue.h"
-#include "StackFadeCue.h"
-#include "StackActionCue.h"
 #include "StackAudioDevice.h"
 #include <cstring>
 #include <cstdlib>
@@ -702,7 +699,7 @@ static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 	stack_cue_list_lock(window->cue_list);
 
 	// Create the new cue
-	StackAudioCue* new_cue = STACK_AUDIO_CUE(stack_cue_new("StackAudioCue", window->cue_list));
+	StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
 	
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
@@ -731,7 +728,7 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 	stack_cue_list_lock(window->cue_list);
 
 	// Create the new cue
-	StackFadeCue* new_cue = STACK_FADE_CUE(stack_cue_new("StackFadeCue", window->cue_list));
+	StackCue* new_cue = STACK_CUE(stack_cue_new("StackFadeCue", window->cue_list));
 	
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
@@ -760,7 +757,7 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 	stack_cue_list_lock(window->cue_list);
 
 	// Create the new cue
-	StackActionCue* new_cue = STACK_ACTION_CUE(stack_cue_new("StackActionCue", window->cue_list));
+	StackCue* new_cue = STACK_CUE(stack_cue_new("StackActionCue", window->cue_list));
 	
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));

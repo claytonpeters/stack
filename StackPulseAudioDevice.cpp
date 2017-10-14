@@ -380,3 +380,10 @@ void stack_pulse_audio_device_register()
 	stack_register_audio_device_class(pulse_audio_device_class);
 }
 
+// The entry point for the plugin that Stack calls
+extern "C" bool stack_initialise_plugin()
+{
+	stack_pulse_audio_device_register();
+	return true;
+}
+

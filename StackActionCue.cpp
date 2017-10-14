@@ -350,3 +350,10 @@ void stack_action_cue_register()
 	stack_register_cue_class(action_cue_class);
 }
 
+// The entry point for the plugin that Stack calls
+extern "C" bool stack_initialise_plugin()
+{
+	stack_action_cue_register();
+	return true;
+}
+
