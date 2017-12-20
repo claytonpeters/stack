@@ -173,6 +173,7 @@ typedef void(*stack_unset_tabs_t)(StackCue*, GtkNotebook*);
 typedef char*(*stack_to_json_t)(StackCue*);
 typedef void(*stack_free_json_t)(char*);
 typedef void(*stack_from_json_t)(StackCue*, const char*);
+typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*, void*);
 
 // Defines information about a class
 typedef struct StackCueClass
@@ -248,9 +249,8 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
-StackCueList *stack_cue_list_new_from_file(const char *uri);
+StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback = NULL, void *callback_user_data = NULL);
 bool stack_cue_list_save(StackCueList *cue_list, const char *uri);
-StackCueList *stack_cue_list_new_from_file(const char *uri);
 void stack_cue_list_destroy(StackCueList *cue_list);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);

@@ -435,9 +435,16 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 
 /// Creates a new cue list using the contents of a file
 /// @param uri The URI of the path to read from (e.g. file:///home/blah/test.stack)
+/// @param callback The callback function to notify on progress
+/// @param user_data Arbitrary data to pass to the callback function
 /// @returns A new cue list or NULL on error
-StackCueList *stack_cue_list_new_from_file(const char *uri)
+StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback, void* user_data)
 {
+	if (callback)
+	{
+		callback(NULL, 0, "Opening file...", user_data);
+	}
+
 	// Open the file
 	GFile *file = g_file_new_for_uri(uri);
 	if (file == NULL)
@@ -471,6 +478,11 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 	// Allocate memory
 	std::vector<char> json_buffer(size + 1);
 	
+	if (callback)
+	{
+		callback(NULL, 0.01, "Reading file...", user_data);
+	}
+
 	// Read the file in to the buffer
 	if (g_input_stream_read(G_INPUT_STREAM(stream), &json_buffer[0], size, NULL, NULL) != size)
 	{
@@ -488,6 +500,10 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 	g_object_unref(file);
 	
 	// Parse the JSON
+	if (callback)
+	{
+		callback(NULL, 0.03, "Parsing file...", user_data);
+	}
 	Json::Reader reader;
 	Json::Value cue_list_root;
 	reader.parse(&json_buffer[0], cue_list_root);
@@ -516,8 +532,14 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 		
 		if (cues_root.isArray())
 		{
+			if (callback)
+			{
+				callback(NULL, 0.1, "Preparing cue list...", user_data);
+			}
+
 			// Iterate over the cues, creating their instances, and populating
 			// just their base classes (we need to have built a UID map)
+			int cue_count = 0;
 			for (auto iter = cues_root.begin(); iter != cues_root.end(); ++iter)
 			{
 				Json::Value& cue_json = *iter;
@@ -572,9 +594,16 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 				
 				// Append the cue to the cue list
 				stack_cue_list_append(cue_list, cue);
+				cue_count++;
+			}
+
+			if (callback)
+			{
+				callback(cue_list, 0.2, "Initialising cues...", user_data);
 			}
 
 			// Iterate over the cues again calling their actual constructor
+			int prepared_cues = 0;
 			for (auto iter = cues_root.begin(); iter != cues_root.end(); ++iter)
 			{
 				Json::Value& cue_json = *iter;
@@ -587,6 +616,15 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 				
 				// Call the appropriate overloaded function
 				stack_cue_from_json(stack_cue_get_by_uid(cue_json["_new_uid"].asUInt64()), cue_json.toStyledString().c_str());
+				prepared_cues++;
+
+				if (callback)
+				{
+					// We count the first 20% as parsing the cue list
+					double progress = 0.2 + ((double)prepared_cues * 0.8 / (double)cue_count);
+					callback(cue_list, progress, "Initialising cues...", user_data);
+				}
+
 			}
 		}
 		else
@@ -605,6 +643,11 @@ StackCueList *stack_cue_list_new_from_file(const char *uri)
 	// Store the URI of the file we opened
 	cue_list->uri = strdup(uri);
 	
+	if (callback)
+	{
+		callback(NULL, 1.0, "Ready", user_data);
+	}
+
 	return cue_list;
 }
 

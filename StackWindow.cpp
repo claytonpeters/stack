@@ -16,6 +16,19 @@ typedef struct ModelFindCue
 	GtkTreePath *path;
 } ModelFindCue;
 
+// Structure used to contain show opening data
+typedef struct ShowLoadingData
+{
+	StackAppWindow* window;
+	char* uri;
+	GtkDialog* dialog;
+	GtkBuilder* builder; 
+	StackCueList* new_cue_list;
+	const char *message;
+	double progress;
+	bool finished;
+} ShowLoadingData;
+
 static void set_stack_pulse_thread_priority(StackAppWindow* window)
 {
 	// Set thread priority
@@ -45,6 +58,62 @@ static void stack_pulse_thread(StackAppWindow* window)
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	
+	return;
+}
+
+// Callback when loading a show to update our loading dialog
+static void saw_open_file_callback(StackCueList *cue_list, double progress, const char *message, void *data)
+{
+	// Get our show loading data
+	ShowLoadingData *sld = (ShowLoadingData*)data;
+
+	// Update our show loading data
+	sld->message = message;
+	sld->progress = progress;
+
+	fprintf(stderr, "saw_open_file_callback: %s (%.2f%%)\n", message, progress * 100.0);
+}
+
+// Timer to update Show Loading dialog and close it when complete
+static gboolean saw_open_file_timer(gpointer data)
+{
+	// Get our show loading data
+	ShowLoadingData *sld = (ShowLoadingData*)data;
+
+	if (sld->finished)
+	{
+		// If we're finished, close the dialog. Check if the pointer
+		// is non-NULL as the dialog may have already been closed
+		if (sld->dialog)
+		{
+			gtk_dialog_response(sld->dialog, 0);
+		}
+	}
+	else
+	{
+		// Otherwise, update our dialog
+		gtk_level_bar_set_value(GTK_LEVEL_BAR(gtk_builder_get_object(sld->builder, "sldProgress")), sld->progress);
+		if (sld->message != NULL)
+		{
+			gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sld->builder, "sldLoadingActionLabel")), sld->message);
+		}
+	}
+
+	// Return FALSE when we're finished to kill the timer
+	return (gboolean)!sld->finished;
+}
+
+// Thread to open a file off of the UI thread
+static void saw_open_file_thread(ShowLoadingData *sld)
+{
+	// Wait for dialog a little - it's better UX
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+	// Open the file
+	sld->new_cue_list = stack_cue_list_new_from_file(sld->uri, saw_open_file_callback, (void*)sld);
+
+	// Note that we've finished and exit the thread
+	sld->finished = true;
 	return;
 }
 
@@ -539,14 +608,17 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 
 		// Get the file and open it
 		GFile *file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
+		gtk_widget_destroy(dialog);
 		stack_app_window_open(window, file);
 		
 		// Tidy up
 		//g_free(uri);
 		g_object_unref(file);
 	}
-
-	gtk_widget_destroy(dialog);
+	else
+	{
+		gtk_widget_destroy(dialog);
+	}
 }
 
 // Menu/toolbar callback
@@ -1582,14 +1654,60 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 	// Get the URI of the File
 	char *uri = g_file_get_uri(file);
 	
-	// Open the file
-	StackCueList *new_cue_list = stack_cue_list_new_from_file(uri);
+	// Set up the loading dialog and data
+	ShowLoadingData sld;
+	sld.builder = gtk_builder_new_from_file("StackLoading.ui");
+	sld.dialog = GTK_DIALOG(gtk_builder_get_object(sld.builder, "StackLoadingDialog"));
+	sld.window = window;
+	sld.uri = uri;
+	sld.new_cue_list = NULL;
+	sld.finished = false;
+	sld.progress = 0;
+	sld.message = NULL;
+	gtk_window_set_transient_for(GTK_WINDOW(sld.dialog), GTK_WINDOW(window));
+	gtk_window_set_default_size(GTK_WINDOW(sld.dialog), 350, 150);
+	gtk_dialog_add_buttons(sld.dialog, "Cancel", 1, NULL);
+	gtk_dialog_set_default_response(sld.dialog, 1);
 
-	if (new_cue_list != NULL)
+	// Start the thread, dialog update timer, and show the dialog
+	guint id = g_timeout_add(20, saw_open_file_timer, (gpointer)&sld);
+	std::thread thread = std::thread(saw_open_file_thread, &sld);
+
+	// This call blocks until the dialog goes away
+	gint result = gtk_dialog_run(sld.dialog);
+
+	// If we get here, either the timer killed the dialog, or the user 
+	// cancelled. In either case, wait for the thread to die 
+	thread.join();
+
+	// If the result from the dialog was 1 (Cancel - see gtk_dialog_add_buttons 
+	// above), then we were cancelled
+	if (result == 1)
+	{
+		// Stop the timer from doing anything else
+		sld.finished = true;
+
+		// Delete the cue list
+		if (sld.new_cue_list)
+		{
+			stack_cue_list_destroy(sld.new_cue_list);
+
+			// Set the pointer to NULL, so the if() below does nothing
+			sld.new_cue_list = NULL;
+		}
+	}
+
+	// Clear the loading dialog
+	gtk_widget_destroy(GTK_WIDGET(sld.dialog));
+	sld.dialog = NULL;
+	g_object_unref(sld.builder);
+	sld.builder = NULL;
+
+	if (sld.new_cue_list != NULL)
 	{
 		// Set up state change notification
-		new_cue_list->state_change_func = saw_cue_state_changed;
-		new_cue_list->state_change_func_data = (void*)window;
+		sld.new_cue_list->state_change_func = saw_cue_state_changed;
+		sld.new_cue_list->state_change_func_data = (void*)window;
 
 		// Kill the cue list pulsing thread
 		window->kill_thread = true;
@@ -1602,7 +1720,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		stack_cue_list_destroy(window->cue_list);
 		
 		// Store the new cue list
-		window->cue_list = new_cue_list;
+		window->cue_list = sld.new_cue_list;
 		
 		// Refresh the cue list
 		saw_refresh_list_store_from_list(window);

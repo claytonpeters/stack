@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.16.1 -->
+<!-- Generated with glade 3.20.0 -->
 <interface>
   <requires lib="gtk+" version="3.8"/>
   <object class="GtkAccelGroup" id="sawAccelGroup"/>
@@ -613,30 +613,32 @@
                           <object class="GtkLabel" id="sawCueNumberLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
+                            <property name="halign">end</property>
                             <property name="label" translatable="yes">Cue Number:</property>
                             <property name="justify">right</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawCueNumber"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">0</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawCueNameLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
+                            <property name="halign">end</property>
                             <property name="label" translatable="yes">Name:</property>
                             <property name="justify">right</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawCueName"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">1</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -648,12 +650,13 @@
                             <property name="caps_lock_warning">False</property>
                             <property name="placeholder_text" translatable="yes">A name for the cue, displayed in the table above</property>
                             <signal name="focus-out-event" handler="saw_cue_name_changed" swapped="no"/>
+                            <accessibility>
+                              <relation type="labelled-by" target="sawCueNameLabel"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">1</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -669,6 +672,9 @@
                                 <property name="width_chars">1</property>
                                 <property name="placeholder_text" translatable="yes">The cue number for the script</property>
                                 <signal name="focus-out-event" handler="saw_cue_number_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawCueNumberLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">True</property>
@@ -680,9 +686,12 @@
                               <object class="GtkLabel" id="sawCueColorLabel">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
+                                <property name="halign">end</property>
                                 <property name="margin_left">40</property>
-                                <property name="xalign">1</property>
                                 <property name="label" translatable="yes">Colour:</property>
+                                <accessibility>
+                                  <relation type="label-for" target="sawCueColor"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -697,6 +706,9 @@
                                 <property name="receives_default">True</property>
                                 <property name="hexpand">True</property>
                                 <signal name="color-set" handler="saw_cue_color_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawCueColorLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -708,26 +720,25 @@
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">0</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawCueNoteLabels">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
-                            <property name="yalign">0</property>
-                            <property name="ypad">6</property>
+                            <property name="halign">end</property>
+                            <property name="valign">start</property>
+                            <property name="margin_top">6</property>
                             <property name="label" translatable="yes">Notes:</property>
                             <property name="justify">right</property>
                             <property name="ellipsize">end</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawCueNotes"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">2</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -750,14 +761,15 @@
                                 <property name="vscroll_policy">natural</property>
                                 <property name="wrap_mode">word</property>
                                 <signal name="focus-out-event" handler="saw_cue_notes_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawCueNoteLabels"/>
+                                </accessibility>
                               </object>
                             </child>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">2</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                       </object>
@@ -786,50 +798,57 @@
                           <object class="GtkLabel" id="sawPreWaitLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
+                            <property name="halign">end</property>
                             <property name="label" translatable="yes">Pre-wait Delay:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawPreWait"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">0</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawPostWaitLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
+                            <property name="halign">end</property>
                             <property name="label" translatable="yes">Post-wait Delay:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawPostWait"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">1</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawPostWaitTriggerLabel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="xalign">1</property>
-                            <property name="yalign">0</property>
-                            <property name="ypad">3</property>
+                            <property name="halign">end</property>
+                            <property name="valign">start</property>
+                            <property name="margin_top">6</property>
                             <property name="label" translatable="yes">Post-wait Trigger:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
+                            <accessibility>
+                              <relation type="label-for" target="sawPostWaitTriggerBox"/>
+                              <relation type="label-for" target="sawPostWaitTrigger1"/>
+                              <relation type="label-for" target="sawPostWaitTrigger2"/>
+                              <relation type="label-for" target="sawPostWaitTrigger3"/>
+                              <relation type="label-for" target="sawPostWaitTrigger4"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
                             <property name="top_attach">2</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -843,10 +862,13 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
-                                <property name="xalign">0</property>
+                                <property name="halign">start</property>
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -860,11 +882,14 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
-                                <property name="xalign">0</property>
+                                <property name="halign">start</property>
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -878,12 +903,14 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
-                                <property name="xalign">0</property>
-                                <property name="yalign">0.52999997138977051</property>
+                                <property name="halign">start</property>
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -897,11 +924,14 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
-                                <property name="xalign">0</property>
+                                <property name="halign">start</property>
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
+                                </accessibility>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -909,12 +939,13 @@
                                 <property name="position">3</property>
                               </packing>
                             </child>
+                            <accessibility>
+                              <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">2</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -926,12 +957,13 @@
                             <property name="placeholder_text" translatable="yes">Delay after triggering to run the cue</property>
                             <property name="input_purpose">number</property>
                             <signal name="focus-out-event" handler="saw_cue_prewait_changed" swapped="no"/>
+                            <accessibility>
+                              <relation type="labelled-by" target="sawPreWaitLabel"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">0</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                         <child>
@@ -943,12 +975,13 @@
                             <property name="placeholder_text" translatable="yes">Delay after finishing the cue to perform actions</property>
                             <property name="input_purpose">number</property>
                             <signal name="focus-out-event" handler="saw_cue_postwait_changed" swapped="no"/>
+                            <accessibility>
+                              <relation type="labelled-by" target="sawPostWaitLabel"/>
+                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
                             <property name="top_attach">1</property>
-                            <property name="width">1</property>
-                            <property name="height">1</property>
                           </packing>
                         </child>
                       </object>
@@ -986,13 +1019,13 @@
               <object class="GtkBox" id="sawActiveCuesBox">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="border_width">4</property>
                 <property name="orientation">vertical</property>
-                <property name="border-width">4</property>
                 <child>
                   <object class="GtkLabel" id="sawActiveCuesLabel">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="xalign">0</property>
+                    <property name="halign">start</property>
                     <property name="label" translatable="yes">Active Cues</property>
                     <attributes>
                       <attribute name="weight" value="bold"/>
