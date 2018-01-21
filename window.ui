@@ -50,6 +50,7 @@
                   <object class="GtkMenu" id="sawFileMenu">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="accel_group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawFileNewMI">
                         <property name="label">gtk-new</property>
@@ -125,6 +126,7 @@
                   <object class="GtkMenu" id="sawEditMenu">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="accel_group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawEditCutMI">
                         <property name="label">gtk-cut</property>
@@ -170,6 +172,22 @@
                         <accelerator key="Delete" signal="activate"/>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="sawEditSep1">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkImageMenuItem" id="sawEditShowSettingsMI">
+                        <property name="label" translatable="yes">_Show Settings</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="use_stock">False</property>
+                        <signal name="activate" handler="saw_edit_show_settings_clicked" swapped="no"/>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -184,6 +202,7 @@
                   <object class="GtkMenu" id="sawCueMenu">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="accel_group">sawAccelGroup</property>
                     <child>
                       <object class="GtkMenuItem" id="sawCueAddGroupMI">
                         <property name="visible">True</property>
@@ -240,6 +259,22 @@
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">_View</property>
                 <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="accel_group">sawAccelGroup</property>
+                    <child>
+                      <object class="GtkMenuItem" id="sawViewActiveCueList">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Active Cue List</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="saw_view_active_cue_list_clicked" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
@@ -252,6 +287,7 @@
                   <object class="GtkMenu" id="sawHelpMenu">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="accel_group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawHelpAboutMI">
                         <property name="label">gtk-about</property>

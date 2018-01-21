@@ -756,6 +756,12 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	}
 }
 
+// Edit -> Show Settings
+static void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
+{
+	sss_show_dialog(STACK_APP_WINDOW(user_data));
+}
+
 // Menu callback
 static void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 {
@@ -847,6 +853,30 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 
 	// Select the new cue
 	saw_select_last_cue(window);	
+}
+
+// Menu callback
+static void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	GtkPaned *hPanel = GTK_PANED(gtk_builder_get_object(window->builder, "sawHPanel"));
+	gint position = gtk_paned_get_position(hPanel);
+	gint window_width, window_height;
+	gtk_window_get_size(GTK_WINDOW(window), &window_width, &window_height);
+
+	// If the panel is at the window width (given some tolerance)
+	if (position >= window_width - 5)
+	{
+		// Set it to be at 75% of the width of the window (so 25% wide)
+		gtk_paned_set_position(hPanel, window_width * 3 / 4);
+	}
+	else
+	{
+		// Hide it by setting it to the width of the window
+		gtk_paned_set_position(hPanel, window_width);
+	}
 }
 
 // Menu callback
@@ -1444,14 +1474,16 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_copy_clicked", G_CALLBACK(saw_edit_copy_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_paste_clicked", G_CALLBACK(saw_edit_paste_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_delete_clicked", G_CALLBACK(saw_edit_delete_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_edit_show_settings_clicked", G_CALLBACK(saw_edit_show_settings_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_group_clicked", G_CALLBACK(saw_cue_add_group_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_fade_clicked", G_CALLBACK(saw_cue_add_fade_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_action_clicked", G_CALLBACK(saw_cue_add_action_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_help_about_clicked", G_CALLBACK(saw_help_about_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_play_clicked", G_CALLBACK(saw_cue_play_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_clicked", G_CALLBACK(saw_cue_stop_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_all_clicked", G_CALLBACK(saw_cue_stop_all_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_view_active_cue_list_clicked", G_CALLBACK(saw_view_active_cue_list_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_help_about_clicked", G_CALLBACK(saw_help_about_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_selected", G_CALLBACK(saw_cue_selected));
 
 	// Set up the callbacks - default property pages
@@ -1487,9 +1519,11 @@ static void stack_app_window_init(StackAppWindow *window)
 	GtkAccelGroup* ag = GTK_ACCEL_GROUP(gtk_builder_get_object(window->builder, "sawAccelGroup"));
 	gtk_window_add_accel_group(GTK_WINDOW(window), ag);
 
-	// Add on the non-stock accelerators that Glade doesn't want to make work for some reason
-	//gtk_accel_group_connect(ag, 'G', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_add_group_clicked, 0, 0));
-	//gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(saw_cue_add_audio_clicked, 0, 0));
+	// Add on the non-stock accelerators that we're using
+	gtk_accel_group_connect(ag, 'G', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_group_clicked), window, NULL));
+	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
+	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
+	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
 	
 	// Store some things in our class for easiness
 	window->treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawCuesTreeView"));

@@ -99,6 +99,9 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 			pased->devices[pased->count].name = strdup(sinkinfo->name);
 			pased->devices[pased->count].desc = strdup(sinkinfo->description);
 			pased->devices[pased->count].channels = sinkinfo->channel_map.channels;
+			pased->devices[pased->count].num_rates = 1;	// I *think* PulseAudio only provides one rate per device
+			pased->devices[pased->count].rates = new uint32_t[1];
+			pased->devices[pased->count].rates[0] = sinkinfo->sample_spec.rate;
 			
 			// Increment the count
 			pased->count++;
@@ -264,6 +267,7 @@ void stack_pulse_audio_device_free_outputs(StackAudioDeviceDesc **outputs, size_
 	{
 		free((*outputs)[i].name);
 		free((*outputs)[i].desc);
+		delete [] (*outputs)[i].rates;
 	}
 	
 	delete [] *outputs;
@@ -373,10 +377,15 @@ void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, 
 	pa_threaded_mainloop_unlock(mainloop);
 }
 
+const char *stack_pulse_audio_device_get_friendly_name()
+{
+	return "Stack PulseAudio Provider";
+}
+
 void stack_pulse_audio_device_register()
 {
 	// Register the Pulse audio class
-	StackAudioDeviceClass* pulse_audio_device_class = new StackAudioDeviceClass{ "StackPulseAudioDevice", "StackPulseAudioDevice", stack_pulse_audio_device_list_outputs, stack_pulse_audio_device_free_outputs, stack_pulse_audio_device_create, stack_pulse_audio_device_destroy, stack_pulse_audio_device_write };
+	StackAudioDeviceClass* pulse_audio_device_class = new StackAudioDeviceClass{ "StackPulseAudioDevice", "StackPulseAudioDevice", stack_pulse_audio_device_list_outputs, stack_pulse_audio_device_free_outputs, stack_pulse_audio_device_create, stack_pulse_audio_device_destroy, stack_pulse_audio_device_write, stack_pulse_audio_device_get_friendly_name };
 	stack_register_audio_device_class(pulse_audio_device_class);
 }
 

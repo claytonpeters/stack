@@ -25,6 +25,9 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->uri = NULL;
 	cue_list->state_change_func = NULL;
 	cue_list->state_change_func_data = NULL;
+	cue_list->show_name = strdup("");
+	cue_list->show_designer = strdup("");
+	cue_list->show_revision = strdup("");
 	
 	// Default to a two-channel set up
 	cue_list->channels = channels;
@@ -49,30 +52,43 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 /// @param cue_list The cue list to destroy
 void stack_cue_list_destroy(StackCueList *cue_list)
 {
-	if (cue_list)
-	{
-		// Destroy the audio device
-		if (cue_list->audio_device)
-		{
-			stack_audio_device_destroy(cue_list->audio_device);
-		}
-
-		// If we've got a URI, free that
-		if (cue_list->uri)
-		{	
-			free(cue_list->uri);
-		}
-
-		// Tidy up memory
-		delete [] cue_list->buffer;
-		delete (stackcue_list_t*)cue_list->cues;
-		delete (uid_remap_t*)cue_list->uid_remap;
-		delete cue_list;
-	}
-	else
+	if (cue_list == NULL)
 	{
 		fprintf(stderr, "stack_cue_list_destroy(): Attempted to destroy NULL!\n");
+		return;
 	}
+
+	// Destroy the audio device
+	if (cue_list->audio_device)
+	{
+		stack_audio_device_destroy(cue_list->audio_device);
+	}
+
+	// If we've got a URI, free that
+	if (cue_list->uri)
+	{	
+		free(cue_list->uri);
+	}
+
+	// Tidy up show information
+	if (cue_list->show_name)
+	{
+		free(cue_list->show_name);
+	}
+	if (cue_list->show_designer)
+	{
+		free(cue_list->show_designer);
+	}
+	if (cue_list->show_revision)
+	{
+		free(cue_list->show_revision);
+	}
+
+	// Tidy up memory
+	delete [] cue_list->buffer;
+	delete (stackcue_list_t*)cue_list->cues;
+	delete (uid_remap_t*)cue_list->uid_remap;
+	delete cue_list;
 }
 
 /// Writes one channel of audio data to the cue lists audio buffer. 'data' 
@@ -398,8 +414,9 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	}
 	
 	Json::Value root;
-	root["show_name"] = "";
-	root["designer"] = "";
+	root["show_name"] = cue_list->show_name;
+	root["designer"] = cue_list->show_designer;
+	root["revision"] = cue_list->show_revision;
 	root["channels"] = cue_list->channels;
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
 	
@@ -524,6 +541,20 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	
 	// Generate a new cue list
 	StackCueList *cue_list = stack_cue_list_new(cue_list_root["channels"].asUInt());
+
+	// Load show information
+	if (cue_list_root.isMember("show_name"))
+	{
+		stack_cue_list_set_show_name(cue_list, cue_list_root["show_name"].asCString());
+	}
+	if (cue_list_root.isMember("designer"))
+	{
+		stack_cue_list_set_show_designer(cue_list, cue_list_root["designer"].asCString());
+	}
+	if (cue_list_root.isMember("revision"))
+	{
+		stack_cue_list_set_show_revision(cue_list, cue_list_root["revision"].asCString());
+	}
 
 	// If we have some cues...
 	if (cue_list_root.isMember("cues"))
@@ -755,3 +786,106 @@ cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list)
 	// Return the next integer cue number
 	return max_cue_id - (max_cue_id % 1000) + 1000;
 }
+
+const char *stack_cue_list_get_show_name(StackCueList *cue_list)
+{
+	if (cue_list != NULL)
+	{
+		return cue_list->show_name;
+	}
+
+	return NULL;
+}
+
+const char *stack_cue_list_get_show_designer(StackCueList *cue_list)
+{
+	if (cue_list != NULL)
+	{
+		return cue_list->show_designer;
+	}
+
+	return NULL;
+}
+
+const char *stack_cue_list_get_show_revision(StackCueList *cue_list)
+{
+	if (cue_list != NULL)
+	{
+		return cue_list->show_revision;
+	}
+
+	return NULL;
+}
+
+bool stack_cue_list_set_show_name(StackCueList *cue_list, const char *show_name)
+{
+	if (cue_list != NULL)
+	{
+		if (cue_list->show_name != NULL)
+		{
+			free(cue_list->show_name);
+		}
+
+		if (show_name != NULL)
+		{
+			cue_list->show_name = strdup(show_name);
+		}
+		else
+		{
+			cue_list->show_name = strdup("");
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_designer)
+{
+	if (cue_list != NULL)
+	{
+		if (cue_list->show_designer != NULL)
+		{
+			free(cue_list->show_designer);
+		}
+
+		if (show_designer != NULL)
+		{
+			cue_list->show_designer = strdup(show_designer);
+		}
+		else
+		{
+			cue_list->show_designer = strdup("");
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision)
+{
+	if (cue_list != NULL)
+	{
+		if (cue_list->show_revision != NULL)
+		{
+			free(cue_list->show_revision);
+		}
+
+		if (show_revision != NULL)
+		{
+			cue_list->show_revision = strdup(show_revision);
+		}
+		else
+		{
+			cue_list->show_revision = strdup("");
+		}
+
+		return true;
+	}
+
+	return false;
+}
+

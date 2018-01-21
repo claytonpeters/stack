@@ -25,6 +25,8 @@ typedef struct StackAudioDeviceDesc
 	uint32_t channels;
 	char *name;
 	char *desc;
+	uint8_t num_rates;
+	uint32_t *rates;
 } StackAudioDeviceDesc;
 
 // Typedefs:
@@ -33,6 +35,7 @@ typedef void(*stack_audio_device_free_outputs_t)(StackAudioDeviceDesc **, size_t
 typedef StackAudioDevice*(*stack_audio_device_create_t)(const char *, uint32_t, uint32_t);
 typedef void(*stack_audio_device_destroy_t)(StackAudioDevice *);
 typedef void(*stack_audio_device_write_t)(StackAudioDevice *, const char *, size_t);
+typedef const char *(*stack_audio_device_get_friendly_name_t)();
 
 // Function pointers for each type
 typedef struct StackAudioDeviceClass
@@ -44,6 +47,7 @@ typedef struct StackAudioDeviceClass
 	stack_audio_device_create_t create_func;	// Static function
 	stack_audio_device_destroy_t destroy_func;
 	stack_audio_device_write_t write_func;
+	stack_audio_device_get_friendly_name_t get_friendly_name_func; // Static function
 } StackAudioDeviceClass;
 
 // Functions: Cue Type Registration
@@ -61,6 +65,13 @@ void stack_audio_device_destroy_base(StackAudioDevice *adev);
 StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uint32_t channels, uint32_t sample_rate);
 void stack_audio_device_destroy(StackAudioDevice *adev);
 const StackAudioDeviceClass *stack_audio_device_get_class(const char *name);
+
+// Functions: Iterate over available providers
+void *stack_audio_device_class_iter_front();
+void *stack_audio_device_class_iter_next(void *iter);
+const StackAudioDeviceClass *stack_audio_device_class_iter_get(void *iter);
+void stack_audio_device_class_iter_free(void *iter);
+bool stack_audio_device_class_iter_at_end(void *iter);
 
 // Defines:
 #define STACK_AUDIO_DEVICE(_d) ((StackAudioDevice*)(_d))

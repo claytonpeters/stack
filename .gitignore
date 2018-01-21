@@ -29,6 +29,7 @@
 
 # The executable for this application
 stack
+runstack
 
 # We're using CMake, so don't import the Makefile or cache items
 Makefile

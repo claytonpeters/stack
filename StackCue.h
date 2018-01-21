@@ -86,6 +86,15 @@ typedef struct StackCueList
 	// The URI of the currently loaded cue list (may be NULL)
 	char* uri;
 
+	// The show name
+	char* show_name;
+
+	// The show designer
+	char* show_designer;
+
+	// The show revision
+	char* show_revision;
+
 	// Function to call on state change
 	state_changed_t state_change_func;
 	void* state_change_func_data;
@@ -270,6 +279,12 @@ void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, size_t index);
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
 cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list);
+const char *stack_cue_list_get_show_name(StackCueList *cue_list);
+const char *stack_cue_list_get_show_designer(StackCueList *cue_list);
+const char *stack_cue_list_get_show_revision(StackCueList *cue_list);
+bool stack_cue_list_set_show_name(StackCueList *cue_list, const char *show_name);
+bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_designer);
+bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

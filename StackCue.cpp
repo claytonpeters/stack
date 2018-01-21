@@ -297,6 +297,12 @@ StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 // @param cue The cue to destroy. 
 void stack_cue_destroy(StackCue *cue)
 {
+	if (cue == NULL)
+	{
+		fprintf(stderr, "stack_cue_destroy(): Attempted to destroy NULL!\n");
+		return;
+	}
+
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));
 	if (iter == cue_class_map.end())

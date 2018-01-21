@@ -6,6 +6,7 @@ using namespace std;
 
 // Map of classes
 static map<string, const StackAudioDeviceClass*> adev_class_map;
+typedef map<string, const StackAudioDeviceClass*>::iterator sadc_iter_t;
 
 StackAudioDevice *stack_audio_device_create_base(const char *name, uint32_t channels, uint32_t sample_rate)
 {
@@ -26,10 +27,15 @@ void stack_audio_device_write_base(StackAudioDevice *adev, const char *buffer, s
 	// Does nothing for base implementation
 }
 
+const char *stack_audio_device_get_friendly_name_base()
+{
+	return "Stack Null-Audio Provider";
+}
+
 // Registers base classes
 void stack_audio_device_initsystem()
 {
-	StackAudioDeviceClass* audio_device_class = new StackAudioDeviceClass{ "StackAudioDevice", NULL, NULL, NULL, stack_audio_device_create_base, stack_audio_device_destroy_base, stack_audio_device_write_base };
+	StackAudioDeviceClass* audio_device_class = new StackAudioDeviceClass{ "StackAudioDevice", NULL, NULL, NULL, stack_audio_device_create_base, stack_audio_device_destroy_base, stack_audio_device_write_base, stack_audio_device_get_friendly_name_base };
 	stack_register_audio_device_class(audio_device_class);
 }
 
@@ -162,5 +168,32 @@ const StackAudioDeviceClass *stack_audio_device_get_class(const char *name)
 	}
 	
 	return iter->second;
+}
+
+void *stack_audio_device_class_iter_front()
+{
+	sadc_iter_t* result = new sadc_iter_t;
+	*result = adev_class_map.begin();
+	return result;
+}
+
+void *stack_audio_device_class_iter_next(void *iter)
+{
+	return (void*)&(++(*(sadc_iter_t*)(iter)));
+}
+
+const StackAudioDeviceClass *stack_audio_device_class_iter_get(void *iter)
+{
+	return (*(sadc_iter_t*)(iter))->second;
+}
+
+void stack_audio_device_class_iter_free(void *iter)
+{
+	delete (sadc_iter_t*)iter;
+}
+
+bool stack_audio_device_class_iter_at_end(void *iter)
+{
+	return (*(sadc_iter_t*)(iter)) == adev_class_map.end();
 }
 
