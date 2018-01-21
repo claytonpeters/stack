@@ -72,6 +72,7 @@ void sss_show_dialog(StackAppWindow* window);
 #define STACK_MODEL_STATE_IMAGE       (8)
 #define STACK_MODEL_COLOR             (9)
 #define STACK_MODEL_CUE_POINTER       (10)
+#define STACK_MODEL_ERROR_MESSAGE     (11)
 
 #endif
 

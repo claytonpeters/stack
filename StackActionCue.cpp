@@ -339,6 +339,19 @@ void stack_action_cue_from_json(StackCue *cue, const char *json_data)
 	stack_action_cue_set_action(STACK_ACTION_CUE(cue), (StackActionCueAction)cue_data["action"].asInt());
 }
 
+/// Gets the error message for the cue
+void stack_action_cue_get_error(StackCue *cue, char *message, size_t size)
+{
+	if (STACK_ACTION_CUE(cue)->target == STACK_CUE_UID_NONE)
+	{
+		snprintf(message, size, "No target cue chosen");
+	}
+	else
+	{
+		snprintf(message, size, "");
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
@@ -346,7 +359,7 @@ void stack_action_cue_from_json(StackCue *cue, const char *json_data)
 void stack_action_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json };
+	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json, stack_action_cue_get_error };
 	stack_register_cue_class(action_cue_class);
 }
 

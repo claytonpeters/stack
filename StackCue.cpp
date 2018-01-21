@@ -423,6 +423,22 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	cue_class_map[string(class_name)]->unset_tabs_func(cue, notebook);
 }
 
+// Gets the error message
+void stack_cue_get_error(StackCue *cue, char *message, size_t size)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+	
+	// Look for an error function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_error_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+	
+	// Call the function
+	cue_class_map[string(class_name)]->get_error_func(cue, message, size);
+}
+
 char *stack_cue_to_json(StackCue *cue)
 {
 	// Get the class name
@@ -501,7 +517,7 @@ static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base };
 	stack_register_cue_class(stack_cue_class);
 }
 

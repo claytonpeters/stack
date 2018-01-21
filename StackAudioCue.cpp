@@ -1213,11 +1213,28 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	}
 }
 
+/// Gets the error message for the cue
+void stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
+{
+	if (STACK_AUDIO_CUE(cue)->file == NULL || strlen(STACK_AUDIO_CUE(cue)->file) == 0)
+	{
+		snprintf(message, size, "No audio file selected");
+	}
+	if (STACK_AUDIO_CUE(cue)->format == STACK_AUDIO_FILE_FORMAT_NONE)
+	{
+		snprintf(message, size, "Invalid audio file");
+	}
+	else
+	{
+		snprintf(message, size, "");
+	}
+}
+
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error };
 	stack_register_cue_class(audio_cue_class);
 }
 

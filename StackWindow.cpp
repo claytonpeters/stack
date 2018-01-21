@@ -208,6 +208,15 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 	char cue_number[32];
 	stack_cue_id_to_string(cue->id, cue_number, 32);
 
+	// Get error message
+	char error_message[512];
+	char *message = NULL;
+	if (cue->state == STACK_CUE_STATE_ERROR)
+	{
+		stack_cue_get_error(cue, error_message, 512);
+		message = error_message;
+	}
+
 	// Update iterator
 	gtk_list_store_set(store, iter, 
 		STACK_MODEL_CUEID,            cue_number,
@@ -220,7 +229,8 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 		STACK_MODEL_POSTWAIT_TEXT,    post_buffer,
 		STACK_MODEL_STATE_IMAGE,      icon,
 		STACK_MODEL_COLOR,            col_buffer,
-		STACK_MODEL_CUE_POINTER,      (gpointer)cue, -1);
+		STACK_MODEL_CUE_POINTER,      (gpointer)cue,
+		STACK_MODEL_ERROR_MESSAGE,    message, -1);
 }
 
 // Updates the list store of cues ('store'), searching the store for the given 
@@ -1348,6 +1358,27 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 	return false;
 }
 
+/*gboolean saw_treeview_query_tooltip(GtkWidget *widget, gint x, gint y, gboolean keyboard_mode, GtkTooltip *tooltip, gpointer user_data)
+{
+	fprintf(stderr, ".");
+
+	GtkTreePath *path = NULL;
+	GtkTreeViewColumn *column = NULL;
+	gint cell_x = 0, cell_y = 0;
+	if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), x, y, &path, &column, &cell_x, &cell_y))
+	{
+		fprintf(stderr, "!");
+		if (strcmp(gtk_tree_view_column_get_title(column), "") == 0)
+		{
+			fprintf(stderr, "-");
+			gtk_tooltip_set_text(tooltip, "Hello");
+			return true;
+		}
+	}
+
+	return false;
+}*/
+
 // Callback for a dragged row
 void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info, guint time, gpointer user_data)
 {
@@ -1487,6 +1518,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up the callbacks - other
 	gtk_builder_add_callback_symbol(window->builder, "saw_treeview_key_event", G_CALLBACK(saw_treeview_key_event));
+	//gtk_builder_add_callback_symbol(window->builder, "saw_treeview_query_tooltip", G_CALLBACK(saw_treeview_query_tooltip));
 	
 	// Connect the signals
 	gtk_builder_connect_signals(window->builder, (gpointer)window);

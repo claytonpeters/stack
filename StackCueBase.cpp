@@ -374,3 +374,13 @@ void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 	cue->post_trigger = post_trigger;
 	stack_cue_list_changed(cue->parent, cue);
 }
+
+/// Gets the error message for the cue
+/// @param cue The cue to get the error for
+/// @param message The buffer to store the error message in
+/// @param size The size of the message buffer
+void stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
+{
+	snprintf(message, size, "The base cue implementation should not be used.");
+}
+

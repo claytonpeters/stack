@@ -183,6 +183,7 @@ typedef char*(*stack_to_json_t)(StackCue*);
 typedef void(*stack_free_json_t)(char*);
 typedef void(*stack_from_json_t)(StackCue*, const char*);
 typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*, void*);
+typedef void(*stack_cue_get_error_t)(StackCue*, char*, size_t);
 
 // Defines information about a class
 typedef struct StackCueClass
@@ -200,6 +201,7 @@ typedef struct StackCueClass
 	stack_to_json_t to_json_func;
 	stack_free_json_t free_json_func;
 	stack_from_json_t from_json_func;
+	stack_cue_get_error_t get_error_func;
 } StackCueClass;
 
 // Functions: Helpers
@@ -241,6 +243,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 char *stack_cue_to_json(StackCue *cue);
 void stack_cue_free_json(char *json_data);
 void stack_cue_from_json(StackCue *cue, const char *json_data);
+void stack_cue_get_error(StackCue *cue, char *message, size_t size);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -255,6 +258,7 @@ void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook);
 char *stack_cue_to_json_base(StackCue *cue);
 void stack_cue_free_json_base(char *json_data);
 void stack_cue_from_json_base(StackCue *cue, const char *json_data);
+void stack_cue_get_error_base(StackCue *cue, char *message, size_t size);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);

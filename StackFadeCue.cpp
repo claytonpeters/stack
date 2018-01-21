@@ -529,6 +529,19 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 	stack_fade_cue_set_profile(STACK_FADE_CUE(cue), (StackFadeProfile)cue_data["profile"].asInt());
 }
 
+/// Gets the error message for the cue
+void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
+{
+	if (STACK_FADE_CUE(cue)->target == STACK_CUE_UID_NONE)
+	{
+		snprintf(message, size, "No target cue chosen");
+	}
+	else
+	{
+		snprintf(message, size, "");
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
@@ -536,7 +549,7 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 void stack_fade_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error };
 	stack_register_cue_class(fade_cue_class);
 }
 
