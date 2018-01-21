@@ -31,6 +31,18 @@
       <column type="gchararray"/>
     </columns>
   </object>
+  <object class="GtkListStore" id="sawTriggersListStore">
+    <columns>
+      <!-- column-name Type -->
+      <column type="gchararray"/>
+      <!-- column-name Event -->
+      <column type="gchararray"/>
+      <!-- column-name Name -->
+      <column type="gchararray"/>
+      <!-- column-name Action -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkApplicationWindow" id="StackAppWindow">
     <property name="can_focus">False</property>
     <child>
@@ -501,7 +513,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="orientation">vertical</property>
-                <property name="position">250</property>
+                <property name="position">300</property>
                 <property name="position_set">True</property>
                 <child>
                   <object class="GtkScrolledWindow" id="sawsCueScrollWindow">
@@ -515,11 +527,13 @@
                         <property name="model">sawCueListStore</property>
                         <property name="headers_clickable">False</property>
                         <property name="reorderable">True</property>
+                        <property name="rules_hint">True</property>
                         <property name="enable_search">False</property>
                         <property name="search_column">0</property>
                         <property name="show_expanders">False</property>
                         <property name="enable_grid_lines">vertical</property>
                         <property name="tooltip_column">11</property>
+                        <property name="activate_on_single_click">True</property>
                         <signal name="key-press-event" handler="saw_treeview_key_event" swapped="no"/>
                         <signal name="key-release-event" handler="saw_treeview_key_event" swapped="no"/>
                         <child internal-child="selection">
@@ -841,9 +855,6 @@
                             <property name="label" translatable="yes">Pre-wait Delay:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
-                            <accessibility>
-                              <relation type="label-for" target="sawPreWait"/>
-                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -851,20 +862,68 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="sawPostWaitLabel">
+                          <object class="GtkBox" id="sawDelaysVBox">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="halign">end</property>
-                            <property name="label" translatable="yes">Post-wait Delay:</property>
-                            <property name="justify">right</property>
-                            <property name="wrap">True</property>
-                            <accessibility>
-                              <relation type="label-for" target="sawPostWait"/>
-                            </accessibility>
+                            <property name="hexpand">True</property>
+                            <property name="spacing">8</property>
+                            <child>
+                              <object class="GtkEntry" id="sawPreWait">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="hexpand">True</property>
+                                <property name="width_chars">1</property>
+                                <property name="placeholder_text" translatable="yes">Delay after triggering to run the cue</property>
+                                <property name="input_purpose">number</property>
+                                <signal name="focus-out-event" handler="saw_cue_prewait_changed" swapped="no"/>
+                                <accessibility>
+                                  <relation type="labelled-by" target="sawPreWaitLabel"/>
+                                </accessibility>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="sawPostWaitLabel">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="halign">end</property>
+                                <property name="label" translatable="yes">Post-wait Delay:</property>
+                                <property name="justify">right</property>
+                                <property name="wrap">True</property>
+                                <accessibility>
+                                  <relation type="label-for" target="sawPostWait"/>
+                                </accessibility>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkEntry" id="sawPostWait">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="hexpand">True</property>
+                                <property name="width_chars">1</property>
+                                <property name="placeholder_text" translatable="yes">Delay after finishing the cue to perform actions</property>
+                                <property name="input_purpose">number</property>
+                                <signal name="focus-out-event" handler="saw_cue_postwait_changed" swapped="no"/>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">1</property>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">0</property>
                           </packing>
                         </child>
                         <child>
@@ -878,7 +937,7 @@
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
                             <accessibility>
-                              <relation type="label-for" target="sawPostWaitTriggerBox"/>
+                              <relation type="label-for" target="sawPostWaitTriggersGrid"/>
                               <relation type="label-for" target="sawPostWaitTrigger1"/>
                               <relation type="label-for" target="sawPostWaitTrigger2"/>
                               <relation type="label-for" target="sawPostWaitTrigger3"/>
@@ -887,14 +946,156 @@
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
+                            <property name="top_attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="sawOtherTriggersLabel">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="valign">start</property>
+                            <property name="label" translatable="yes">Other Triggers:</property>
+                          </object>
+                          <packing>
+                            <property name="left_attach">0</property>
                             <property name="top_attach">2</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkBox" id="sawPostWaitTriggerBox">
+                          <object class="GtkBox" id="sawTriggersHBox">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="orientation">vertical</property>
+                            <property name="hexpand">True</property>
+                            <property name="vexpand">True</property>
+                            <child>
+                              <object class="GtkToolbar" id="sawTriggersToolbar">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="vexpand">True</property>
+                                <property name="orientation">vertical</property>
+                                <property name="toolbar_style">icons</property>
+                                <property name="show_arrow">False</property>
+                                <property name="icon_size">2</property>
+                                <child>
+                                  <object class="GtkToolButton" id="sawAddTriggerButton">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Add Trigger</property>
+                                    <property name="use_underline">True</property>
+                                    <property name="stock_id">gtk-add</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="homogeneous">True</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkToolButton" id="sawDeleteTriggerButton">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Delete Trigger</property>
+                                    <property name="use_underline">True</property>
+                                    <property name="stock_id">gtk-remove</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="homogeneous">True</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkToolButton" id="sawClearTriggersButton">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">False</property>
+                                    <property name="label" translatable="yes">Delete All Triggers</property>
+                                    <property name="use_underline">True</property>
+                                    <property name="stock_id">gtk-delete</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="homogeneous">True</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkScrolledWindow" id="sawTriggersScrollWindow">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="shadow_type">in</property>
+                                <child>
+                                  <object class="GtkTreeView" id="sawTriggersTreeView">
+                                    <property name="visible">True</property>
+                                    <property name="can_focus">True</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="model">sawTriggersListStore</property>
+                                    <property name="activate_on_single_click">True</property>
+                                    <child internal-child="selection">
+                                      <object class="GtkTreeSelection"/>
+                                    </child>
+                                    <child>
+                                      <object class="GtkTreeViewColumn" id="sawTriggerTypeColumn">
+                                        <property name="resizable">True</property>
+                                        <property name="title" translatable="yes">Type</property>
+                                        <property name="clickable">True</property>
+                                        <property name="reorderable">True</property>
+                                        <property name="sort_indicator">True</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkTreeViewColumn" id="sawTriggerEventColu,m">
+                                        <property name="resizable">True</property>
+                                        <property name="title" translatable="yes">Event</property>
+                                        <property name="clickable">True</property>
+                                        <property name="reorderable">True</property>
+                                        <property name="sort_indicator">True</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkTreeViewColumn" id="sawTriggerActionColumn">
+                                        <property name="resizable">True</property>
+                                        <property name="title" translatable="yes">Action</property>
+                                        <property name="clickable">True</property>
+                                        <property name="reorderable">True</property>
+                                        <property name="sort_indicator">True</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkTreeViewColumn" id="sawTriggerNameColumn">
+                                        <property name="resizable">True</property>
+                                        <property name="title" translatable="yes">Name</property>
+                                        <property name="clickable">True</property>
+                                        <property name="reorderable">True</property>
+                                        <property name="sort_indicator">True</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left_attach">1</property>
+                            <property name="top_attach">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkGrid" id="sawPostWaitTriggersGrid">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="row_spacing">4</property>
+                            <property name="column_spacing">16</property>
+                            <property name="row_homogeneous">True</property>
                             <child>
                               <object class="GtkRadioButton" id="sawPostWaitTrigger1">
                                 <property name="label" translatable="yes">Do not follow on</property>
@@ -905,14 +1106,10 @@
                                 <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
-                                <accessibility>
-                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
-                                </accessibility>
                               </object>
                               <packing>
-                                <property name="expand">False</property>
-                                <property name="fill">True</property>
-                                <property name="position">0</property>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">0</property>
                               </packing>
                             </child>
                             <child>
@@ -922,18 +1119,13 @@
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="halign">start</property>
-                                <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
-                                <accessibility>
-                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
-                                </accessibility>
                               </object>
                               <packing>
-                                <property name="expand">False</property>
-                                <property name="fill">True</property>
-                                <property name="position">1</property>
+                                <property name="left_attach">0</property>
+                                <property name="top_attach">1</property>
                               </packing>
                             </child>
                             <child>
@@ -943,18 +1135,13 @@
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="halign">start</property>
-                                <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
-                                <accessibility>
-                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
-                                </accessibility>
                               </object>
                               <packing>
-                                <property name="expand">False</property>
-                                <property name="fill">True</property>
-                                <property name="position">2</property>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">0</property>
                               </packing>
                             </child>
                             <child>
@@ -964,59 +1151,15 @@
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
                                 <property name="halign">start</property>
-                                <property name="active">True</property>
                                 <property name="draw_indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
-                                <accessibility>
-                                  <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
-                                </accessibility>
                               </object>
                               <packing>
-                                <property name="expand">False</property>
-                                <property name="fill">True</property>
-                                <property name="position">3</property>
+                                <property name="left_attach">1</property>
+                                <property name="top_attach">1</property>
                               </packing>
                             </child>
-                            <accessibility>
-                              <relation type="labelled-by" target="sawPostWaitTriggerLabel"/>
-                            </accessibility>
-                          </object>
-                          <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">2</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkEntry" id="sawPreWait">
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="hexpand">True</property>
-                            <property name="width_chars">1</property>
-                            <property name="placeholder_text" translatable="yes">Delay after triggering to run the cue</property>
-                            <property name="input_purpose">number</property>
-                            <signal name="focus-out-event" handler="saw_cue_prewait_changed" swapped="no"/>
-                            <accessibility>
-                              <relation type="labelled-by" target="sawPreWaitLabel"/>
-                            </accessibility>
-                          </object>
-                          <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">0</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkEntry" id="sawPostWait">
-                            <property name="visible">True</property>
-                            <property name="can_focus">True</property>
-                            <property name="hexpand">True</property>
-                            <property name="width_chars">1</property>
-                            <property name="placeholder_text" translatable="yes">Delay after finishing the cue to perform actions</property>
-                            <property name="input_purpose">number</property>
-                            <signal name="focus-out-event" handler="saw_cue_postwait_changed" swapped="no"/>
-                            <accessibility>
-                              <relation type="labelled-by" target="sawPostWaitLabel"/>
-                            </accessibility>
                           </object>
                           <packing>
                             <property name="left_attach">1</property>
@@ -1032,7 +1175,7 @@
                       <object class="GtkLabel" id="sawCuePropsDelays">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Delays</property>
+                        <property name="label" translatable="yes">Triggers</property>
                       </object>
                       <packing>
                         <property name="position">1</property>

@@ -942,8 +942,8 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20170929-1");
-	gtk_about_dialog_set_copyright(about, "Copyright (c) 2017 Clayton Peters");
+	gtk_about_dialog_set_version(about, "Version 0.1.20180121-1");
+	gtk_about_dialog_set_copyright(about, "Copyright (c) 2018 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
 	gtk_window_set_transient_for(GTK_WINDOW(about), GTK_WINDOW(user_data));
@@ -1593,7 +1593,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up the window
 	gtk_window_set_title(GTK_WINDOW(window), "Stack");
-	gtk_window_set_default_size(GTK_WINDOW(window), 850, 550);
+	gtk_window_set_default_size(GTK_WINDOW(window), 950, 650);
 
 	// Set up accelerators
 	GtkAccelGroup* ag = GTK_ACCEL_GROUP(gtk_builder_get_object(window->builder, "sawAccelGroup"));
