@@ -425,8 +425,28 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	stack_cue_set_tabs(window->selected_cue, window->notebook);
 }
 
+// Selects the last cue on the list
+static void saw_select_last_cue(StackAppWindow *window)
+{
+	GtkTreeIter iter;
+	
+	// Get the number of entries in the model
+	gint entries = gtk_tree_model_iter_n_children(gtk_tree_view_get_model(window->treeview), NULL);
+
+	// Get an iterator and path to the last row in the model
+	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter, NULL, entries - 1);
+	GtkTreePath *path = gtk_tree_model_get_path(gtk_tree_view_get_model(window->treeview), &iter);	// Allocates!
+
+	// Select that row	
+	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+	gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+
+	// Tidy up 
+	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+}
+
 // Selects the next cue in the list
-static void saw_select_next_cue(StackAppWindow *window)
+static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = false)
 {
 	GList *list;
 	GtkTreeModel *model;
@@ -447,46 +467,83 @@ static void saw_select_next_cue(StackAppWindow *window)
 		GtkTreeIter iter;
 		gtk_tree_model_get_iter(model, &iter, path);
 		
+		// Get the current cue (before moving)
+		StackCue *old_cue = NULL;
+		gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &old_cue, -1);
+
 		// Move the iterator forward one
 		if (gtk_tree_model_iter_next(model, &iter))
 		{
-			// Get a path to the iterator (this allocates a GtkTreePath!)
-			path = gtk_tree_model_get_path(model, &iter);
-		
-			if (path != NULL)
+			// If we're skipping past cues that are triggered by auto-
+			// continue/follow on the cue before them
+			if (skip_automatic)
 			{
-				// Select that row	
-				gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
-				gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
-		
-				// Tidy up 
-				gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+				// Start searching
+				bool searching = true;
+				bool reached_end = false;
+				while (searching)
+				{
+					// If the cue we are moving from from would trigger the next cue
+					if (old_cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE)
+					{
+						// We need to keep searching forward. Get the "next" cue, so
+						// the loop can check to see if we need to skip again on the
+						// next ieration
+						gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &old_cue, -1);
+
+						// Move the iterator forward
+						if (!gtk_tree_model_iter_next(model, &iter))
+						{
+							// If we can't move any further forward, stop searching
+							searching = false;
+							reached_end = true;
+						}
+					}
+					else
+					{
+						// The previous doesn't auto trigger, stop searching
+						searching = false;
+					}
+				}
+
+				// If we reached the end of the cue list
+				if (reached_end)
+				{
+					// Just select the last cue
+					saw_select_last_cue(window);
+				}
+				else
+				{
+					// Select the row that contains the next cue
+					path = gtk_tree_model_get_path(model, &iter);
+					if (path != NULL)
+					{
+						gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+						gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+						gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+					}
+				}
+			}
+			else
+			{
+				// Get a path to the iterator (this allocates a GtkTreePath!)
+				path = gtk_tree_model_get_path(model, &iter);
+			
+				if (path != NULL)
+				{
+					// Select that row	
+					gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+					gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+			
+					// Tidy up 
+					gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+				}
 			}
 		}
 		
 		// Tidy up
 		g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
 	}
-}
-
-// Selects the last cue on the list
-static void saw_select_last_cue(StackAppWindow *window)
-{
-	GtkTreeIter iter;
-	
-	// Get the number of entries in the model
-	gint entries = gtk_tree_model_iter_n_children(gtk_tree_view_get_model(window->treeview), NULL);
-
-	// Get an iterator and path to the last row in the model
-	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter, NULL, entries - 1);
-	GtkTreePath *path = gtk_tree_model_get_path(gtk_tree_view_get_model(window->treeview), &iter);	// Allocates!
-
-	// Select that row	
-	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
-	gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
-
-	// Tidy up 
-	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
 }
 
 // Sets up an initial playback device
@@ -910,7 +967,8 @@ static void saw_cue_play_clicked(void* widget, gpointer user_data)
 		stack_cue_play(window->selected_cue);
 		stack_cue_list_unlock(window->cue_list);
 		saw_update_list_store_from_cue(window->store, window->selected_cue);
-		saw_select_next_cue(window);
+		// Select the next cue that isn't automatically triggered by a follow
+		saw_select_next_cue(window, true);
 	}
 }
 
