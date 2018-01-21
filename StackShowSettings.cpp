@@ -83,7 +83,7 @@ void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
 			{
 				if (strcmp(devices[i].name, device_name) == 0)
 				{
-					for (size_t j = 1; j <= devices[i].channels; j++)
+					for (size_t j = devices[i].min_channels; j <= devices[i].max_channels; j++)
 					{
 						char channel_value[16];
 						snprintf(channel_value, 16, "%d", j);

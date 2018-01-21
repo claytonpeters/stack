@@ -98,7 +98,8 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 			// Store the information
 			pased->devices[pased->count].name = strdup(sinkinfo->name);
 			pased->devices[pased->count].desc = strdup(sinkinfo->description);
-			pased->devices[pased->count].channels = sinkinfo->channel_map.channels;
+			pased->devices[pased->count].min_channels = 1;
+			pased->devices[pased->count].max_channels = sinkinfo->channel_map.channels;
 			pased->devices[pased->count].num_rates = 1;	// I *think* PulseAudio only provides one rate per device
 			pased->devices[pased->count].rates = new uint32_t[1];
 			pased->devices[pased->count].rates[0] = sinkinfo->sample_spec.rate;

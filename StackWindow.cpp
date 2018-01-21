@@ -491,16 +491,6 @@ static void saw_setup_default_device(StackAppWindow *window)
 
 		if (devices != NULL && num_outputs > 0)
 		{
-			for (size_t i = 0; i < num_outputs; i++)
-			{
-				fprintf(stderr, "------------------------------------------------------------\n");
-				fprintf(stderr, "Index: %lu\n", i);
-				fprintf(stderr, "Name: %s\n", devices[i].name);
-				fprintf(stderr, "Description: %s\n", devices[i].desc);
-				fprintf(stderr, "Channels: %d\n", devices[i].channels);
-			}
-			fprintf(stderr, "------------------------------------------------------------\n");
-
 			// Create a PulseAudio device using the default device
 			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 0, 44100);
 		

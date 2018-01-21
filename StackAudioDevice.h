@@ -22,7 +22,8 @@ typedef struct StackAudioDevice
 // Structure: Descriptor of an audio device
 typedef struct StackAudioDeviceDesc
 {
-	uint32_t channels;
+	uint16_t min_channels;
+	uint16_t max_channels;
 	char *name;
 	char *desc;
 	uint8_t num_rates;
