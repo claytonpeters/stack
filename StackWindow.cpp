@@ -420,9 +420,6 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 			break;
 	}
-	
-	// Put on the correct tabs
-	stack_cue_set_tabs(window->selected_cue, window->notebook);
 }
 
 // Selects the last cue on the list
@@ -653,8 +650,20 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 		}
 	}
 	
-	// Run an Open dialog
+	// Create an Open dialog
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open Show", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, NULL);
+
+	// Add filters to it (the file chooser takes ownership, so we don't have to tidy them up)
+	GtkFileFilter *stack_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(stack_filter, "*.stack");
+	gtk_file_filter_set_name(stack_filter, "Stack Show Files (*.stack)");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), stack_filter);
+	GtkFileFilter *all_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(all_filter, "*");
+	gtk_file_filter_set_name(all_filter, "All Files (*)");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
+
+	// Run the dialog
 	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
 
 	// If the user chose to Open...
@@ -1120,6 +1129,9 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 			window->selected_cue = STACK_CUE(cue);
 			saw_update_cue_properties(window, STACK_CUE(cue));
 	
+			// Put on the correct tabs
+			stack_cue_set_tabs(window->selected_cue, window->notebook);
+
 			// Try and put us back on the same notebook page
 			gtk_notebook_set_current_page(window->notebook, page);
 		

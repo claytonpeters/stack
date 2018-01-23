@@ -16,8 +16,6 @@ StackAudioDevice *stack_audio_device_create_base(const char *name, uint32_t chan
 
 void stack_audio_device_destroy_base(StackAudioDevice *adev)
 {
-	// TODO: Any internal tidyup
-	
 	// Delete ourselves
 	delete adev;
 }
@@ -100,9 +98,6 @@ int stack_register_audio_device_class(StackAudioDeviceClass *adev_class)
 
 void stack_audio_device_write(StackAudioDevice *adev, const char *data, size_t bytes)
 {
-	// Debug
-	//fprintf(stderr, "stack_audio_device_write(): Calling write for type '%s'\n", adev->_class_name);
-	
 	// Get the class name
 	const char *class_name = adev->_class_name;
 

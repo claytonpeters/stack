@@ -3,6 +3,7 @@
 
 // Includes:
 #include "StackCue.h"
+#include <thread>
 
 // Supported file formats
 typedef enum StackAudioFileFormat
@@ -75,8 +76,17 @@ typedef struct StackAudioCue
 	// Arbitrary per-file playback data
 	void *playback_data;
 
-	// Rebuffer after pause
-	long rebuffer_amount;
+	// Stuff for audio preview
+	bool preview_ready;
+	bool preview_thread_run;
+	cairo_surface_t *preview_surface;
+	cairo_t *preview_cr;
+	stack_time_t preview_start;
+	stack_time_t preview_end;
+	int preview_width;
+	int preview_height;
+	std::thread preview_thread;
+	GtkWidget *preview_widget;
 } StackAudioCue;
 
 // Functions: Audio cue functions
