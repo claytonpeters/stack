@@ -16,11 +16,13 @@ typedef uint64_t cue_uid_t;
 
 // Defines: Constants
 #define NANOSECS_PER_SEC ((int64_t)1000000000)
-#define CENTISECS_PER_SEC ((int64_t)10000000)
-#define MILLISECS_PER_SEC ((int64_t)1000000)
+#define MICROSECS_PER_SEC ((int64_t)1000000)
+#define MILLISECS_PER_SEC ((int64_t)1000)
+#define CENTISECS_PER_SEC ((int64_t)100)
 #define NANOSECS_PER_SEC_F ((double)NANOSECS_PER_SEC)
-#define CENTISECS_PER_SEC_F ((double)CENTISECS_PER_SEC)
+#define MICROSECS_PER_SEC_F ((double)MICROSECS_PER_SEC)
 #define MILLISECS_PER_SEC_F ((double)MILLISECS_PER_SEC)
+#define CENTISECS_PER_SEC_F ((double)CENTISECS_PER_SEC)
 #define STACK_CUE_UID_NONE ((cue_uid_t)0)
 
 // Cue state
