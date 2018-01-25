@@ -87,7 +87,7 @@ cue_id_t stack_cue_string_to_id(const char *s)
 void stack_format_time_as_string(stack_time_t time, char *str, size_t len)
 {
 	uint64_t time_seconds = time / NANOSECS_PER_SEC;
-	snprintf(str, len, "%u:%02u.%03u", (uint32_t)(time_seconds / 60), uint32_t(time_seconds % 60), uint32_t((time % NANOSECS_PER_SEC) / MILLISECS_PER_SEC));
+	snprintf(str, len, "%u:%02u.%03u", (uint32_t)(time_seconds / 60), uint32_t(time_seconds % 60), uint32_t((time % NANOSECS_PER_SEC) / NANOSECS_PER_MILLISEC));
 }
 
 // Converts a decibel value to a number that can be used as a coefficient to 
