@@ -1,6 +1,7 @@
 // Includes:
 #include "StackApp.h"
 #include "StackAudioCue.h"
+#include "MPEGAudioFile.h"
 #include <cstring>
 #include <cstdlib>
 #include <math.h>
@@ -54,31 +55,6 @@ typedef struct PlaybackDataMP3
 	size_t ring_used;
 	uint32_t size;
 } PlaybackDataMP3;
-
-typedef struct MP3FrameInfo
-{
-	size_t byte_position;       // Location of frame in the file
-	size_t sample_position;	    // The first sample of this frame
-	size_t frame_size_samples;  // The size of the frame in samples
-} MP3FrameInfo;
-
-// ID3 Header structure (so we can skip the header that LAME can't handle)
-#pragma pack(push, 1)
-typedef struct ID3Header
-{
-        char id3tag[3];
-        uint16_t version:16;
-        uint8_t unsync:1;
-        uint8_t extended:1;
-        uint8_t experimental:1;
-        uint8_t footer:1;
-        uint8_t zeros:4;
-        uint8_t size1;
-        uint8_t size2;
-        uint8_t size3;
-        uint8_t size4;
-} ID3Header;
-#pragma pack(pop)
 
 // MP3 File information
 typedef struct FileDataMP3
@@ -240,142 +216,29 @@ static void stack_audio_cue_free_file_data(StackAudioCue *cue)
 #ifndef NO_MP3LAME
 static size_t stack_audio_cue_skip_id3(GInputStream *stream)
 {
-	ID3Header id3_header;
-
-	// Attempt to read an ID3 header
-	if (g_input_stream_read(stream, &id3_header, sizeof(ID3Header), NULL, NULL) == sizeof(ID3Header))
-	{
-		// If we have an ID3 header
-		if (id3_header.id3tag[0] == 'I' && id3_header.id3tag[1] == 'D' && id3_header.id3tag[2] == '3' && (id3_header.version & 0xFF00 >> 8) < 0xFF && (id3_header.version & 0x00FF) < 0xFF && id3_header.size1 < 0x80 && id3_header.size2 < 0x80 && id3_header.size3 < 0x80 && id3_header.size4 < 0x80)
-		{
-			// Calculate the size of the ID3 body. This is a 'synchsafe' integer
-			// (see http://id3.org/id3v2.4.0-structure). Essentially it's four 
-			// bytes where the MSB of each byte is always zero and needs to be
-			// removed. This line extracts the 28 relevant bits
-			uint32_t size = (uint32_t)id3_header.size4 | ((uint32_t)id3_header.size3 << 7) | ((uint32_t)id3_header.size2 << 14) | ((uint32_t)id3_header.size1 << 21);
-
-			fprintf(stderr, "stack_audio_cue_skip_id3(): ID3 tags found. Skipping %u bytes\n", size);
-
-			// Seek past the ID3 body
-			if (!g_seekable_seek(G_SEEKABLE(stream), size, G_SEEK_CUR, NULL, NULL))
-			{
-				fprintf(stderr, "stack_audio_cue_skip_id3(): Seek failed when skipping ID3 body\n");
-				return (size_t)-1;
-			}
-
-			// Return the number of bytes we read and skipped
-			return size + sizeof(ID3Header);
-		}
-		else
-		{
-			// We didn't have an ID3 header. Seek back the bytes we just read
-			if (!g_seekable_seek(G_SEEKABLE(stream), -sizeof(ID3Header), G_SEEK_CUR, NULL, NULL))
-			{
-				fprintf(stderr, "stack_audio_cue_skip_id3(): Seek failed. MP3 Header will likely fail\n");
-				return (size_t)-1;
-			}
-			else
-			{
-				return 0;
-			}
-		}
-	}
-	else
-	{
-		fprintf(stderr, "stack_audio_cue_skip_id3(): Failed to read whilst checking for ID3 header\n");
-		return (size_t)-1;
-	}
+	return mpeg_audio_file_skip_id3(stream);
 }
 
 static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_data, bool need_length)
 {
-	// Will receive the MP3 header from LAME
-	mp3data_struct mp3header = {0};
-
-	// Get a LAME MP3 decoder
-	hip_t decoder = hip_decode_init();
-	if (decoder == NULL)
-	{
-		fprintf(stderr, "stack_audio_cue_process_mp3(): Failed to initialise MP3 decoder\n");
-		return false;
-	}
-
-	// Allocate buffers
-	uint8_t buffer[4096];
-	short *garbage = new short[100000];	// This size is arbitrary
-
-	// Skip past the ID3 tags (if there is one, keeping track of the number of bytes)
-	size_t bytes_read = stack_audio_cue_skip_id3(stream);
-	if (bytes_read == (size_t)-1)
-	{
-		return false;
-	}
+	uint32_t frames = 0;
+	uint64_t samples = 0;
 
 	// Logging:
 	fprintf(stderr, "stack_audio_cue_process_mp3(): Processing file...\n");
 
-	// Read the entire file (as some MP3s don't know how long they are until
-	// they are entirely decoded). Note that we also do this one byte at a time
-	// so that we can discover the location of all of the MP3 frames (for quick
-	// seeking later)
-	uint32_t total_samples_per_channel = 0;
-	int frame = 0;
-	bool escape = false;
-	gssize block_size = 0;
-	size_t frame_start = bytes_read;
-	while (!escape && (block_size = g_input_stream_read(stream, buffer, 4096, NULL, NULL)) > 0)
+	if (!mpeg_audio_file_find_frames(stream, &mp3_data->num_channels, &mp3_data->sample_rate, &frames, &samples, &mp3_data->frames))
 	{
-		// We read data in 4k blocks to reduce the number of calls to 
-		// g_input_stream_read, but we still want to process the data one byte
-		// at a time so we can figure out where the frames start
-		for (gssize i = 0; i < block_size; i++)
-		{
-			bytes_read++;
-
-			// Decode the MP3 (and get headers and ignoring the amount of data)
-			int decoded_samples = hip_decode_headers(decoder, &buffer[i], 1, garbage, garbage, &mp3header);
-			if (decoded_samples > 0)
-			{
-				mp3_data->frames.push_back(MP3FrameInfo{frame_start, total_samples_per_channel, (size_t)decoded_samples});
-				total_samples_per_channel += decoded_samples;
-				//fprintf(stderr, "stack_audio_cue_process_mp3(): Decoded frame %d after %d bytes from position %d with %d samples (size: %d bytes)\n", frame, bytes_read, frame_start, total_samples_per_channel, bytes_read - frame_start);
-				frame++;
-				frame_start = bytes_read + 1;
-			}
-			else if (decoded_samples < 0)
-			{
-				fprintf(stderr, "stack_audio_cue_process_mp3(): Call returned -1\n");
-				escape = true;
-				break;
-			}
-
-			// If we've parsed the header and we don't need the length, then exit
-			if (mp3header.header_parsed == 1 && !need_length)
-			{
-				escape = true;
-				break;
-			}
-		}
-
-		// If we're finished or something went wrong, then escape
-		if (escape)
-		{
-			break;
-		}
+		fprintf(stderr, "stack_audio_cue_process_mp3(): Processing failed\n");
+		return false;
 	}
 
-	// Tidy up
-	delete [] garbage;
-	hip_decode_exit(decoder);
-
 	// Return our information
-	mp3_data->num_channels = mp3header.stereo;
-	mp3_data->sample_rate = mp3header.samplerate;
 	mp3_data->byte_rate = mp3_data->num_channels * mp3_data->sample_rate * sizeof(short);
 	mp3_data->bits_per_sample = 16;
 	if (need_length)
 	{
-		mp3_data->audio_size = total_samples_per_channel * mp3_data->num_channels * sizeof(short);
+		mp3_data->audio_size = samples * mp3_data->num_channels * sizeof(short);
 	}
 	else
 	{
@@ -383,7 +246,7 @@ static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_d
 	}
 
 	// Return whether we succesfully parsed the header
-	return (mp3header.header_parsed == 1);
+	return true;
 }
 #endif
 
