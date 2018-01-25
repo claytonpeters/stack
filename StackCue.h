@@ -15,9 +15,10 @@ typedef int32_t cue_id_t;
 typedef uint64_t cue_uid_t;
 
 // Defines: Constants
+#define NANOSECS_PER_MINUTE ((int64_t)60000000000)
 #define NANOSECS_PER_SEC ((int64_t)1000000000)
 #define NANOSECS_PER_MILLISEC ((int64_t)1000000)
-#define NANOSECS_PER_MICROSEC ((int64_t)1000);
+#define NANOSECS_PER_MICROSEC ((int64_t)1000)
 #define MICROSECS_PER_SEC ((int64_t)1000000)
 #define MILLISECS_PER_SEC ((int64_t)1000)
 #define CENTISECS_PER_SEC ((int64_t)100)

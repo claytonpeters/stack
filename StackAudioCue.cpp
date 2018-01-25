@@ -142,7 +142,7 @@ static void stack_audio_cue_preview_tidy(StackAudioCue *cue)
 
 	// Reset variables
 	cue->preview_start = 0;
-	cue->preview_end = 9;
+	cue->preview_end = 0;
 }
 
 // Destroys an audio cue
@@ -516,6 +516,16 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	return result;
 }
 
+static inline uint64_t stack_audio_cue_time_to_sample(stack_time_t t, uint32_t sample_rate)
+{
+	return ((uint64_t)t * (uint64_t)sample_rate) / NANOSECS_PER_SEC;
+}
+
+static inline uint64_t stack_audio_cue_time_to_byte(stack_time_t t, uint32_t sample_rate, uint16_t num_channels, uint16_t bits_per_sample)
+{
+	return stack_audio_cue_time_to_sample(t, sample_rate) * (uint64_t)(num_channels * bits_per_sample / 8);
+}
+
 // Thread to generate the code preview
 static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 {
@@ -564,18 +574,29 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		// Handy pointer
 		FileDataWave *wave_data = (FileDataWave*)file_data;
 
+		// Convert out start and end times from seconds to samples
+		uint64_t preview_start_samples = stack_audio_cue_time_to_sample(cue->preview_start, wave_data->header.sample_rate);
+		uint64_t preview_end_samples = stack_audio_cue_time_to_sample(cue->preview_end, wave_data->header.sample_rate);
+
+		// Skip to the appropriate point in the file
+		size_t seek_point = sizeof(WaveHeader) + stack_audio_cue_time_to_byte(cue->preview_start, wave_data->header.sample_rate, wave_data->header.num_channels, wave_data->header.bits_per_sample);
+		g_seekable_seek(G_SEEKABLE(stream), seek_point,	G_SEEK_SET, NULL, NULL);
+
 		size_t samples_per_channel = 1024;
 		size_t total_samples = samples_per_channel * wave_data->header.num_channels;
 			
 		// Set up buffer for the number of samples of each channel
 		size_t bytes_to_read = total_samples * wave_data->header.bits_per_sample / 8;
 
+		// Calculate the preview width in samples
+		float preview_width_samples = (float)wave_data->header.sample_rate * (float)(cue->preview_end - cue->preview_start) / NANOSECS_PER_SEC_F;
+
 		// Allocate buffers		
 		char *read_buffer = new char[bytes_to_read];
 		bool no_more_data = false;
-		uint64_t sample = 0;
+		uint64_t sample = preview_start_samples;
 
-		while (cue->preview_thread_run && !no_more_data)
+		while (cue->preview_thread_run && !no_more_data && sample < preview_end_samples)
 		{
 			// Read data
 			gssize bytes_read = g_input_stream_read((GInputStream*)stream, read_buffer, bytes_to_read, NULL, NULL);
@@ -594,7 +615,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 
 				// Calculate the width of a single sample on the surface
 				uint64_t samples_in_file = (uint64_t)((double)wave_data->file_length / 1.0e9 * (double)wave_data->header.sample_rate);
-				double sample_width = cue->preview_width / (double)samples_in_file;
+				double sample_width = cue->preview_width / (double)preview_width_samples;
 				double half_preview_height = cue->preview_height / 2.0;
 
 				// Draw the audio data. We sum all the channels together to draw a single waveform
@@ -617,7 +638,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 						y /= range_max;
 
 						// Draw the line
-						cairo_line_to(cue->preview_cr, (double)sample * sample_width, half_preview_height * (1.0 - y));
+						cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
 					}
 				}
 				else if (wave_data->header.bits_per_sample == 16)
@@ -639,7 +660,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 						y /= range_max;
 
 						// Draw the line
-						cairo_line_to(cue->preview_cr, (double)sample * sample_width, half_preview_height * (1.0 - y));
+						cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
 					}
 				}
 				else if (wave_data->header.bits_per_sample == 32)
@@ -662,7 +683,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 						y /= range_max;
 
 						// Draw the line
-						cairo_line_to(cue->preview_cr, (double)sample * sample_width, half_preview_height * (1.0 - y));
+						cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
 					}
 
 				}
@@ -682,13 +703,13 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 			else
 			{
 				no_more_data = true;
-
-				// We've finished - force a redraw
-				cairo_stroke(cue->preview_cr);
-				gtk_widget_queue_draw(cue->preview_widget);
 			}
 		}
-			
+
+		// We've finished - force a redraw
+		cairo_stroke(cue->preview_cr);
+		gtk_widget_queue_draw(cue->preview_widget);
+	
 		// Tidy up
 		delete [] read_buffer;
 
@@ -901,6 +922,17 @@ static void acp_volume_changed(GtkRange *range, gpointer user_data)
 
 static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
+	// Positions where we draw text
+	static const size_t num_increments = 25;
+	static const stack_time_t increments[] = {   1 * NANOSECS_PER_MILLISEC,   2 * NANOSECS_PER_MILLISEC,   5 * NANOSECS_PER_MILLISEC,
+	                                            10 * NANOSECS_PER_MILLISEC,  20 * NANOSECS_PER_MILLISEC,  50 * NANOSECS_PER_MILLISEC,
+	                                           100 * NANOSECS_PER_MILLISEC, 200 * NANOSECS_PER_MILLISEC, 500 * NANOSECS_PER_MILLISEC,
+	                                             1 * NANOSECS_PER_SEC,        2 * NANOSECS_PER_SEC,        5 * NANOSECS_PER_SEC,
+	                                            10 * NANOSECS_PER_SEC,       20 * NANOSECS_PER_SEC,       30 * NANOSECS_PER_SEC,
+	                                             1 * NANOSECS_PER_MINUTE,     2 * NANOSECS_PER_MINUTE,     5 * NANOSECS_PER_MINUTE,
+	                                            10 * NANOSECS_PER_MINUTE,    20 * NANOSECS_PER_MINUTE,    30 * NANOSECS_PER_MINUTE,
+	                                            60 * NANOSECS_PER_MINUTE };
+
 	guint width, height, graph_height, half_graph_height, top_bar_height;
 	cairo_text_extents_t text_size;
 	char time_buffer[32];
@@ -921,19 +953,6 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	cairo_text_extents(cr, "0:00.000", &text_size);
 	cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
 	cairo_rectangle(cr, 0.0, 0.0, width, text_size.height + 4);
-	cairo_fill(cr);
-
-	// Draw the text
-	cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
-	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-	cairo_move_to(cr, 0.0, text_size.height + 2);
-	cairo_show_text(cr, "0:00.000");
-	stack_format_time_as_string(cue->file_length, time_buffer, 32);
-	cairo_text_extents(cr, time_buffer, &text_size);
-	cairo_move_to(cr, width - text_size.width - 2, text_size.height + 2);
-	cairo_show_text(cr, time_buffer);
-
-	// TODO: Draw more
 	cairo_fill(cr);
 
 	// Figure out the height of the graph itself (so less the timing bar)
@@ -958,7 +977,7 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	// Generate a preview if required
 	if (generate_preview)
 	{
-		stack_audio_cue_preview_generate(cue, 0, 0, width, graph_height);
+		stack_audio_cue_preview_generate(cue, 0, cue->file_length, width, graph_height);
 	}
 	else
 	{
@@ -993,6 +1012,70 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	cairo_move_to(cr, section_right, top_bar_height);
 	cairo_line_to(cr, section_right, height);
 	cairo_stroke(cr);
+
+	// Setup for text drawing
+	cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+	cairo_move_to(cr, 0.0, text_size.height + 2);
+
+	// Draw zero position
+	stack_format_time_as_string(cue->preview_start, time_buffer, 32);
+	cairo_show_text(cr, time_buffer);
+	cairo_text_extents(cr, time_buffer, &text_size);
+	cairo_set_line_width(cr, 1.0);
+
+	// Store details of zero position
+	float last_text_x = 0.0f, last_text_width = text_size.width;
+	stack_time_t last_time = cue->preview_start;
+
+	// Draw labels until the end
+	bool found_label = true;
+	while (found_label && last_text_x < (float)width)
+	{
+		// Identify the next time that we can draw without overlap
+		stack_time_t new_time = 0;
+		float new_text_x = 0.0;
+		found_label = false;
+		for (size_t i = 0; i < num_increments; i++)
+		{
+			new_time = last_time + increments[i];
+			new_text_x = (float)width * (float)(new_time - cue->preview_start) / (float)(cue->preview_end - cue->preview_start);
+
+			// Determine if this doesn't overlap (32 is our tidiness zone)
+			if (new_text_x > last_text_x + last_text_width + 32)
+			{
+				found_label = true;
+				break;
+			}
+		}
+
+		// Draw a label
+		if (found_label)
+		{
+			// Build the time string
+			stack_format_time_as_string(new_time, time_buffer, 32);
+
+			// Draw the text
+			cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
+			cairo_text_extents(cr, time_buffer, &text_size);
+			cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+			cairo_move_to(cr, floor(new_text_x) + 1, text_size.height + 2);
+			cairo_show_text(cr, time_buffer);
+
+			// Draw a tick mark (3 pixels high)
+			cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+			cairo_set_source_rgb(cr, 0.8, 0.8, 0.8);
+			cairo_move_to(cr, floor(new_text_x), 0.0);
+			cairo_line_to(cr, floor(new_text_x), top_bar_height + 3);
+			cairo_stroke(cr);
+
+			// Store the position of this label
+			last_text_x = new_text_x;
+			last_text_width = text_size.width;
+			last_time = new_time;
+		}
+	}
+
 }
 
 // Called when we're being played
@@ -1047,9 +1130,9 @@ static bool stack_audio_cue_play(StackCue *cue)
 	if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE)
 	{
 		// Skip to the appropriate point in the file
-		g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), 
-			sizeof(WaveHeader) + (audio_cue->media_start_time * (stack_time_t)((FileDataWave*)audio_cue->file_data)->header.byte_rate / NANOSECS_PER_SEC),
-			G_SEEK_CUR, NULL, NULL);
+		WaveHeader *wave_header = &(((FileDataWave*)audio_cue->file_data)->header);
+		size_t seek_point = sizeof(WaveHeader) + stack_audio_cue_time_to_byte(audio_cue->media_start_time, wave_header->sample_rate, wave_header->num_channels, wave_header->bits_per_sample);
+		g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), seek_point, G_SEEK_SET, NULL, NULL);
 	}
 #ifndef NO_MP3LAME
 	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
