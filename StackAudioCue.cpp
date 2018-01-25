@@ -84,27 +84,26 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	// We start in error state until we have a file
 	stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 	
-	// Initialise our variables
+	// Initialise our variables: cue data
 	cue->file = strdup("");
-	//cue->fade_in_time = 0;
-	//cue->fade_out_time = 0;
 	cue->media_start_time = 0;
 	cue->media_end_time = 0;
 	cue->file_length = 0;
-	//cue->start_volume = -INFINITY;
 	cue->play_volume = 0.0;
-	//cue->end_volume = -INFINITY;
 	cue->builder = NULL;
 	cue->media_tab = NULL;
 	cue->format = STACK_AUDIO_FILE_FORMAT_NONE;
 	cue->file_data = NULL;
+
+	// Initialise our variables: playback
 	cue->playback_data_sent = 0;
 	cue->playback_live_volume = 0.0;
 	cue->playback_file = NULL;
 	cue->playback_file_stream = NULL;
 	cue->playback_audio_ptr = 0;
 	cue->playback_data = NULL;
-	cue->preview_ready = false;
+
+	// Initialise our variables: preview
 	cue->preview_thread_run = false;
 	cue->preview_surface = NULL;
 	cue->preview_cr = NULL;
@@ -128,9 +127,6 @@ static void stack_audio_cue_preview_tidy(StackAudioCue *cue)
 			cue->preview_thread.join();
 		}
 	}
-
-	// Preview is no longer ready
-	cue->preview_ready = false;
 
 	// Tidy up
 	if (cue->preview_surface)
@@ -738,9 +734,6 @@ static void stack_audio_cue_preview_generate(StackAudioCue *cue, stack_time_t st
 		cue->preview_thread_run = false;
 		cue->preview_thread.join();
 	}
-
-	// Preview is no longer ready
-	cue->preview_ready = false;
 
 	// Destroy any current surface
 	if (cue->preview_surface)
