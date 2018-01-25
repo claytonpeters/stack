@@ -1014,7 +1014,7 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
 
-		if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+		if ((cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST) || cue->state == STACK_CUE_STATE_PAUSED)
 		{
 			// Stop the cue
 			stack_cue_stop(cue);
