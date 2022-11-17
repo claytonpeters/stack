@@ -1162,7 +1162,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 			if (frame.sample_position + frame.frame_size_samples >= start_sample)
 			{
 				// Seek to the start of the frame
-				fprintf(stderr, "start_sample = %d, frame sample_position = %d, frame byte_position = %d\n", start_sample, frame.sample_position, frame.byte_position);
+				fprintf(stderr, "start_sample = %ld, frame sample_position = %ld, frame byte_position = %ld\n", start_sample, frame.sample_position, frame.byte_position);
 				g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), frame.byte_position, G_SEEK_SET, NULL, NULL);
 				break;
 			}
@@ -1634,17 +1634,17 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
 	Json::Reader reader;
-	
+
 	// Parse JSON data
 	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
-	
+
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackAudioCue"))
 	{
 		fprintf(stderr, "stack_audio_cue_from_json(): Missing StackFadeCue class\n");
 		return;
 	}
-	
+
 	Json::Value& cue_data = cue_root["StackAudioCue"];
 
 	// Load in our audio file, and set the state based on whether it succeeds
@@ -1656,12 +1656,12 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	{
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
 	}
-	
+
 	// Load media start and end times
 	STACK_AUDIO_CUE(cue)->media_start_time = cue_data["media_start_time"].asInt64();
 	STACK_AUDIO_CUE(cue)->media_end_time = cue_data["media_end_time"].asInt64();
 	stack_cue_set_action_time(STACK_CUE(cue), STACK_AUDIO_CUE(cue)->media_end_time - STACK_AUDIO_CUE(cue)->media_start_time);
-	
+
 	// Load playback volume
 	if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
 	{
@@ -1686,7 +1686,7 @@ void stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 	else
 	{
-		snprintf(message, size, "");
+		strncpy(message, "", size);
 	}
 }
 

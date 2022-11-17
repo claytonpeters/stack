@@ -158,7 +158,7 @@ static bool stack_action_cue_play(StackCue *cue)
 	// If we don't have a valid target (unknown cue, or self) then we can't play
 	if (stack_cue_get_by_uid(STACK_ACTION_CUE(cue)->target) == NULL || STACK_ACTION_CUE(cue)->target == cue->uid)
 	{
-		fprintf(stderr, "stack_action_cue_play(): Invalid target cue: %llx\n", STACK_ACTION_CUE(cue)->target);
+		fprintf(stderr, "stack_action_cue_play(): Invalid target cue: %lx\n", STACK_ACTION_CUE(cue)->target);
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
 	}
 
@@ -348,7 +348,7 @@ void stack_action_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 	else
 	{
-		snprintf(message, size, "");
+		strncpy(message, "", size);
 	}
 }
 

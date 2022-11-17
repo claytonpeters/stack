@@ -2,6 +2,7 @@
 #include "StackAudioDevice.h"
 #include <cstring>
 #include <map>
+#include <string>
 using namespace std;
 
 // Map of classes

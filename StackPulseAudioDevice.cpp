@@ -61,7 +61,7 @@ void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
 void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* userdata)
 {
-	fprintf(stderr, "stack_pulse_audio_underflow_callback(): UNDERFLOW AT %lld!\n", pa_stream_get_underflow_index(STACK_PULSE_AUDIO_DEVICE(userdata)->stream));
+	fprintf(stderr, "stack_pulse_audio_underflow_callback(): UNDERFLOW AT %ld!\n", pa_stream_get_underflow_index(STACK_PULSE_AUDIO_DEVICE(userdata)->stream));
 }
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio when counting sinks

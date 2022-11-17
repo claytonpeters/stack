@@ -16,33 +16,32 @@ static void stack_app_init(StackApp *app)
 	stack_audio_device_initsystem();
 
 	//// LOAD PLUGINS
-	
+
 	// Open the current directory
 	DIR* dir = opendir(".");
 	if (opendir != NULL)
 	{
-		struct dirent entry;
-		struct dirent *entry_ptr;
+		struct dirent *entry;
 
 		// Iterate over the items in the directory
-		while (readdir_r(dir, &entry, &entry_ptr) == 0 && entry_ptr != NULL)
+		while ((entry = readdir(dir)) != NULL)
 		{
 			// Get the length of the entry
-			size_t name_length = strlen(entry.d_name);
+			size_t name_length = strlen(entry->d_name);
 
 			// If the last three characters of the filename are ".so"
 			if (name_length > 3 &&
-			    entry.d_name[name_length - 3] == '.' &&
-			    entry.d_name[name_length - 2] == 's' && 
-			    entry.d_name[name_length - 1] == 'o')
-			{ 
-				fprintf(stderr, "stack_app_init(): Loading %s...\n", entry.d_name);
+			    entry->d_name[name_length - 3] == '.' &&
+			    entry->d_name[name_length - 2] == 's' &&
+			    entry->d_name[name_length - 1] == 'o')
+			{
+				fprintf(stderr, "stack_app_init(): Loading %s...\n", entry->d_name);
 
 				// We only have the filename, which if we pass to dlopen it'll look on
 				// the library search path rather than where the file actually is, so
 				// add on the directory we're searching
-				char entry_relative_path[512];
-				sprintf(entry_relative_path, "./%s", entry.d_name);
+				char entry_relative_path[NAME_MAX];
+				snprintf(entry_relative_path, NAME_MAX, "./%s", entry->d_name);
 
 				// Attempt to open the entry as a dynamic library
 				void *dl_handle = dlopen(entry_relative_path, RTLD_NOW);
@@ -55,7 +54,7 @@ static void stack_app_init(StackApp *app)
 
 					if (sip_ptr != NULL)
 					{
-						fprintf(stderr, "stack_app_init(): Initialising %s...\n", entry.d_name);
+						fprintf(stderr, "stack_app_init(): Initialising %s...\n", entry->d_name);
 						// If we found the symbol, call it to initialise the plugin
 						if (!sip_ptr())
 						{
@@ -64,14 +63,14 @@ static void stack_app_init(StackApp *app)
 					}
 					else
 					{
-						fprintf(stderr, "stack_app_init(): %s is not a Stack plugin\n", entry.d_name);
+						fprintf(stderr, "stack_app_init(): %s is not a Stack plugin\n", entry->d_name);
 						// This is not a Stack plugin, close the library
 						dlclose(dl_handle);
 					}
 				}
 				else
 				{
-					fprintf(stderr, "stack_app_init(): Failed to load %s: %s\n", entry.d_name, dlerror());
+					fprintf(stderr, "stack_app_init(): Failed to load %s: %s\n", entry->d_name, dlerror());
 				}
 			}
 		}

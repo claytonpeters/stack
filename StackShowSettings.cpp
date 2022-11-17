@@ -86,7 +86,7 @@ void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
 					for (size_t j = devices[i].min_channels; j <= devices[i].max_channels; j++)
 					{
 						char channel_value[16];
-						snprintf(channel_value, 16, "%d", j);
+						snprintf(channel_value, 16, "%lu", j);
 						gtk_combo_box_text_append(channels_combo, channel_value, channel_value);
 					}
 					for (size_t j = 0; j < devices[i].num_rates; j++)

@@ -538,7 +538,7 @@ void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 	else
 	{
-		snprintf(message, size, "");
+		strncpy(message, "", size);
 	}
 }
 

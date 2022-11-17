@@ -839,13 +839,18 @@ static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
 	// Create the new cue
 	StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
-	
+	if (new_cue == NULL)
+	{
+		stack_cue_list_unlock(window->cue_list);
+		return;
+	}
+
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
 
@@ -874,6 +879,11 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 
 	// Create the new cue
 	StackCue* new_cue = STACK_CUE(stack_cue_new("StackFadeCue", window->cue_list));
+	if (new_cue == NULL)
+	{
+		stack_cue_list_unlock(window->cue_list);
+		return;
+	}
 	
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
@@ -903,6 +913,11 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 
 	// Create the new cue
 	StackCue* new_cue = STACK_CUE(stack_cue_new("StackActionCue", window->cue_list));
+	if (new_cue == NULL)
+	{
+		stack_cue_list_unlock(window->cue_list);
+		return;
+	}
 	
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
@@ -1501,7 +1516,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 			gpointer cue;
 			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
 
-			fprintf(stderr, "saw_row_dragged(): Moving cue %lld (uid: 0x%016x) to index %u\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
+			fprintf(stderr, "saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
 
 			// Remove the cue from the cue list and move it to it's new location
 			stack_cue_list_lock(window->cue_list);

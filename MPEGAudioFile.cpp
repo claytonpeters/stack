@@ -212,9 +212,9 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			if (lost_sync != true)
 			{
 				lost_sync = true;
-				fprintf(stderr, "mpeg_audio_file_find_frames(): Lost MP3 frame sync at offset %u\n", frame_start);
+				fprintf(stderr, "mpeg_audio_file_find_frames(): Lost MP3 frame sync at offset %lu\n", frame_start);
 			}
-			
+
 			// If we don't find frame sync, seek back three bytes
 			// (i.e. one less than the size of the frame header) and
 			// try again
@@ -234,7 +234,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			// Log when we regain sync
 			if (lost_sync)
 			{
-				fprintf(stderr, "mpeg_audio_file_find_frames(): Re-sync'd MP3 frame at offset %u\n", frame_start);
+				fprintf(stderr, "mpeg_audio_file_find_frames(): Re-sync'd MP3 frame at offset %lu\n", frame_start);
 				lost_sync = true;
 			}
 		}
