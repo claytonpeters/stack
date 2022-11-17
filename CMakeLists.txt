@@ -20,7 +20,7 @@ pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 ## We need libdl for our plugin loading support
 find_library(DL_LIBRARIES dl)
 
-## LAME doesn't ship with a CMake file 
+## LAME doesn't ship with a CMake file
 find_path(LAME_INCLUDE_DIRS lame/lame.h)
 find_library(LAME_LIBRARIES mp3lame)
 include(FindPackageHandleStandardArgs)
@@ -39,6 +39,7 @@ link_directories(${PULSEAUDIO_LIBRARY_DIR})
 link_directories(${JSONCPP_LIBRARY_DIRS})
 link_directories(${ALSA_LIBRARY_DIRS})
 add_definitions(${GTK3_CFLAGS_OTHER})
+target_link_libraries(StackAudioCue ${LAME_LIBRARIES})
 target_link_libraries(StackPulseAudioDevice ${PULSEAUDIO_LIBRARY})
 target_link_libraries(StackPulseAudioDevice ${PULSEAUDIO_MAINLOOP_LIBRARY})
 target_link_libraries(StackAlsaAudioDevice ${ALSA_LIBRARY})
