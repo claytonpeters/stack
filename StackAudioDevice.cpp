@@ -46,54 +46,54 @@ int stack_register_audio_device_class(StackAudioDeviceClass *adev_class)
 	{
 		return STACKERR_PARAM_NULL;
 	}
-	
+
 	// Debug
 	fprintf(stderr, "Registering audio device type '%s'\n", adev_class->class_name);
-	
+
 	// Validate name pointer
 	if (adev_class->class_name == NULL)
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Class name cannot be NULL\n");
 		return STACKERR_CLASS_BADNAME;
 	}
-	
+
 	// Ensure we don't already have a class of this type
 	if (adev_class_map.find(string(adev_class->class_name)) != adev_class_map.end())
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Class name already registered\n");
 		return STACKERR_CLASS_DUPLICATE;
 	}
-	
+
 	// Only the 'StackAudioDevice' class is allowed to not have a superclass
 	if (adev_class->super_class_name == NULL && strcmp(adev_class->class_name, "StackAudioDevice") != 0)
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Cue classes must have a superclass\n");
 		return STACKERR_CLASS_NOSUPER;
 	}
-	
+
 	// Validate name length
 	if (strlen(adev_class->class_name) <= 0)
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Class name cannot be empty\n");
 		return STACKERR_CLASS_BADNAME;
 	}
-	
+
 	// Validate create function pointer
 	if (adev_class->create_func == NULL)
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Class create_func cannot be NULL. An implementation must be provided\n");
 	}
-	
+
 	// Validate destroy function pointer
 	if (adev_class->destroy_func == NULL)
 	{
 		fprintf(stderr, "stack_register_audio_device_class(): Class destroy_func cannot be NULL. An implementation must be provided\n");
 		return STACKERR_CLASS_BADDESTROY;
 	}
-	
+
 	// Store the class
 	adev_class_map[string(adev_class->class_name)] = adev_class;
-	
+
 	return 0;
 }
 
@@ -109,14 +109,14 @@ void stack_audio_device_write(StackAudioDevice *adev, const char *data, size_t b
 		fprintf(stderr, "stack_audio_device_write(): Unknown class\n");
 		return;
 	}
-	
+
 	// Look for a write function. Iterate through superclasses if we don't have one
 	while (adev_class_map[class_name]->write_func == NULL && class_name != NULL)
 	{
 		class_name = adev_class_map[class_name]->super_class_name;
 	}
 
-	// Call function	
+	// Call function
 	iter->second->write_func(adev, data, bytes);
 }
 
@@ -125,7 +125,7 @@ StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uin
 {
 	// Debug
 	fprintf(stderr, "stack_audio_device_new(): Calling create for type '%s'\n", type);
-	
+
 	// Locate the class
 	auto iter = adev_class_map.find(string(type));
 	if (iter == adev_class_map.end())
@@ -133,7 +133,7 @@ StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uin
 		fprintf(stderr, "stack_audio_device_new(): Unknown class\n");
 		return NULL;
 	}
-	
+
 	// No need to iterate up through superclasses - we can't be NULL
 	return iter->second->create_func(name, channels, sample_rate);
 }
@@ -142,7 +142,7 @@ void stack_audio_device_destroy(StackAudioDevice *adev)
 {
 	// Debug
 	fprintf(stderr, "stack_audio_device_destroy(): Calling destroy for type '%s'\n", adev->_class_name);
-	
+
 	// Locate the class
 	auto iter = adev_class_map.find(string(adev->_class_name));
 	if (iter == adev_class_map.end())
@@ -162,7 +162,7 @@ const StackAudioDeviceClass *stack_audio_device_get_class(const char *name)
 	{
 		return NULL;
 	}
-	
+
 	return iter->second;
 }
 

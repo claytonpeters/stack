@@ -14,7 +14,7 @@ typedef struct StackAudioDevice
 
 	// The number of channels present
 	uint32_t channels;
-	
+
 	// The sample rate of the device
 	uint32_t sample_rate;
 } StackAudioDevice;

@@ -23,7 +23,7 @@ class semaphore
 				condvar.wait(lck);
 			}
 
-			// Once we've acquired the lock (and thus we must be 
+			// Once we've acquired the lock (and thus we must be
 			// greater than zero), decrement the count
 			count--;
 

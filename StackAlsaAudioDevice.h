@@ -11,10 +11,10 @@ typedef struct StackAlsaAudioDevice
 {
 	// Super class
 	StackAudioDevice super;
-	
+
 	// The ALSA device
 	snd_pcm_t *stream;
-	
+
 	// Synchronisation semaphore
 	semaphore sync_semaphore;
 } StackAlsaAudioDevice;

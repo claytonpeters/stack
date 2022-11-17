@@ -15,26 +15,26 @@ stack_time_t stack_get_clock_time()
 // Formats a cue id as a cue number string
 void stack_cue_id_to_string(cue_id_t cue_id, char *buffer, size_t buffer_size)
 {
-	// Format in i.ddd format (will have trailing zeros) 
+	// Format in i.ddd format (will have trailing zeros)
 	snprintf(buffer, buffer_size, "%d.%03d", cue_id / 1000, cue_id % 1000);
 
 	// Get the length of our generated string
 	size_t len = strlen(buffer);
-	
+
 	// Remove any extraneous zeros
 	while (len > 1 && buffer[len - 1] == '0')
 	{
 		buffer[len - 1] = '\0';
 		len--;
 	}
-	
+
 	// Once we've removed any extraneous zeros, look for extraneous dots
 	while (len > 1 && buffer[len - 1] == '.')
 	{
 		buffer[len - 1] = '\0';
 		len--;
 	}
-	
+
 	// Note we don't do the above as one single loop checking for either zeros
 	// or dots other wise "10.00" becomes "1" rather than "10"
 }
@@ -50,7 +50,7 @@ cue_id_t stack_cue_string_to_id(const char *s)
 
 	// Convert anything before the dot to an integer
 	cue_id_t cue_id = ((cue_id_t)atoi(s) * 1000);
-	
+
 	// If we've found a dot...
 	if (dot_sep != NULL)
 	{
@@ -65,7 +65,7 @@ cue_id_t stack_cue_string_to_id(const char *s)
 			{
 				// Add on the tens component
 				cue_id += (dot_sep[2] - '0') * 10;
-		
+
 				// If we have a third digit after the dot
 				if ((size_t)(dot_sep - s) + 3 < len && dot_sep[3] >= '0' && dot_sep[3] <= '9')
 				{
@@ -75,7 +75,7 @@ cue_id_t stack_cue_string_to_id(const char *s)
 					// Ignore any extraneous digits
 				}
 			}
-		}		
+		}
 	}
 
 	return cue_id;
@@ -90,7 +90,7 @@ void stack_format_time_as_string(stack_time_t time, char *str, size_t len)
 	snprintf(str, len, "%u:%02u.%03u", (uint32_t)(time_seconds / 60), uint32_t(time_seconds % 60), uint32_t((time % NANOSECS_PER_SEC) / NANOSECS_PER_MILLISEC));
 }
 
-// Converts a decibel value to a number that can be used as a coefficient to 
+// Converts a decibel value to a number that can be used as a coefficient to
 // samples
 // @param db The value in decibels to convert
 // @returns A value between 0.0 and 1.0 if db <= 0 and a value greater than 1.0 if db >= 1
@@ -113,16 +113,16 @@ double stack_scalar_to_db(double scalar)
 stack_time_t stack_time_string_to_ns(const char *s)
 {
 	size_t len = strlen(s);
-	
+
 	const char *min_sep = strchr(s, ':');
 	const char *sec_sep = strchr(s, '.');
-	
+
 	// This is invalid, so return zero
 	if (sec_sep == NULL && min_sep == NULL && sec_sep < min_sep)
 	{
 		return 0;
 	}
-	
+
 	// No minute or second separator, assume just whole seconds
 	if (min_sep == NULL && sec_sep == NULL)
 	{

@@ -74,16 +74,16 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 {
 	// Allocate the cue
 	StackAudioCue* cue = new StackAudioCue();
-	
+
 	// Initialise the superclass
 	stack_cue_init(&cue->super, cue_list);
 
 	// Make this class a StackAudioCue
 	cue->super._class_name = "StackAudioCue";
-	
+
 	// We start in error state until we have a file
 	stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
-	
+
 	// Initialise our variables: cue data
 	cue->file = strdup("");
 	cue->media_start_time = 0;
@@ -152,7 +152,7 @@ static void stack_audio_cue_destroy(StackCue *cue)
 
 	// Our tidyup here
 	free(acue->file);
-	
+
 	// Tidy up
 	if (acue->builder)
 	{
@@ -164,7 +164,7 @@ static void stack_audio_cue_destroy(StackCue *cue)
 
 		// Destroy the top level widget in the builder
 		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(acue->builder, "window1")));
-		
+
 		// Unref the builder
 		g_object_unref(acue->builder);
 	}
@@ -188,7 +188,7 @@ static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 	{
 		action_time = 0.0;
 	}
-	
+
 	stack_cue_set_action_time(STACK_CUE(cue), action_time);
 }
 
@@ -253,21 +253,21 @@ static bool stack_audio_cue_read_wavehdr(GInputStream *stream, FileDataWave *wav
 		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to read 44 byte header\n");
 		return false;
 	}
-	
+
 	// Check for RIFF header
 	if (!(wave_data->header.chunk_id[0] == 'R' && wave_data->header.chunk_id[1] == 'I' && wave_data->header.chunk_id[2] == 'F' && wave_data->header.chunk_id[3] == 'F'))
 	{
 		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find RIFF header\n");
 		return false;
 	}
-		
+
 	// Check for WAVE format
 	if (!(wave_data->header.format[0] == 'W' && wave_data->header.format[1] == 'A' && wave_data->header.format[2] == 'V' && wave_data->header.format[3] == 'E'))
 	{
 		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find WAVE format\n");
 		return false;
 	}
-				
+
 	// Check for 'fmt ' subchunk
 	if (!(wave_data->header.subchunk_1_id[0] == 'f' && wave_data->header.subchunk_1_id[1] == 'm' && wave_data->header.subchunk_1_id[2] == 't' && wave_data->header.subchunk_1_id[3] == ' '))
 	{
@@ -287,7 +287,7 @@ static bool stack_audio_cue_read_wavehdr(GInputStream *stream, FileDataWave *wav
 	{
 		wave_data->header.byte_rate = wave_data->header.sample_rate * wave_data->header.num_channels * wave_data->header.bits_per_sample / 8;
 	}
-					
+
 	// Check that our second subchunk is "data"
 	if (wave_data->header.subchunk_2_id[0] == 'd' && wave_data->header.subchunk_2_id[1] == 'a' && wave_data->header.subchunk_2_id[2] == 't' && wave_data->header.subchunk_2_id[3] == 'a')
 	{
@@ -295,7 +295,7 @@ static bool stack_audio_cue_read_wavehdr(GInputStream *stream, FileDataWave *wav
 	}
 
 	// If our second subchunk is not data, search for the subchunk
-						
+
 	// Seek past chunk 2 (we've already read it's size as part of the normal
 	// WaveHeader structure)
 	g_seekable_seek(G_SEEKABLE(stream), wave_data->header.subchunk_2_size, G_SEEK_CUR, NULL, NULL);
@@ -328,7 +328,7 @@ static bool stack_audio_cue_read_wavehdr(GInputStream *stream, FileDataWave *wav
 			return false;
 		}
 	}
-	
+
 	return true;
 }
 
@@ -357,16 +357,16 @@ StackAudioFileFormat stack_audio_cue_read_file_header(GFile *file, GFileInputStr
 			// Get the file size and work out the length of the file in seconds
 			goffset size = g_file_info_get_size(file_info);
 			double seconds = double(size - 44) / double(wave_data.header.byte_rate);
-		
+
 			// Debug
 			fprintf(stderr, "stack_audio_cue_read_file_header(): Wave: File info: %ld bytes / %d byte rate = %.4f seconds\n", size, wave_data.header.byte_rate, seconds);
-			
+
 			// Store the file length
 			wave_data.file_length = (stack_time_t)(seconds * 1.0e9);
 
 			// Store the data
 			*file_data = new FileDataWave(wave_data);
-			
+
 			// Tidy up
 			g_object_unref(file_info);
 
@@ -396,7 +396,7 @@ StackAudioFileFormat stack_audio_cue_read_file_header(GFile *file, GFileInputStr
 
 			// Debug
 			fprintf(stderr, "stack_audio_cue_file_header(): MP3: File info: %ld bytes / %d byte rate = %.4f seconds\n", mp3_data.audio_size, mp3_data.byte_rate, seconds);
-			
+
 			// Store the file length
 			mp3_data.file_length = (stack_time_t)(seconds * 1.0e9);
 
@@ -427,14 +427,14 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 
 	// Check to see if file was previously empty
 	bool was_empty = (strlen(cue->file) == 0) && (cue->media_start_time == 0) && (cue->media_end_time == 0);
-	
+
 	// Open the file
 	GFile *file = g_file_new_for_uri(uri);
 	if (file == NULL)
 	{
 		return false;
 	}
-	
+
 	// Open a stream
 	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 	if (stream == NULL)
@@ -446,7 +446,7 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	// Read the file header
 	void *file_data;
 	StackAudioFileFormat format = stack_audio_cue_read_file_header(file, stream, &file_data);
-	
+
 	// If we successfully got a file, then update the cue
 	if (format != STACK_AUDIO_FILE_FORMAT_NONE)
 	{
@@ -454,7 +454,7 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		stack_audio_cue_free_file_data(cue);
 		cue->file_data = file_data;
 		cue->format = format;
-	
+
 		if (format == STACK_AUDIO_FILE_FORMAT_WAVE)
 		{
 			cue->file_length = ((FileDataWave*)cue->file_data)->file_length;
@@ -472,20 +472,20 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 
 		// Update the cue state
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
-		
+
 		// If we were previously empty, or if this new file is shorter
 		// than the previous file, update the media end point
 		if (was_empty || cue->file_length < cue->media_end_time)
 		{
 			cue->media_end_time = cue->file_length;
 		}
-		
+
 		// If the media start point is past the length of the file, reset it
 		if (cue->media_start_time > cue->file_length)
 		{
 			cue->media_start_time = 0;
 		}
-		
+
 		// Update the name if we don't currently have one
 		if (STACK_CUE(cue)->name == NULL || strlen(STACK_CUE(cue)->name) == 0)
 		{
@@ -538,7 +538,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		fprintf(stderr, "stack_audio_cue_preview_thread(): file open failed\n");
 		return;
 	}
-	
+
 	// Open a stream
 	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 	if (stream == NULL)
@@ -584,14 +584,14 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 
 		size_t samples_per_channel = 1024;
 		size_t total_samples = samples_per_channel * wave_data->header.num_channels;
-			
+
 		// Set up buffer for the number of samples of each channel
 		size_t bytes_to_read = total_samples * wave_data->header.bits_per_sample / 8;
 
 		// Calculate the preview width in samples
 		float preview_width_samples = (float)wave_data->header.sample_rate * (float)(cue->preview_end - cue->preview_start) / NANOSECS_PER_SEC_F;
 
-		// Allocate buffers		
+		// Allocate buffers
 		char *read_buffer = new char[bytes_to_read];
 		bool no_more_data = false;
 		uint64_t sample = preview_start_samples;
@@ -665,7 +665,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 				}
 				else if (wave_data->header.bits_per_sample == 32)
 				{
-					// Calculate the highest value given floating point (-1.0 < x < 1.0) 
+					// Calculate the highest value given floating point (-1.0 < x < 1.0)
 					// and the number of channels
 					float range_max = 1.0 * (float)wave_data->header.num_channels;
 
@@ -709,12 +709,12 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		// We've finished - force a redraw
 		cairo_stroke(cue->preview_cr);
 		gtk_widget_queue_draw(cue->preview_widget);
-	
+
 		// Tidy up
 		delete [] read_buffer;
 
 		// Tidy up
-		delete wave_data;	
+		delete wave_data;
 	}
 #ifndef NO_MP3LAME
 	else if (format == STACK_AUDIO_FILE_FORMAT_MP3)
@@ -723,7 +723,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		FileDataMP3 *mp3_data = (FileDataMP3*)file_data;
 
 		// Tidy up
-		delete mp3_data;	
+		delete mp3_data;
 	}
 #endif
 	else
@@ -791,12 +791,12 @@ static void stack_audio_cue_preview_generate(StackAudioCue *cue, stack_time_t st
 static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
-	
+
 	// Get the filename
 	gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(widget));
 	gchar* uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(widget));
 
-	// Change the file	
+	// Change the file
 	if (stack_audio_cue_set_file(cue, uri))
 	{
 		// Display the file length
@@ -804,7 +804,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 		stack_format_time_as_string(cue->file_length, time_buffer, 32);
 		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
 		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
-		
+
 		// Update the UI
 		stack_format_time_as_string(cue->media_start_time, time_buffer, 32);
 		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), time_buffer);
@@ -815,7 +815,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 	// Tidy up
 	g_free(filename);
 	g_free(uri);
-		
+
 	// Fire an updated-selected-cue signal to signal the UI to change (we might
 	// have changed state)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget));
@@ -826,7 +826,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
-	
+
 	// Set the time
 	cue->media_start_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
 
@@ -851,20 +851,20 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 	// Fire an updated-selected-cue signal to signal the UI to change
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
-	
+
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-	
+
 	return false;
 }
 
 static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
-	
+
 	// Set the time
 	cue->media_end_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
-	
+
 	// Keep it inside the bounds of our file
 	if (cue->media_end_time < 0)
 	{
@@ -874,7 +874,7 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	{
 		cue->media_end_time = cue->file_length;
 	}
-	
+
 	// Update the action time
 	stack_audio_cue_update_action_time(cue);
 
@@ -882,26 +882,26 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	char buffer[32];
 	stack_format_time_as_string(cue->media_end_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
-	
+
 	// Fire an updated-selected-cue signal to signal the UI to change
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
-	
+
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-	
+
 	return false;
 }
 
 static void acp_volume_changed(GtkRange *range, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
-	
+
 	// Get the volume
 	double vol_db = gtk_range_get_value(range);
-	
+
 	char buffer[32];
-	
+
 	if (vol_db < -49.99)
 	{
 		cue->play_volume = -INFINITY;
@@ -912,10 +912,10 @@ static void acp_volume_changed(GtkRange *range, gpointer user_data)
 		cue->play_volume = vol_db;
 		snprintf(buffer, 32, "%.2f dB", vol_db);
 	}
-	
+
 	// Get the volume label and update it's value
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpVolumeValueLabel")), buffer);
-	
+
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 }
@@ -947,7 +947,7 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	// Fill the background
 	cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
 	cairo_paint(cr);
-	
+
 	// Fill the background behind the text
 	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 	cairo_text_extents(cr, "0:00.000", &text_size);
@@ -972,7 +972,7 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 		{
 			generate_preview = true;
 		}
-	}		
+	}
 
 	// Generate a preview if required
 	if (generate_preview)
@@ -1101,12 +1101,12 @@ static bool stack_audio_cue_play(StackCue *cue)
 
 		return true;
 	}
-	
+
 	// Initialise playback
 	audio_cue->playback_data_sent = 0;
 	audio_cue->playback_live_volume = audio_cue->play_volume;
 	audio_cue->playback_audio_ptr = -1;
-	
+
 	// Initialise playback: open the file
 	audio_cue->playback_file = g_file_new_for_uri(audio_cue->file);
 	if (audio_cue->playback_file == NULL)
@@ -1115,7 +1115,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
 		return false;
 	}
-	
+
 	// Initialise playback: get a stream
 	audio_cue->playback_file_stream = g_file_read(audio_cue->playback_file, NULL, NULL);
 	if (audio_cue->playback_file_stream == NULL)
@@ -1172,7 +1172,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		//size_t bytes_read = stack_audio_cue_skip_id3((GInputStream*)audio_cue->playback_file_stream);
 	}
 #endif
-	
+
 	return true;
 }
 
@@ -1180,7 +1180,7 @@ static void stack_audio_cue_stop(StackCue *cue)
 {
 	// Call the superclass (this handles stopping the cue after the action time)
 	stack_cue_stop_base(cue);
-	
+
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
 
@@ -1218,7 +1218,7 @@ static void stack_audio_cue_stop(StackCue *cue)
 	{
 		g_object_unref(audio_cue->playback_file);
 		audio_cue->playback_file = NULL;
-	}	
+	}
 }
 
 // Called when we're pulsed (every few milliseconds whilst the cue is in playback)
@@ -1228,7 +1228,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 	// Call the super class
 	stack_cue_pulse_base(cue, clocktime);
-	
+
 	// We don't need to do anything if we're not in the playing state
 	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 	{
@@ -1237,15 +1237,15 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
-	
+
 	// Get the current cue action times
 	stack_time_t action_time;
 	stack_cue_get_running_times(cue, clocktime, NULL, &action_time, NULL, NULL, NULL, NULL);
-	
+
 	// Calculate audio scalar (using the live playback volume). Also use this to
 	// scale from 16-bit signed int to 0.0-1.0 range
 	float base_audio_scaler = stack_db_to_scalar(audio_cue->playback_live_volume);
-	
+
 	// If we've sent no data, or we've running behind, or we're about to need more data
 	while (!no_more_data && (audio_cue->playback_data_sent == 0 || audio_cue->playback_data_sent < action_time + 20000000))
 	{
@@ -1257,14 +1257,14 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 			size_t samples_per_channel = 1024;
 			size_t total_samples = samples_per_channel * wave_data->header.num_channels;
-			
+
 			// Set up buffer for the number of samples of each channel
 			size_t bytes_to_read = total_samples * wave_data->header.bits_per_sample / 8;
 
-			// Allocate buffers		
+			// Allocate buffers
 			char *read_buffer = new char[bytes_to_read];
 			float *out_buffer = new float[total_samples];
-			
+
 			// Read data
 			gssize bytes_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, read_buffer, bytes_to_read, NULL, NULL);
 
@@ -1319,7 +1319,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 						*(obp++) = *(ibp++) * audio_scaler;
 					}
 				}
-				
+
 				// Write the audio data to the cue list, which handles the output
 				if (wave_data->header.num_channels == 1)
 				{
@@ -1342,11 +1342,11 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				// Break out of the outer loop
 				no_more_data = true;
 			}
-			
+
 			// Tidy up
 			delete [] read_buffer;
 			delete [] out_buffer;
-		
+
 			// Keep track of how much data we've sent to the audio device
 			just_sent = ((stack_time_t)samples_per_channel * NANOSECS_PER_SEC) / (stack_time_t)wave_data->header.sample_rate;
 		}
@@ -1487,7 +1487,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 				// Tidy up
 				delete [] out_buffer;
-			
+
 				// Update ring buffer details
 				pbdata->ring_read_pointer = (pbdata->ring_read_pointer + total_samples) % pbdata->size;
 				pbdata->ring_used -= total_samples;
@@ -1511,10 +1511,10 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	StackAudioCue *scue = STACK_AUDIO_CUE(cue);
-	
+
 	// Create the tab
 	GtkWidget *label = gtk_label_new("Media");
-	
+
 	// Load the UI
 	GtkBuilder *builder = gtk_builder_new_from_file("StackAudioCue.ui");
 	scue->builder = builder;
@@ -1527,7 +1527,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_builder_add_callback_symbol(builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_volume_changed", G_CALLBACK(acp_volume_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_play_section_draw", G_CALLBACK(acp_play_section_draw));
-	
+
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);
 
@@ -1537,24 +1537,24 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// The tab has a parent window in the UI file - unparent the tab container from it
 	gtk_widget_unparent(scue->media_tab);
-	
+
 	// Append the tab (and show it, because it starts off hidden...)
 	gtk_notebook_append_page(notebook, scue->media_tab, label);
 	gtk_widget_show(scue->media_tab);
-	
+
 	// Set the values: file
 	if (strlen(scue->file) != 0)
 	{
 		// Set the filename
 		gtk_file_chooser_set_uri(GTK_FILE_CHOOSER(gtk_builder_get_object(builder, "acpFile")), scue->file);
-		
+
 		// Display the file length
 		char time_buffer[32], text_buffer[128];
 		stack_format_time_as_string(scue->file_length, time_buffer, 32);
 		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
 		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "acpFileLengthLabel")), text_buffer);
 	}
-	
+
 	// Set the values: volume
 	char buffer[32];
 	if (scue->play_volume < -49.99)
@@ -1567,7 +1567,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(builder, "acpVolume")), scue->play_volume);
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "acpVolumeValueLabel")), buffer);
-	
+
 	// Set the values: trim start
 	stack_format_time_as_string(scue->media_start_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "acpTrimStart")), buffer);
@@ -1582,13 +1582,13 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	// Find our media page
 	gint page = gtk_notebook_page_num(notebook, ((StackAudioCue*)cue)->media_tab);
-	
+
 	// If we've found the page, remove it
 	if (page >= 0)
 	{
 		gtk_notebook_remove_page(notebook, page);
 	}
-	
+
 	// We don't need the top level window, so destroy it (GtkBuilder doesn't
 	// destroy top-level windows itself)
 	gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(((StackAudioCue*)cue)->builder, "window1")));
@@ -1596,7 +1596,7 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Destroy the builder
 	g_object_unref(((StackAudioCue*)cue)->builder);
 
-	// Be tidy	
+	// Be tidy
 	((StackAudioCue*)cue)->builder = NULL;
 	((StackAudioCue*)cue)->media_tab = NULL;
 }
@@ -1604,7 +1604,7 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 static char *stack_audio_cue_to_json(StackCue *cue)
 {
 	StackAudioCue *acue = STACK_AUDIO_CUE(cue);
-	
+
 	// Build JSON
 	Json::Value cue_root;
 	cue_root["file"] = acue->file;
@@ -1618,7 +1618,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	{
 		cue_root["play_volume"] = "-Infinite";
 	}
-	
+
 	// Write out JSON string and return (to be free'd by stack_audio_cue_free_json)
 	Json::FastWriter writer;
 	return strdup(writer.write(cue_root).c_str());

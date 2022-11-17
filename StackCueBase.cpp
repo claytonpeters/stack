@@ -17,7 +17,7 @@ void stack_cue_destroy_base(StackCue *cue)
 	// Free the super class stuff
 	free(cue->name);
 	free(cue->notes);
-	
+
 	// Delete ourselves
 	delete cue;
 }
@@ -31,16 +31,16 @@ bool stack_cue_play_base(StackCue *cue)
 		// We didn't start playing, return false
 		return false;
 	}
-	
+
 	// Get the clock time
 	stack_time_t clocktime = stack_get_clock_time();
-	
+
 	if (cue->state == STACK_CUE_STATE_PAUSED)
 	{
 		// Calculate how long we've been paused on this instance of us being
 		// paused
 		stack_time_t this_pause_time = clocktime - cue->pause_time;
-		
+
 		// Update the total cue paused time
 		cue->paused_time = cue->pause_paused_time + this_pause_time;
 		cue->pause_time = 0;
@@ -49,7 +49,7 @@ bool stack_cue_play_base(StackCue *cue)
 		// Calculated the time we've been elapsed (this is up-to-the-nanosecond)
 		stack_time_t clock_elapsed = (clocktime - cue->start_time);
 		stack_time_t cue_elapsed = clock_elapsed - cue->paused_time;
-		
+
 		// Put us in the right playing state depending on where we are
 		if (cue_elapsed < cue->pre_time)
 		{
@@ -68,7 +68,7 @@ bool stack_cue_play_base(StackCue *cue)
 	{
 		// Cue is stopped (and possibly prepared), start the cue
 		cue->start_time = clocktime;
-		
+
 		// Mark the post as having not run
 		cue->post_has_run = false;
 
@@ -84,7 +84,7 @@ bool stack_cue_play_base(StackCue *cue)
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 		}
 	}
-	
+
 	return true;
 }
 
@@ -96,7 +96,7 @@ void stack_cue_pause_base(StackCue *cue)
 	{
 		cue->pause_time = stack_get_clock_time();
 		cue->pause_paused_time = cue->paused_time;
-		stack_cue_set_state(cue, STACK_CUE_STATE_PAUSED);		
+		stack_cue_set_state(cue, STACK_CUE_STATE_PAUSED);
 	}
 }
 
@@ -118,7 +118,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	{
 		return;
 	}
-	
+
 	// Get the current cue action times
 	stack_time_t run_pre_time, run_action_time, run_post_time;
 	stack_cue_get_running_times(cue, clocktime, &run_pre_time, &run_action_time, &run_post_time, NULL, NULL, NULL);
@@ -135,7 +135,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		{
 			// Mark it as having run
 			cue->post_has_run = true;
-		
+
 			// Find the next cue
 			StackCue *next_cue = stack_cue_list_get_cue_after(cue->parent, cue);
 			if (next_cue)
@@ -145,14 +145,14 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			}
 		}
 	}
-	
+
 	// If pre hasn't finished, return
 	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time < cue->pre_time)
 	{
 		// Do nothing;
 		return;
 	}
-	
+
 	// If we're in pre, but pre has finished
 	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time == cue->pre_time)
 	{
@@ -193,7 +193,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 			return;
 		}
 	}
-	
+
 	// If we're in action, but action time has finished
 	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue->action_time)
 	{
@@ -208,17 +208,17 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		{
 			// Stop the cue
 			stack_cue_stop(cue);
-			
+
 			return;
 		}
 	}
-		
+
 	// If we're in post, but post time has finished
 	if (cue->state == STACK_CUE_STATE_PLAYING_POST && run_post_time == cue->post_time)
 	{
 		// Stop the cue
 		stack_cue_stop(cue);
-		
+
 		return;
 	}
 }
@@ -253,7 +253,7 @@ char *stack_cue_to_json_base(StackCue *cue)
 	cue_root["action_time"] = (Json::Int64)cue->action_time;
 	cue_root["post_trigger"] = cue->post_trigger;
 
-	// Write out the JSON string and return it (to be free'd by 
+	// Write out the JSON string and return it (to be free'd by
 	// stack_cue_free_json_base)
 	Json::FastWriter writer;
 	return strdup(writer.write(cue_root).c_str());
@@ -270,13 +270,13 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
 	Json::Reader reader;
-	
+
 	// Parse JSON data
 	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
-	
+
 	// Get the data that's pertinent to us
 	Json::Value& stack_cue_data = cue_root["StackCue"];
-	
+
 	// Copy the data in to the cue
 	stack_cue_set_color(cue, stack_cue_data["r"].asDouble(), stack_cue_data["g"].asDouble(), stack_cue_data["b"].asDouble());
 	stack_cue_set_id(cue, stack_cue_data["id"].asInt());

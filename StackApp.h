@@ -20,31 +20,31 @@ struct StackAppWindow
 {
 	// The parent class
 	GtkApplicationWindow parent;
-	
+
 	// Our cue list
 	StackCueList *cue_list;
-	
+
 	// Our builder that contains our controls
 	GtkBuilder *builder;
-	
+
 	// Easy access to some of our controls
 	GtkTreeView *treeview;
 	GtkListStore *store;
 	GtkNotebook *notebook;
-	
+
 	// The currently selected cue
 	StackCue *selected_cue;
-	
+
 	// Whether to use our custom style
 	bool use_custom_style;
-	
+
 	// Don't update selections for now (mostly to work round Gtk+ oddities)
 	bool freeze_list_selections;
-	
+
 	// The thread which handles pulsing the cue list
 	std::thread pulse_thread;
 	bool kill_thread;
-	
+
 	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
 	int timer_state;
 };

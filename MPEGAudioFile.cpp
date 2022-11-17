@@ -103,7 +103,7 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 	if (id3_header.id3tag[0] == 'I' && id3_header.id3tag[1] == 'D' && id3_header.id3tag[2] == '3' && (id3_header.version & 0xFF00 >> 8) < 0xFF && (id3_header.version & 0x00FF) < 0xFF && id3_header.size1 < 0x80 && id3_header.size2 < 0x80 && id3_header.size3 < 0x80 && id3_header.size4 < 0x80)
 	{
 		// Calculate the size of the ID3 body. This is a 'synchsafe' integer
-		// (see http://id3.org/id3v2.4.0-structure). Essentially it's four 
+		// (see http://id3.org/id3v2.4.0-structure). Essentially it's four
 		// bytes where the MSB of each byte is always zero and needs to be
 		// removed. This line extracts the 28 relevant bits
 		uint32_t size = (uint32_t)id3_header.size4 | ((uint32_t)id3_header.size3 << 7) | ((uint32_t)id3_header.size2 << 14) | ((uint32_t)id3_header.size1 << 21);
@@ -184,11 +184,11 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		frame_header.copyright = ((uint8_t)frame_header_buffer[3] & 0x08) >> 3;
 		frame_header.original = ((uint8_t)frame_header_buffer[3] & 0x04) >> 2;
 		frame_header.emphasis = (uint8_t)frame_header_buffer[3] & 0x02;
-	
+
 		// Check for a frame sync
 		if (frame_header.frame_sync != 0x7FF)
 		{
-			// Check if we've hit a TAG header (ID3v1 TAG) which would 
+			// Check if we've hit a TAG header (ID3v1 TAG) which would
 			// normally be at the end of the file. Only check for this
 			// if we're not out-of-sync however as this potentially is
 			// valid audio data

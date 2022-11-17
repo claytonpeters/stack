@@ -30,7 +30,7 @@ void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
 	}
 
 	// Get the class itself
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class(provider_class);	
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class(provider_class);
 
 	// Get the available devices for the class
 	if (sadc->get_outputs_func != NULL)
@@ -70,7 +70,7 @@ void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
 	}
 
 	// Get the class itself
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class(provider_class);	
+	const StackAudioDeviceClass *sadc = stack_audio_device_get_class(provider_class);
 
 	// Get the available devices for the class
 	if (sadc->get_outputs_func != NULL)
@@ -129,7 +129,7 @@ void sss_show_dialog(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_audio_device_changed", G_CALLBACK(sss_audio_device_changed));
 	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_sample_rate_changed", G_CALLBACK(sss_sample_rate_changed));
 	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_channels_changed", G_CALLBACK(sss_channels_changed));
-	
+
 	// Connect the signals
 	gtk_builder_connect_signals(dialog_data.builder, (gpointer)&dialog_data);
 
@@ -156,7 +156,7 @@ void sss_show_dialog(StackAppWindow *window)
 		stack_audio_device_class_iter_next(class_iter);
 	}
 	stack_audio_device_class_iter_free(class_iter);
-	
+
 	// This call blocks until the dialog goes away
 	gint result = gtk_dialog_run(dialog_data.dialog);
 
@@ -169,9 +169,9 @@ void sss_show_dialog(StackAppWindow *window)
 		stack_cue_list_set_show_revision(window->cue_list, gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssShowRevision"))));
 
 		// Save Audio settings
-		
+
 		// Save Video settings
-		
+
 		// Save MIDI settings
 	}
 

@@ -18,7 +18,7 @@ typedef map<cue_uid_t, cue_uid_t> uid_remap_t;
 StackCueList *stack_cue_list_new(uint16_t channels)
 {
 	StackCueList *cue_list = new StackCueList();
-	
+
 	// Empty variables
 	cue_list->audio_device = NULL;
 	cue_list->changed = false;
@@ -28,23 +28,23 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->show_name = strdup("");
 	cue_list->show_designer = strdup("");
 	cue_list->show_revision = strdup("");
-	
+
 	// Default to a two-channel set up
 	cue_list->channels = channels;
-	
+
 	// Initialise a list
 	cue_list->cues = (void*)new stackcue_list_t();
-	
+
 	// Initialise a remap map
 	cue_list->uid_remap = (void*)new uid_remap_t();
-	
+
 	// Allocate our buffer (fixed at 32k samples size for now)
 	cue_list->buffer_len = 32768;
 	cue_list->buffer = new float[channels * cue_list->buffer_len];
 	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(float));
 	cue_list->buffer_idx = 0;
 	cue_list->buffer_time = 0;
-	
+
 	return cue_list;
 }
 
@@ -66,7 +66,7 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 
 	// If we've got a URI, free that
 	if (cue_list->uri)
-	{	
+	{
 		free(cue_list->uri);
 	}
 
@@ -91,10 +91,10 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	delete cue_list;
 }
 
-/// Writes one channel of audio data to the cue lists audio buffer. 'data' 
-/// should contain 'samples' audio samples. If 'interleaving' is greater than 
-/// one, then 'data' should contain 'samples * interleaving' samples, with only 
-/// very 'interleaving' samples being used. 
+/// Writes one channel of audio data to the cue lists audio buffer. 'data'
+/// should contain 'samples' audio samples. If 'interleaving' is greater than
+/// one, then 'data' should contain 'samples * interleaving' samples, with only
+/// very 'interleaving' samples being used.
 /// @param cue_list The cue list whose buffer is to be written to
 /// @param ptr The index within the buffer to write to (-1 to write at the read pointer)
 /// @param data The data to write
@@ -110,7 +110,7 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 	{
 		ptr = (cue_list->buffer_idx) % cue_list->buffer_len;
 	}
-	
+
 	// If interleaving is 0, the default to one sample
 	if (interleaving == 0)
 	{
@@ -127,10 +127,10 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 		for (size_t i = 0; i < samples; i++)
 		{
 			*dst += *src;
-			
+
 			// Increment source pointer
 			src += interleaving;
-			
+
 			// Increment destination point
 			dst += cue_list_channels;
 		}
@@ -144,14 +144,14 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 		for (size_t i = 0; i < count; i++)
 		{
 			*dst += *src;
-			
+
 			// Increment source pointer
 			src += interleaving;
-			
+
 			// Increment destination point
 			dst += cue_list_channels;
 		}
-		
+
 		// Copy the rest to the beginning
 		src = &data[interleaving * (cue_list->buffer_len - ptr)];
 		dst = &cue_list->buffer[channel];
@@ -159,16 +159,16 @@ size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t c
 		for (size_t i = 0; i < count; i++)
 		{
 			*dst += *src;
-			
+
 			// Increment source pointer
 			src += interleaving;
-			
+
 			// Increment destination point
 			dst += cue_list_channels;
 		}
 	}
 
-	// Return the new write pointer	
+	// Return the new write pointer
 	return (ptr + samples) % cue_list->buffer_len;
 }
 
@@ -282,15 +282,15 @@ bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter)
 void stack_cue_list_pulse(StackCueList *cue_list)
 {
 	static stack_time_t underflow_time = 0;
-	
+
 	// Get a single clock time for all the cues
 	stack_time_t clocktime = stack_get_clock_time();
-	
+
 	// Iterate over all the cues
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
 		// If the cue is in one of the playing states
-		auto cue_state = (*iter)->state;	
+		auto cue_state = (*iter)->state;
 		if (cue_state >= STACK_CUE_STATE_PLAYING_PRE && cue_state <= STACK_CUE_STATE_PLAYING_POST)
 		{
 			// Pulse the cue
@@ -307,17 +307,17 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	{
 		return;
 	}
-	
+
 	// Initial clock setup when we're ready on the first pulse
 	if (cue_list->buffer_time == 0)
 	{
 		cue_list->buffer_time = clocktime;
 	}
-	
+
 	size_t index, byte_count, blocks_written = 0;
 	size_t block_size_samples = 1024;
 	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
-	
+
 	// Write data to the audio streams if necessary (i.e. if there's less than 3x our block size in the buffer)
 	while (clocktime > cue_list->buffer_time - block_size_time * 3)
 	{
@@ -330,17 +330,17 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 			underflow_time += clocktime - cue_list->buffer_time;
 			fprintf(stderr, "UNDERFLOW: %ldus (total: %ldus)\n", (clocktime - cue_list->buffer_time) / 1000, underflow_time / 1000);
 		}
-		
+
 		// See if we can write an entire memory block at once
 		if (cue_list->buffer_idx + block_size_samples < cue_list->buffer_len)
-		{	
+		{
 			// Calculate data index and size
 			index = cue_list->buffer_idx * cue_list->channels;
 			byte_count = block_size_samples * cue_list->channels * sizeof(float);
-			
+
 			// Write to device
 			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
-			
+
 			// Wipe buffer
 			memset(&cue_list->buffer[index], 0, byte_count);
 		}
@@ -352,7 +352,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 
 			// Write the stuff that's at the end of the memory block
 			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
-			
+
 			// Wipe buffer at the end
 			memset(&cue_list->buffer[index], 0, byte_count);
 
@@ -365,11 +365,11 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 			// Wipe buffer at the beginning
 			memset(cue_list->buffer, 0, byte_count);
 		}
-		
+
 		// Increment ring buffer and wrap around
 		cue_list->buffer_idx = (cue_list->buffer_idx + block_size_samples) % cue_list->buffer_len;
 		cue_list->buffer_time += block_size_time;
-	}	
+	}
 
 	// Statistics: Gather how long it took to do this pulse
 	stack_time_t pulse_time = stack_get_clock_time() - clocktime;
@@ -397,14 +397,14 @@ void stack_cue_list_unlock(StackCueList *cue_list)
 bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 {
 	// TODO: Better error checking
-	
+
 	// Open the file
 	GFile *file = g_file_new_for_uri(uri);
 	if (file == NULL)
 	{
 		return false;
 	}
-	
+
 	// Get a write strea
 	GFileOutputStream *stream = g_file_replace(file, NULL, false, G_FILE_CREATE_NONE, NULL, NULL);
 	if (stream == NULL)
@@ -412,14 +412,14 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		g_object_unref(file);
 		return false;
 	}
-	
+
 	Json::Value root;
 	root["show_name"] = cue_list->show_name;
 	root["designer"] = cue_list->show_designer;
 	root["revision"] = cue_list->show_revision;
 	root["channels"] = cue_list->channels;
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
-	
+
 	// Iterate over all the cues
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
@@ -429,7 +429,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		char *cue_json_data = stack_cue_to_json(*iter);
 		reader.parse(cue_json_data, cue_root);
 		stack_cue_free_json(cue_json_data);
-		
+
 		// Add it to the cues entry
 		root["cues"].append(cue_root);
 	}
@@ -439,14 +439,14 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 
 	// Write to the output stream
 	g_output_stream_printf(G_OUTPUT_STREAM(stream), NULL, NULL, NULL, "%s", output.c_str());
-	
+
 	// Tidy up
 	g_object_unref(stream);
 	g_object_unref(file);
-	
+
 	// We've saved the cue list, so set it to not have been changed
 	cue_list->changed = false;
-	
+
 	return true;
 }
 
@@ -469,12 +469,12 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to open file\n");
 		return NULL;
 	}
-	
+
 	// Get a read stream
 	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 	if (stream == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file stream\n");	
+		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file stream\n");
 		g_object_unref(file);
 		return NULL;
 	}
@@ -483,7 +483,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
 	if (file_info == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file information\n");	
+		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file information\n");
 		g_object_unref(stream);
 		g_object_unref(file);
 		return NULL;
@@ -494,7 +494,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 
 	// Allocate memory
 	std::vector<char> json_buffer(size + 1);
-	
+
 	if (callback)
 	{
 		callback(NULL, 0.01, "Reading file...", user_data);
@@ -508,14 +508,14 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		g_object_unref(file);
 		return NULL;
 	}
-	
+
 	// Null-terminate the string
 	json_buffer[size] = '\0';
 
 	// We don't need the file any more, tidy up
 	g_object_unref(stream);
 	g_object_unref(file);
-	
+
 	// Parse the JSON
 	if (callback)
 	{
@@ -538,7 +538,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		fprintf(stderr, "stack_cue_list_new_from_file(): Invalid number of 'channels' specified\n");
 		return NULL;
 	}
-	
+
 	// Generate a new cue list
 	StackCueList *cue_list = stack_cue_list_new(cue_list_root["channels"].asUInt());
 
@@ -560,7 +560,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	if (cue_list_root.isMember("cues"))
 	{
 		Json::Value& cues_root = cue_list_root["cues"];
-		
+
 		if (cues_root.isArray())
 		{
 			if (callback)
@@ -574,7 +574,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 			for (auto iter = cues_root.begin(); iter != cues_root.end(); ++iter)
 			{
 				Json::Value& cue_json = *iter;
-				
+
 				// Make sure we have a class parameter
 				if (!cue_json.isMember("class"))
 				{
@@ -582,7 +582,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 					fprintf(stderr, "stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
 					continue;
 				}
-				
+
 				// Make sure we have a base class
 				if (!cue_json.isMember("StackCue"))
 				{
@@ -590,7 +590,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 					fprintf(stderr, "stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
 					continue;
 				}
-				
+
 				// Make sure we have a UID
 				if (!cue_json["StackCue"].isMember("uid"))
 				{
@@ -598,7 +598,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 					fprintf(stderr, "stack_cue_list_from_file(): Cue missing UID, skipping\n");
 					continue;
 				}
-				
+
 				// Create a new cue of the correct type
 				const char *class_name = cue_json["class"].asString().c_str();
 				StackCue *cue = stack_cue_new(class_name, cue_list);
@@ -610,7 +610,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 					// TODO: It would be nice if we have some sort of "error cue" which
 					// contained the JSON for the cue, so we didn't just drop cues from
 					// the stack
-					
+
 					continue;
 				}
 
@@ -619,10 +619,10 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				// so that we can re-use it on the second loop
 				SCL_UID_REMAP(cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
 				cue_json["_new_uid"] = (Json::UInt64)cue->uid;
-				
+
 				// Call base constructor
 				stack_cue_from_json_base(cue, cue_json.toStyledString().c_str());
-				
+
 				// Append the cue to the cue list
 				stack_cue_list_append(cue_list, cue);
 				cue_count++;
@@ -638,13 +638,13 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 			for (auto iter = cues_root.begin(); iter != cues_root.end(); ++iter)
 			{
 				Json::Value& cue_json = *iter;
-				
+
 				// Skip over cues we skipped because of errors last time
 				if (cue_json.isMember("_skip"))
 				{
 					continue;
 				}
-				
+
 				// Call the appropriate overloaded function
 				stack_cue_from_json(stack_cue_get_by_uid(cue_json["_new_uid"].asUInt64()), cue_json.toStyledString().c_str());
 				prepared_cues++;
@@ -667,13 +667,13 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	{
 		fprintf(stderr, "stack_cue_list_new_from_file(): Missing 'cues' option\n");
 	}
-	
+
 	// Flag that the cue list hasn't changed
 	cue_list->changed = false;
-	
+
 	// Store the URI of the file we opened
 	cue_list->uri = strdup(uri);
-	
+
 	if (callback)
 	{
 		callback(NULL, 1.0, "Ready", user_data);
@@ -723,10 +723,10 @@ void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
 		{
 			// Erase it
 			SCL_GET_LIST(cue_list)->erase(iter);
-			
+
 			// Note that the cue list has been modified
 			stack_cue_list_changed(cue_list, cue);
-			
+
 			// Stop searching
 			return;
 		}
@@ -746,7 +746,7 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 		{
 			// Increment the iterator to the next cue
 			++iter;
-			
+
 			// If we're now past the end of the cue list
 			if (iter == SCL_GET_LIST(cue_list)->end())
 			{
@@ -758,7 +758,7 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 			}
 		}
 	}
-	
+
 	return NULL;
 }
 

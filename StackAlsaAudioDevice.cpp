@@ -21,10 +21,10 @@ size_t stack_alsa_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	{
 		// Failed to initialise, return NULL
 		*outputs = NULL;
-		return 0;	
+		return 0;
 	}
 
-	// Get some hints	
+	// Get some hints
 	void **hints = NULL;
 	int result = snd_device_name_hint(-1, "pcm", &hints);
 	if (result != 0)
@@ -141,7 +141,7 @@ size_t stack_alsa_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	snd_device_name_free_hint(hints);
 
 	// We can technically return an array that contains more elements than
-	// we say (if a device fails to open, for example), but this is not a 
+	// we say (if a device fails to open, for example), but this is not a
 	// problem, as we only allocate and indeed free the internals of the
 	// number we say, but we tidy up the whole array
 	*outputs = devices;
@@ -156,7 +156,7 @@ void stack_alsa_audio_device_free_outputs(StackAudioDeviceDesc **outputs, size_t
 		free((*outputs)[i].desc);
 		delete [] (*outputs)[i].rates;
 	}
-	
+
 	delete [] *outputs;
 }
 
@@ -164,12 +164,12 @@ void stack_alsa_audio_device_destroy(StackAudioDevice *device)
 {
 	// Debug
 	fprintf(stderr, "stack_alsa_audio_device_destroy() called\n");
-	
+
 	// Tidy up
 	if (STACK_ALSA_AUDIO_DEVICE(device)->stream != NULL)
 	{
 	}
-	
+
 	// Call superclass destroy
 	stack_audio_device_destroy_base(device);
 }
@@ -178,7 +178,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 {
 	// Debug
 	fprintf(stderr, "stack_alsa_audio_device_create(\"%s\", %u, %u) called\n", name, channels, sample_rate);
-	
+
 	// Allocate the new device
 	StackAlsaAudioDevice *device = new StackAlsaAudioDevice();
 	device->stream = NULL;
@@ -215,7 +215,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	// Apply the hardware parameters to the device
 	snd_pcm_hw_params(device->stream, hw_params);
 
-	// Set up superclass	
+	// Set up superclass
 	STACK_AUDIO_DEVICE(device)->_class_name = "StackAlsaAudioDevice";
 	STACK_AUDIO_DEVICE(device)->channels = channels;
 	STACK_AUDIO_DEVICE(device)->sample_rate = sample_rate;

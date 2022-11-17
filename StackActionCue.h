@@ -17,7 +17,7 @@ typedef struct StackActionCue
 {
 	// Superclass
 	StackCue super;
-		
+
 	// The target cue
 	cue_uid_t target;
 
@@ -26,7 +26,7 @@ typedef struct StackActionCue
 
 	// The GtkBuilder instance
 	GtkBuilder *builder;
-	
+
 	// The action tab
 	GtkWidget *action_tab;
 

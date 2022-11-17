@@ -22,7 +22,7 @@ typedef struct ShowLoadingData
 	StackAppWindow* window;
 	char* uri;
 	GtkDialog* dialog;
-	GtkBuilder* builder; 
+	GtkBuilder* builder;
 	StackCueList* new_cue_list;
 	const char *message;
 	double progress;
@@ -48,16 +48,16 @@ static void stack_pulse_thread(StackAppWindow* window)
 		// Lock the cue list
 		stack_cue_list_lock(window->cue_list);
 
-		// Send pulses to all the active cues	
+		// Send pulses to all the active cues
 		stack_cue_list_pulse(window->cue_list);
-		
+
 		// Unlock the cue list
 		stack_cue_list_unlock(window->cue_list);
 
 		// Sleep for a millisecond
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
-	
+
 	return;
 }
 
@@ -122,7 +122,7 @@ static gboolean saw_model_foreach_find_cue(GtkTreeModel *model, GtkTreePath *pat
 {
 	// Get the search data
 	ModelFindCue *mfc = (ModelFindCue*)data;
-	
+
 	// Get the cue from the model
 	StackCue *cue;
 	gtk_tree_model_get(model, iter, STACK_MODEL_CUE_POINTER, &cue, -1);
@@ -133,17 +133,17 @@ static gboolean saw_model_foreach_find_cue(GtkTreeModel *model, GtkTreePath *pat
 		mfc->path = gtk_tree_path_copy(path);
 		return true;
 	}
-	
+
 	return false;
 }
 
-// Updates the list store of cues ('store'), updating the row pointed to by 
+// Updates the list store of cues ('store'), updating the row pointed to by
 // 'iter' with information from 'cue'
 static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *iter, StackCue *cue)
 {
 	char pre_buffer[32], action_buffer[32], post_buffer[32], col_buffer[8];
 	double pre_pct = 0.0, action_pct = 0.0, post_pct = 0.0;
-	
+
 	// Format time strings
 	if (cue->state == STACK_CUE_STATE_ERROR || cue->state == STACK_CUE_STATE_PREPARED || cue->state == STACK_CUE_STATE_STOPPED)
 	{
@@ -157,12 +157,12 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 		// If cue is running or paused, display the time left
 		stack_time_t rpre, raction, rpost;
 		stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
-		
+
 		// Format the times
 		stack_format_time_as_string(cue->pre_time - rpre, pre_buffer, 32);
 		stack_format_time_as_string(cue->action_time - raction, action_buffer, 32);
 		stack_format_time_as_string(cue->post_time - rpost, post_buffer, 32);
-		
+
 		// Calculate fractions
 		if (cue->pre_time != 0)
 		{
@@ -177,10 +177,10 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 			post_pct = 100.0 * double(rpost) / double(cue->post_time);
 		}
 	}
-	
+
 	// Format color
 	snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
-	
+
 	// Decide on icon depending on state
 	const char* icon = "";
 	switch (cue->state)
@@ -192,11 +192,11 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 		case STACK_CUE_STATE_PAUSED:
 			icon = "media-playback-pause";
 			break;
-			
+
 		case STACK_CUE_STATE_PREPARED:
 			icon = "media-seek-forward";
 			break;
-			
+
 		case STACK_CUE_STATE_PLAYING_PRE:
 		case STACK_CUE_STATE_PLAYING_ACTION:
 		case STACK_CUE_STATE_PLAYING_POST:
@@ -204,7 +204,7 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 			break;
 	}
 
-	// Build cue number	
+	// Build cue number
 	char cue_number[32];
 	stack_cue_id_to_string(cue->id, cue_number, 32);
 
@@ -218,14 +218,14 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 	}
 
 	// Update iterator
-	gtk_list_store_set(store, iter, 
+	gtk_list_store_set(store, iter,
 		STACK_MODEL_CUEID,            cue_number,
 		STACK_MODEL_NAME,             cue->name,
 		STACK_MODEL_PREWAIT_PERCENT,  pre_pct,
 		STACK_MODEL_PREWAIT_TEXT,     pre_buffer,
 		STACK_MODEL_ACTION_PERCENT,   action_pct,
 		STACK_MODEL_ACTION_TEXT,      action_buffer,
-		STACK_MODEL_POSTWAIT_PERCENT, post_pct, 
+		STACK_MODEL_POSTWAIT_PERCENT, post_pct,
 		STACK_MODEL_POSTWAIT_TEXT,    post_buffer,
 		STACK_MODEL_STATE_IMAGE,      icon,
 		STACK_MODEL_COLOR,            col_buffer,
@@ -233,24 +233,24 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 		STACK_MODEL_ERROR_MESSAGE,    message, -1);
 }
 
-// Updates the list store of cues ('store'), searching the store for the given 
+// Updates the list store of cues ('store'), searching the store for the given
 // 'cue' and then updating it's information
 static void saw_update_list_store_from_cue(GtkListStore *store, StackCue *cue)
 {
 	// Search for the cue
 	ModelFindCue mfc = {cue, NULL};
 	gtk_tree_model_foreach(GTK_TREE_MODEL(store), saw_model_foreach_find_cue, (gpointer)&mfc);
-	
+
 	// If we've found the cue...
 	if (mfc.path != NULL)
 	{
 		// Get a treeiter to the row
 		GtkTreeIter iter;
 		gtk_tree_model_get_iter(GTK_TREE_MODEL(store), &iter, mfc.path);
-		
+
 		// Update the row
 		saw_update_list_store_from_cue(store, &iter, cue);
-		
+
 		// Tidy up
 		gtk_tree_path_free(mfc.path);
 	}
@@ -280,7 +280,7 @@ static void saw_update_cue(gpointer user_data, StackCue* cue)
 	if (cue)
 	{
 		saw_update_list_store_from_cue(window->store, cue);
-		
+
 		// Make the widget redraw
 		gtk_widget_queue_draw(GTK_WIDGET(window->treeview));
 	}
@@ -296,12 +296,12 @@ static void saw_clear_list_store(StackAppWindow *window)
 		window->selected_cue = NULL;
 	}
 
-	// Unselect the items on the TreeView (this is to stop the crap 
+	// Unselect the items on the TreeView (this is to stop the crap
 	// implementation of gtk_list_store_clear from iteratively selecting each
 	// item in the list as it deletes them)
 	gtk_tree_selection_unselect_all(gtk_tree_view_get_selection(window->treeview));
 	window->freeze_list_selections = true;
-	
+
 	// Clear the list store
 	gtk_list_store_clear(window->store);
 
@@ -309,13 +309,13 @@ static void saw_clear_list_store(StackAppWindow *window)
 	window->freeze_list_selections = false;
 }
 
-// Clears the entire list store and repopulates it with the information 
+// Clears the entire list store and repopulates it with the information
 // contained within the 'window's cue_list
 static void saw_refresh_list_store_from_list(StackAppWindow *window)
 {
 	// Clear the list store
 	saw_clear_list_store(window);
-	
+
 	// An iterator for each row
 	GtkTreeIter iter;
 
@@ -333,7 +333,7 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 
 		// Append a row to the list store and get an iterator
 		gtk_list_store_append(window->store, &iter);
-		
+
 		// Update the row
 		saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(cue));
 
@@ -343,7 +343,7 @@ static void saw_refresh_list_store_from_list(StackAppWindow *window)
 
 	// Unlock the cue cue_list
 	stack_cue_list_unlock(window->cue_list);
-	
+
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
 }
@@ -353,7 +353,7 @@ static void saw_cue_state_changed(StackCueList *cue_list, StackCue *cue, void *u
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	// Update the list store. We emit a signal here rather than calling 
+	// Update the list store. We emit a signal here rather than calling
 	// saw_update_cue to prevent the draw happening on the wrong thread when
 	// called from the pulse thread
 	g_signal_emit_by_name(window, "update-cue", cue);
@@ -364,7 +364,7 @@ static void saw_ucp_wait(StackAppWindow *window, StackCue *cue, bool pre)
 {
 	char waitTime[64];
 	stack_time_t ctime = pre ? cue->pre_time : cue->post_time;
-	
+
 	// Update cue post-wait time (rounding nanoseconds to seconds with three decimal places)
 	stack_format_time_as_string(ctime, waitTime, 64);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, pre ? "sawPreWait" : "sawPostWait")), waitTime);
@@ -384,19 +384,19 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	// Update cue color
 	GdkRGBA cueColor = {(double)cue->r / 255.0, (double)cue->g / 255.0, (double)cue->b / 255.0, 1.0};
 	gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(gtk_builder_get_object(window->builder, "sawCueColor")), &cueColor);
-	
+
 	// Update cue name
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueName")), cue->name);
-	
+
 	// Update cue notes
 	GtkTextView *textview = GTK_TEXT_VIEW(gtk_builder_get_object(window->builder, "sawCueNotes"));
 	GtkTextBuffer* buffer = gtk_text_view_get_buffer(textview);
 	gtk_text_buffer_set_text(buffer, cue->notes, -1);
-	
+
 	// Update cue pre-wait and post-wait times
 	saw_ucp_wait(window, cue, true);
 	saw_ucp_wait(window, cue, false);
-	
+
 	// Update post-wait trigger option (and enable/disable post-wait time as necessary)
 	switch (cue->post_trigger)
 	{
@@ -426,7 +426,7 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 static void saw_select_last_cue(StackAppWindow *window)
 {
 	GtkTreeIter iter;
-	
+
 	// Get the number of entries in the model
 	gint entries = gtk_tree_model_iter_n_children(gtk_tree_view_get_model(window->treeview), NULL);
 
@@ -434,11 +434,11 @@ static void saw_select_last_cue(StackAppWindow *window)
 	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter, NULL, entries - 1);
 	GtkTreePath *path = gtk_tree_model_get_path(gtk_tree_view_get_model(window->treeview), &iter);	// Allocates!
 
-	// Select that row	
+	// Select that row
 	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
 	gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
 
-	// Tidy up 
+	// Tidy up
 	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
 }
 
@@ -463,7 +463,7 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 		// Get an iterator to that node
 		GtkTreeIter iter;
 		gtk_tree_model_get_iter(model, &iter, path);
-		
+
 		// Get the current cue (before moving)
 		StackCue *old_cue = NULL;
 		gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &old_cue, -1);
@@ -525,21 +525,21 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 			{
 				// Get a path to the iterator (this allocates a GtkTreePath!)
 				path = gtk_tree_model_get_path(model, &iter);
-			
+
 				if (path != NULL)
 				{
-					// Select that row	
+					// Select that row
 					gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
 					gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
-			
-					// Tidy up 
+
+					// Tidy up
 					gtk_tree_path_free(path);	// From gtk_tree_model_get_path
 				}
 			}
 		}
-		
+
 		// Tidy up
-		g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
+		g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);
 	}
 }
 
@@ -557,11 +557,11 @@ static void saw_setup_default_device(StackAppWindow *window)
 		{
 			// Create a PulseAudio device using the default device
 			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 0, 44100);
-		
+
 			// Store the audio device in the cue list
 			window->cue_list->audio_device = device;
 		}
-		
+
 		// Free the list of devices
 		sadc->free_outputs_func(&devices, num_outputs);
 	}
@@ -579,21 +579,21 @@ static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
 	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
 
-	// If the user chose to Save...	
+	// If the user chose to Save...
 	if (response == GTK_RESPONSE_ACCEPT)
 	{
 		// Get the chosen URI
 		gchar *uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(dialog));
-		
+
 		// Save the cue list to the file
 		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
 		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
 		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
-		
+
 		// Tidy up
 		g_free(uri);
 	}
-	
+
 	gtk_widget_destroy(dialog);
 }
 
@@ -631,7 +631,7 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
 		gint result = gtk_dialog_run(GTK_DIALOG(dialog));
 		gtk_widget_destroy(dialog);
-		
+
 		// If they press Cancel, then stop doing anything
 		if (result == GTK_RESPONSE_CANCEL)
 		{
@@ -640,7 +640,7 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 		else if (result == GTK_RESPONSE_YES)
 		{
 			saw_file_save_clicked(widget, user_data);
-			
+
 			// If the file wasn't saved as a result of the above...
 			if (window->cue_list->changed)
 			{
@@ -649,7 +649,7 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 			}
 		}
 	}
-	
+
 	// Create an Open dialog
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Open Show", GTK_WINDOW(window), GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, NULL);
 
@@ -676,7 +676,7 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 		GFile *file = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dialog));
 		gtk_widget_destroy(dialog);
 		stack_app_window_open(window, file);
-		
+
 		// Tidy up
 		//g_free(uri);
 		g_object_unref(file);
@@ -703,7 +703,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 		gtk_dialog_add_button(GTK_DIALOG(dialog), "_Cancel", GTK_RESPONSE_CANCEL);
 		gint result = gtk_dialog_run(GTK_DIALOG(dialog));
 		gtk_widget_destroy(dialog);
-		
+
 		// If they press Cancel, then stop doing anything
 		if (result == GTK_RESPONSE_CANCEL)
 		{
@@ -721,14 +721,14 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 			}
 		}
 	}
-	
+
 	// Kill the cue list pulsing thread
 	window->kill_thread = true;
 	window->pulse_thread.join();
-	
+
 	// We don't need to worry about the UI timer, as that's running on the same
 	// thread as the event loop that is handling this event handler
-	
+
 	// Destroy the old cue list
 	stack_cue_list_destroy(window->cue_list);
 
@@ -736,7 +736,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 	window->cue_list = stack_cue_list_new(2);
 	window->cue_list->state_change_func = saw_cue_state_changed;
 	window->cue_list->state_change_func_data = (void*)window;
-	
+
 	// Refresh the cue list
 	saw_refresh_list_store_from_list(window);
 	gtk_window_set_title(GTK_WINDOW(window), "Stack");
@@ -774,11 +774,11 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
-	// Store a pointer to the cue we're deleting (as the selection will change 
+
+	// Store a pointer to the cue we're deleting (as the selection will change
 	// during this function)
 	StackCue *cue_to_delete = window->selected_cue;
-	
+
 	// If a cue has been selected
 	if (cue_to_delete != NULL)
 	{
@@ -788,7 +788,7 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 
 		GtkTreeModel *model;
 		GList *list;
-		
+
 		// Get the selected cue
 		list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
 
@@ -797,10 +797,10 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 		{
 			// Choose the last element in the selection (in case we're multi-select)
 			list = g_list_last(list);
-	
+
 			// Get the path to the selected row
 			GtkTreePath *path = (GtkTreePath*)(list->data);
-	
+
 			// Get the data from the tree model for that row
 			GtkTreeIter iter;
 			gtk_tree_model_get_iter(model, &iter, path);
@@ -811,13 +811,13 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 			stack_cue_list_unlock(window->cue_list);
 
 			// Destroy the cue
-			stack_cue_destroy(cue_to_delete);				
+			stack_cue_destroy(cue_to_delete);
 
 			// Remove the cue from the cue store
 			gtk_list_store_remove(GTK_LIST_STORE(model), &iter);
 
 			// Tidy up
-			g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
+			g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);
 		}
 	}
 }
@@ -873,7 +873,7 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
@@ -884,7 +884,7 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 		stack_cue_list_unlock(window->cue_list);
 		return;
 	}
-	
+
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
 
@@ -899,7 +899,7 @@ static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 	saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
 
 	// Select the new cue
-	saw_select_last_cue(window);	
+	saw_select_last_cue(window);
 }
 
 // Menu callback
@@ -907,7 +907,7 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
@@ -918,7 +918,7 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 		stack_cue_list_unlock(window->cue_list);
 		return;
 	}
-	
+
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
 
@@ -933,7 +933,7 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 	saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
 
 	// Select the new cue
-	saw_select_last_cue(window);	
+	saw_select_last_cue(window);
 }
 
 // Menu callback
@@ -971,10 +971,10 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
 	gtk_window_set_transient_for(GTK_WINDOW(about), GTK_WINDOW(user_data));
-	
+
 	// Show the dialog
 	gtk_dialog_run(GTK_DIALOG(about));
-	
+
 	// Destroy the dialog on response
 	gtk_widget_destroy(GTK_WIDGET(about));
 }
@@ -1020,7 +1020,7 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
-	// Get an iterator over the cue list		
+	// Get an iterator over the cue list
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
@@ -1041,7 +1041,7 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
-	
+
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
 
@@ -1059,7 +1059,7 @@ static gboolean saw_ui_timer(gpointer user_data)
 	{
 		window->timer_state = 1;
 	}
-	
+
 	// If the timer is supposed to be stopping...
 	if (window->timer_state == 2)
 	{
@@ -1072,8 +1072,8 @@ static gboolean saw_ui_timer(gpointer user_data)
 
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
-		
-	// Get an iterator over the cue list		
+
+	// Get an iterator over the cue list
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
@@ -1091,13 +1091,13 @@ static gboolean saw_ui_timer(gpointer user_data)
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
-	
+
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
 
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
-	
+
 	return true;
 }
 
@@ -1108,48 +1108,48 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
 	// If we're currently allowing selection changes
-	if (!window->freeze_list_selections)	
+	if (!window->freeze_list_selections)
 	{
 		// Get the selected rows
 		GtkTreeModel *model = NULL;
 		GList *list = gtk_tree_selection_get_selected_rows(selection, &model);
-	
+
 		// If there is a selection
 		if (list != NULL)
 		{
 			// Choose the last element in the selection (in case we're multi-select)
 			list = g_list_last(list);
-		
+
 			// Get the path to the selected row
 			GtkTreePath *path = (GtkTreePath*)(list->data);
-		
+
 			// Get the data from the tree model for that row
 			GtkTreeIter iter;
 			gtk_tree_model_get_iter(model, &iter, path);
-		
+
 			// Get the cue
 			gpointer cue;
 			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
-		
+
 			// Keep track of what notebook page we were on
 			gint page = gtk_notebook_get_current_page(window->notebook);
-		
+
 			// Remove tabs from previously selected cue
 			if (window->selected_cue != NULL)
 			{
 				stack_cue_unset_tabs(window->selected_cue, window->notebook);
 			}
-		
+
 			// Update the window
 			window->selected_cue = STACK_CUE(cue);
 			saw_update_cue_properties(window, STACK_CUE(cue));
-	
+
 			// Put on the correct tabs
 			stack_cue_set_tabs(window->selected_cue, window->notebook);
 
 			// Try and put us back on the same notebook page
 			gtk_notebook_set_current_page(window->notebook, page);
-		
+
 			// Tidy up
 			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 		}
@@ -1164,27 +1164,27 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
 	fprintf(stderr, "saw_destroy()\n");
-	
+
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Kill the pulse thread and wait for it to exit
 	window->kill_thread = true;
 	window->pulse_thread.join();
-	
+
 	// Clear the list store
 	saw_clear_list_store(window);
-	
+
 	// Stop the timer
 	window->timer_state = 2;
 
 	// Busy wait whilst we wait for the timer to stop (this probably should be
 	// done with a semaphore...)
 	while (window->timer_state == 3) {}
-	
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
-		
+
 	// Get an iterator over the cue list
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
@@ -1196,17 +1196,17 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 
 		// Destroy the cue
 		stack_cue_destroy(cue);
-		
+
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
-	
+
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
-	
+
 	// Destroy the cue list
 	stack_cue_list_destroy(window->cue_list);
 }
@@ -1216,22 +1216,22 @@ static gboolean saw_cue_number_changed(GtkWidget *widget, GdkEvent *event, gpoin
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
 		return false;
 	}
-		
+
 	// Set the name
 	stack_cue_set_id(window->selected_cue, stack_cue_string_to_id(gtk_entry_get_text(GTK_ENTRY(widget))));
-	
+
 	// Update the UI
 	char cue_number[32];
 	stack_cue_id_to_string(window->selected_cue->id, cue_number, 32);
 	gtk_entry_set_text(GTK_ENTRY(widget), cue_number);
 	saw_update_list_store_from_cue(window->store, window->selected_cue);
-	
+
 	return false;
 }
 
@@ -1240,13 +1240,13 @@ static void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
 		return;
 	}
-		
+
 	// Set the color
 	GdkRGBA rgba;
 	gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(widget), &rgba);
@@ -1261,19 +1261,19 @@ static gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpointe
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
 		return false;
 	}
-	
+
 	// Set the name
 	stack_cue_set_name(window->selected_cue, gtk_entry_get_text(GTK_ENTRY(widget)));
 
 	// Update the UI
 	saw_update_list_store_from_cue(window->store, window->selected_cue);
-		
+
 	return false;
 }
 
@@ -1282,7 +1282,7 @@ static gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpoint
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
@@ -1295,7 +1295,7 @@ static gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpoint
 	gtk_text_buffer_get_start_iter(buffer, &start);
 	gtk_text_buffer_get_end_iter(buffer, &end);
 	stack_cue_set_notes(window->selected_cue, gtk_text_buffer_get_text(buffer, &start, &end, false));
-	
+
 	// Update the UI
 	saw_update_list_store_from_cue(window->store, window->selected_cue);
 
@@ -1307,20 +1307,20 @@ static gboolean saw_cue_prewait_changed(GtkWidget *widget, GdkEvent *event, gpoi
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
 		return false;
 	}
-	
+
 	// Set the time
 	stack_cue_set_pre_time(window->selected_cue, stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget))));
 
 	// Update the UI
 	saw_ucp_wait(window, window->selected_cue, true);
 	saw_update_list_store_from_cue(window->store, window->selected_cue);
-		
+
 	return false;
 }
 
@@ -1329,20 +1329,20 @@ static gboolean saw_cue_postwait_changed(GtkWidget *widget, GdkEvent *event, gpo
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
 		return false;
 	}
-	
+
 	// Set the time
 	stack_cue_set_post_time(window->selected_cue, stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget))));
 
 	// Update the UI
 	saw_ucp_wait(window, window->selected_cue, false);
 	saw_update_list_store_from_cue(window->store, window->selected_cue);
-		
+
 	return false;
 }
 
@@ -1351,7 +1351,7 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// Only attempt to change if we have a selected cue
 	if (window->selected_cue == NULL)
 	{
@@ -1363,7 +1363,7 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 	GtkRadioButton* r2 = GTK_RADIO_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger2"));
 	GtkRadioButton* r3 = GTK_RADIO_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger3"));
 	GtkRadioButton* r4 = GTK_RADIO_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger4"));
-	
+
 	// Determine which one is toggled on
 	StackCueWaitTrigger trigger;
 	if (widget == r1 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r1)))
@@ -1386,10 +1386,10 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 		trigger = STACK_CUE_WAIT_TRIGGER_AFTERACTION;
 		gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 	}
-	
+
 	// Set the cue post-wait trigger
 	stack_cue_set_post_trigger(window->selected_cue, trigger);
-	
+
 	// No need to update the UI on this one (currently)
 }
 
@@ -1398,7 +1398,7 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	
+
 	// On key release
 	if (event->type == GDK_KEY_RELEASE)
 	{
@@ -1409,23 +1409,23 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 			saw_edit_delete_clicked(widget, user_data);
 			return true;
 		}
-	
+
 		// If Escape was hit
 		if (((GdkEventKey*)event)->keyval == GDK_KEY_Escape)
 		{
 			// Last time escape was pressed (note: static!)
 			static stack_time_t last_escape_time = 0;
-		
-			// Only run if Escape is pressed twice within a short time (350ms)	
+
+			// Only run if Escape is pressed twice within a short time (350ms)
 			if (last_escape_time > 0 && stack_get_clock_time() - last_escape_time < 350000000)
 			{
 				// Call Stop All
 				saw_cue_stop_all_clicked(widget, user_data);
 			}
-			
+
 			// Keep track of the last time escape was pressed
 			last_escape_time = stack_get_clock_time();
-			
+
 			return true;
 		}
 	}
@@ -1437,9 +1437,9 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 			// Call Play
 			saw_cue_play_clicked(widget, user_data);
 			return true;
-		}		
+		}
 	}
-	
+
 	return false;
 }
 
@@ -1496,7 +1496,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 
 		GtkTreeModel *model;
 		GList *list;
-		
+
 		// Get the selected cue
 		list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
 
@@ -1504,7 +1504,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 		if (list != NULL)
 		{
 			list = g_list_first(list);
-	
+
 			// Get the path to the selected row
 			GtkTreePath *path = (GtkTreePath*)(list->data);
 
@@ -1524,7 +1524,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 			stack_cue_list_unlock(window->cue_list);
 
 			// Tidy up
-			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);				
+			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 		}
 	}
 }
@@ -1533,22 +1533,22 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 static void stack_app_window_init(StackAppWindow *window)
 {
 	fprintf(stderr, "stack_app_window_init()\n");
-	
+
 	// Object set up:
 	window->selected_cue = NULL;
 	window->use_custom_style = true;
-	
+
 	// Set up window signal handlers
 	g_signal_connect(window, "destroy", G_CALLBACK(saw_destroy), (gpointer)window);
 	g_signal_connect(window, "update-selected-cue", G_CALLBACK(saw_update_selected_cue), (gpointer)window);
 	g_signal_connect(window, "update-cue", G_CALLBACK(saw_update_cue), (gpointer)window);
 	g_signal_connect(window, "update-cue-properties", G_CALLBACK(saw_update_cue_properties), (gpointer)window);
-	
+
 	// Initialise this windows cue stack, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
 	window->cue_list->state_change_func = saw_cue_state_changed;
 	window->cue_list->state_change_func_data = (void*)window;
-	
+
 	if (window->use_custom_style)
 	{
 		// Read our CSS file and generate a CSS provider
@@ -1569,7 +1569,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Read the builder file
 	window->builder = gtk_builder_new_from_file("window.ui");
-	
+
 	// Setup the callbacks - main UI
 	gtk_builder_add_callback_symbol(window->builder, "saw_file_new_clicked", G_CALLBACK(saw_file_new_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_file_open_clicked", G_CALLBACK(saw_file_open_clicked));
@@ -1604,7 +1604,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Set up the callbacks - other
 	gtk_builder_add_callback_symbol(window->builder, "saw_treeview_key_event", G_CALLBACK(saw_treeview_key_event));
 	//gtk_builder_add_callback_symbol(window->builder, "saw_treeview_query_tooltip", G_CALLBACK(saw_treeview_query_tooltip));
-	
+
 	// Connect the signals
 	gtk_builder_connect_signals(window->builder, (gpointer)window);
 
@@ -1614,7 +1614,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Get the StackAppWindow's child
 	GObject* contents = gtk_builder_get_object(window->builder, "StackAppWindowContents");
 
-	// Reparent so that this StackAppWindow instance has the 
+	// Reparent so that this StackAppWindow instance has the
 	gtk_container_remove(GTK_CONTAINER(wintpl), GTK_WIDGET(contents));
 	gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(contents));
 
@@ -1631,12 +1631,12 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
-	
+
 	// Store some things in our class for easiness
 	window->treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawCuesTreeView"));
 	window->store = GTK_LIST_STORE(gtk_tree_view_get_model(window->treeview));
 	window->notebook = GTK_NOTEBOOK(gtk_builder_get_object(window->builder, "sawCuePropsTabs"));
-	
+
 	// Set up signal handler for drag-drop in cue list
 	g_signal_connect(window->treeview, "drag-data-received", G_CALLBACK(saw_row_dragged), (gpointer)window);
 
@@ -1654,19 +1654,19 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 	GtkBuilder *builder = gtk_builder_new_from_file("SelectCue.ui");
 	GtkDialog *dialog = GTK_DIALOG(gtk_builder_get_object(builder, "cueSelectDialog"));
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
-	
+
 	// Set up response buttons
 	gtk_dialog_add_buttons(dialog, "Clear Cue", 3, "Cancel", 2, "Select", 1, NULL);
 	gtk_dialog_set_default_response(dialog, 1);
-	
+
 	// Get the treeview
 	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(builder, "csdTreeView"));
 	GtkListStore *store = GTK_LIST_STORE(gtk_tree_view_get_model(treeview));
-	
+
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
-	// Get an iterator over the cue list		
+	// Get an iterator over the cue list
 	void *citer = stack_cue_list_iter_front(window->cue_list);
 
 	// Iterate over the cue list
@@ -1674,18 +1674,18 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 	{
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
-		
+
 		// Append a row to the dialog
 		GtkTreeIter iter;
 		gtk_list_store_append(store, &iter);
-		
+
 		// If we're the current cue, select it
 		if (cue == current)
 		{
 			gtk_tree_selection_select_iter(gtk_tree_view_get_selection(treeview), &iter);
 		}
-		
-		// Build cue number	
+
+		// Build cue number
 		char cue_number[32];
 		stack_cue_id_to_string(cue->id, cue_number, 32);
 
@@ -1694,56 +1694,56 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 		snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
 
 		// Update iterator
-		gtk_list_store_set(store, &iter, 
+		gtk_list_store_set(store, &iter,
 			0, cue_number,
 			1, cue->name,
 			2, col_buffer,
 			3, (gpointer)cue, -1);
-			
+
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
-	
+
 	// Free the iterator
 	stack_cue_list_iter_free(citer);
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
-	
+
 	// Run the dialog
 	gint response = gtk_dialog_run(dialog);
 
 	// Return a cue based on the response
-	StackCue *return_cue;	
+	StackCue *return_cue;
 	switch (response)
 	{
 		case 1:	// Select
 			// Get the selected rows
 			GtkTreeModel *model;
 			GList *list;
-			
+
 			list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(treeview), &model);
-	
+
 			// If there is a selection
 			if (list != NULL)
 			{
 				// Choose the last element in the selection (in case we're multi-select)
 				list = g_list_last(list);
-		
+
 				// Get the path to the selected row
 				GtkTreePath *path = (GtkTreePath*)(list->data);
-		
+
 				// Get the data from the tree model for that row
 				GtkTreeIter iter;
 				gtk_tree_model_get_iter(model, &iter, path);
-		
+
 				// Get the cue
 				gpointer selected_cue;
 				gtk_tree_model_get(model, &iter, 3, &selected_cue, -1);
-				
+
 				// Tidy up
-				g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);				
-				
+				g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);
+
 				// Return the cue
 				return_cue = STACK_CUE(selected_cue);
 			}
@@ -1752,20 +1752,20 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 				return_cue = NULL;
 			}
 			break;
-			
+
 		case 3:	// Clear Cue
 			return_cue = NULL;
 			break;
-		
+
 		case 2:	// Cancel
 		default:
 			return_cue = current;
 			break;
 	}
-	
+
 	// Destroy the dialog
 	gtk_widget_destroy(GTK_WIDGET(dialog));
-	
+
 	// Free the builder
 	g_object_unref(builder);
 
@@ -1791,10 +1791,10 @@ StackAppWindow* stack_app_window_new(StackApp *app)
 void stack_app_window_open(StackAppWindow *window, GFile *file)
 {
 	fprintf(stderr, "stack_app_window_open()\n");
-	
+
 	// Get the URI of the File
 	char *uri = g_file_get_uri(file);
-	
+
 	// Set up the loading dialog and data
 	ShowLoadingData sld;
 	sld.builder = gtk_builder_new_from_file("StackLoading.ui");
@@ -1817,11 +1817,11 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 	// This call blocks until the dialog goes away
 	gint result = gtk_dialog_run(sld.dialog);
 
-	// If we get here, either the timer killed the dialog, or the user 
-	// cancelled. In either case, wait for the thread to die 
+	// If we get here, either the timer killed the dialog, or the user
+	// cancelled. In either case, wait for the thread to die
 	thread.join();
 
-	// If the result from the dialog was 1 (Cancel - see gtk_dialog_add_buttons 
+	// If the result from the dialog was 1 (Cancel - see gtk_dialog_add_buttons
 	// above), then we were cancelled
 	if (result == 1)
 	{
@@ -1859,10 +1859,10 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 		// Destroy the old cue list
 		stack_cue_list_destroy(window->cue_list);
-		
+
 		// Store the new cue list
 		window->cue_list = sld.new_cue_list;
-		
+
 		// Refresh the cue list
 		saw_refresh_list_store_from_list(window);
 		char title_buffer[512];
@@ -1872,7 +1872,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		// Setup the default device
 		saw_setup_default_device(window);
 	}
-	
+
 	// Tidy up
 	g_free(uri);
 }

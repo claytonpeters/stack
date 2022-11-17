@@ -18,27 +18,27 @@ typedef struct StackAudioCue
 {
 	// Superclass
 	StackCue super;
-	
+
 	// The file to playback
 	char *file;
-	
-	// Media start time (e.g. this much time is skipped at the start of the 
+
+	// Media start time (e.g. this much time is skipped at the start of the
 	// media file)
 	stack_time_t media_start_time;
-	
-	// Media end time (e.g. from this time forward is ignored at the end of the 
+
+	// Media end time (e.g. from this time forward is ignored at the end of the
 	// media file)
 	stack_time_t media_end_time;
 
 	// The (untrimmed) length of the media file
 	stack_time_t file_length;
-	
+
 	// Post-fade-in, pre-fade-out volume, in dB
 	double play_volume;
-	
+
 	// The GtkBuilder instance
 	GtkBuilder *builder;
-	
+
 	// The media tab
 	GtkWidget *media_tab;
 
@@ -50,14 +50,14 @@ typedef struct StackAudioCue
 
 	// Amount of audio data sent so far in playback
 	stack_time_t playback_data_sent;
-	
+
 	// The current volume of the cue
 	double playback_live_volume;
-	
+
 	// The currently open file
 	GFile *playback_file;
 	GFileInputStream *playback_file_stream;
-	
+
 	// Audio pointer
 	size_t playback_audio_ptr;
 

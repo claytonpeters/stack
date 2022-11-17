@@ -61,14 +61,14 @@ typedef struct StackCueList
 {
 	// The array of cues (this is a std::list internally)
 	void *cues;
-	
+
 	// Channels - the number of channels configured for playback
 	uint16_t channels;
-	
-	// The audio device to play out of (in the future we'd have many of these 
+
+	// The audio device to play out of (in the future we'd have many of these
 	// and a map between virtual channels and device channels)
 	StackAudioDevice *audio_device;
-	
+
 	// Buffered audio data (ring-buffer)
 	float* buffer;
 
@@ -112,58 +112,58 @@ typedef struct StackCue
 {
 	// Class name
 	const char *_class_name;
-	
+
 	// Parent cue list
 	StackCueList *parent;
-	
+
 	// Determines if the cue can have child cues
 	bool can_have_children;
-	
+
 	// Cue ID (number)
 	cue_id_t id;
-	
+
 	// Cue UID - unique id - this should be used to reference a cue
 	cue_uid_t uid;
-	
+
 	// Cue name - displayed in the list
 	char *name;
-	
+
 	// Notes - displayed to the user when waiting to start the cue
 	char *notes;
-	
+
 	// Cue pre-wait time. Action will be performed this much time after cue is started
 	stack_time_t pre_time;
-	
+
 	// Cue in-action time. Amount of time the cue actually spends doing
 	// something
 	stack_time_t action_time;
-	
-	// Cure post-wait time. Auto follows will be performed after this much 
+
+	// Cure post-wait time. Auto follows will be performed after this much
 	// time after the cue action finished
 	stack_time_t post_time;
-	
+
 	// The current state of the cue
 	StackCueState state;
-	
+
 	// The color of the cue
 	uint8_t r, g, b;
-	
+
 	// The postwait trigger
 	StackCueWaitTrigger post_trigger;
-	
+
 	// Runtime data: The 'clock' time of when the cue was started
 	stack_time_t start_time;
-	
+
 	// Runtime data: The 'clock' time of when the cue was most recently paused
 	stack_time_t pause_time;
-	
+
 	// Runtime data: The amount of time the cue has been paused for
 	stack_time_t paused_time;
-	
+
 	// Runtime data: The amount of time the cue had been paused for when it was
 	// paused (will be zero the first time the queue is paused)
 	stack_time_t pause_paused_time;
-	
+
 	// Runtime data: Determines if the post-wait trigger has run or not
 	bool post_has_run;
 } StackCue;
@@ -172,7 +172,7 @@ typedef struct StackGroupCue
 {
 	// Super class
 	StackCue super;
-	
+
 	// The array of cues (this is a std::list internally)
 	void *cues;
 } StackGroupCue;

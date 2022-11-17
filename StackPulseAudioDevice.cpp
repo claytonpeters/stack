@@ -54,7 +54,7 @@ void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
 		default:
 			fprintf(stderr, "stack_pulse_audio_notify_callback(): Unknown state!\n");
 			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
-			break;		
+			break;
 	}
 }
 
@@ -74,7 +74,7 @@ void stack_pulse_audio_sink_info_count_callback(pa_context* context, pa_sink_inf
 			((PulseAudioSinkCountData*)userdata)->sink_semaphore.notify();
 			return;
 		}
-		
+
 		((PulseAudioSinkCountData*)userdata)->count++;
 	}
 }
@@ -84,7 +84,7 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 {
 	// For easiness:
 	PulseAudioSinkEnumData* pased = (PulseAudioSinkEnumData*)userdata;
-	
+
 	if (pased != NULL)
 	{
 		if (sinkinfo == NULL && eol != 0)
@@ -103,7 +103,7 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 			pased->devices[pased->count].num_rates = 1;	// I *think* PulseAudio only provides one rate per device
 			pased->devices[pased->count].rates = new uint32_t[1];
 			pased->devices[pased->count].rates[0] = sinkinfo->sample_spec.rate;
-			
+
 			// Increment the count
 			pased->count++;
 		}
@@ -117,13 +117,13 @@ void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *userdata)
 {
 	// Get the device
 	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(userdata);
-	
+
 	// We don't do a great deal if we haven't got a device
 	if (device == NULL)
 	{
 		return;
 	}
-	
+
 	// Get the state
 	pa_stream_state state = pa_stream_get_state(stream);
 
@@ -159,7 +159,7 @@ void stack_pulse_audio_server_info_callback(pa_context *context, const pa_server
 {
 	// Get the device
 	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(userdata);
-	
+
 	// We don't do a great deal if we haven't got a device
 	if (device == NULL)
 	{
@@ -185,23 +185,23 @@ bool stack_init_pulse_audio()
 	{
 		return true;
 	}
-	
+
 	// Debug
 	fprintf(stderr, "stack_init_pulse_audio(): Initialising PulseAudio...\n");
-	
+
 	// Initialise the main loop and the context
 	mainloop = pa_threaded_mainloop_new();
 	mainloop_api = pa_threaded_mainloop_get_api(mainloop);
 	context = pa_context_new(mainloop_api, "Stack");
-	
+
 	// Connect and start the main loop
 	pa_context_set_state_callback(context, (pa_context_notify_cb_t)stack_pulse_audio_notify_callback, &state_semaphore);
 	pa_context_connect(context, NULL, PA_CONTEXT_NOFLAGS, NULL);
 	pa_threaded_mainloop_start(mainloop);
-	
+
 	// Wait for connection
 	state_semaphore.wait();
-	
+
 	// Get the state of the context
 	pa_threaded_mainloop_lock(mainloop);
 	pa_context_state_t state = pa_context_get_state(context);
@@ -213,7 +213,7 @@ bool stack_init_pulse_audio()
 		fprintf(stderr, "stack_init_pulse_audio(): Failed to connect");
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -224,13 +224,13 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	{
 		// Failed to initialise, return NULL
 		*outputs = NULL;
-		return 0;	
+		return 0;
 	}
-	
+
 	// Setup sink enumeration data
 	PulseAudioSinkCountData sink_count_data;
 	PulseAudioSinkEnumData sink_data;
-	
+
 	// Count the sinks
 	sink_count_data.count = 0;
 	pa_operation* o = pa_context_get_sink_info_list(context, (pa_sink_info_cb_t)stack_pulse_audio_sink_info_count_callback, &sink_count_data);
@@ -252,7 +252,7 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 
 		// Wait for enumeration of sinks
 		sink_data.sink_semaphore.wait();
-		
+
 		*outputs = sink_data.devices;
 		return sink_data.count;
 	}
@@ -270,7 +270,7 @@ void stack_pulse_audio_device_free_outputs(StackAudioDeviceDesc **outputs, size_
 		free((*outputs)[i].desc);
 		delete [] (*outputs)[i].rates;
 	}
-	
+
 	delete [] *outputs;
 }
 
@@ -278,18 +278,18 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 {
 	// Debug
 	fprintf(stderr, "stack_pulse_audio_device_destroy() called\n");
-	
+
 	// Tidy up
 	if (STACK_PULSE_AUDIO_DEVICE(device)->stream != NULL)
 	{
 		// Unhook the notify function
 		pa_stream_set_state_callback(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
-		
+
 		// Disconnect from the stream
 		pa_stream_disconnect(STACK_PULSE_AUDIO_DEVICE(device)->stream);
 		pa_stream_unref(STACK_PULSE_AUDIO_DEVICE(device)->stream);
 	}
-	
+
 	// Call superclass destroy
 	stack_audio_device_destroy_base(device);
 }
@@ -298,12 +298,12 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 {
 	// Debug
 	fprintf(stderr, "stack_pulse_audio_device_create(\"%s\", %u, %u) called\n", name, channels, sample_rate);
-	
+
 	// Allocate the new device
 	StackPulseAudioDevice *device = new StackPulseAudioDevice();
 	device->stream = NULL;
-	
-	// If we've not been given a device name...	
+
+	// If we've not been given a device name...
 	if (name == NULL)
 	{
 		// Default to two channels
@@ -360,10 +360,10 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	if (stream_state != PA_STREAM_READY)
 	{
 		fprintf(stderr, "stack_pulse_audio_device_create(): Failed to connect stream\n");
-		
+
 		// Tidy up:
 		stack_pulse_audio_device_destroy(STACK_AUDIO_DEVICE(device));
-		
+
 		return NULL;
 	}
 

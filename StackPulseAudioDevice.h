@@ -11,10 +11,10 @@ typedef struct StackPulseAudioDevice
 {
 	// Super class
 	StackAudioDevice super;
-	
+
 	// The PulseAudio stream
 	pa_stream *stream;
-	
+
 	// Synchronisation semaphore
 	semaphore sync_semaphore;
 } StackPulseAudioDevice;

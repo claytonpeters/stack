@@ -17,7 +17,7 @@ static map<cue_uid_t, StackCue*> cue_uid_map;
 static cue_uid_t stack_cue_generate_uid()
 {
 	cue_uid_t uid = 0;
-	
+
 	// Repeatedly generate UUIDs until we find a free one
 	do
 	{
@@ -36,7 +36,7 @@ static cue_uid_t stack_cue_generate_uid()
 	}
 #endif
 	} while (cue_uid_map.find(uid) != cue_uid_map.end() && uid != STACK_CUE_UID_NONE);
-	
+
 	return uid;
 }
 
@@ -62,7 +62,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->pause_time = 0;
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
-	
+
 	// Store the UID in our map
 	cue_uid_map[cue->uid] = cue;
 
@@ -79,7 +79,7 @@ StackCue *stack_cue_get_by_uid(cue_uid_t uid)
 	{
 		return NULL;
 	}
-	
+
 	return iter->second;
 }
 
@@ -92,11 +92,11 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 		// Calculate how long we've been paused on this instance of us being
 		// paused
 		stack_time_t this_pause_time = clocktime - cue->pause_time;
-		
+
 		// Update the total cue paused time
 		cue->paused_time = cue->pause_paused_time + this_pause_time;
 	}
-	
+
 	// Calculate how long the cue has been running both in clock time (time
 	// since it was activated) and cue time (clock time minus how long the cue
 	// has been paused for)
@@ -114,13 +114,13 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 	{
 		*real = clock_elapsed;
 	}
-	
+
 	// Return the total (cue elapsed) time if we want it
 	if (total != NULL)
 	{
 		*total = cue_elapsed;
 	}
-	
+
 	// Return pre-wait time if we want it
 	if (pre != NULL)
 	{
@@ -135,7 +135,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 			*pre = cue->pre_time;
 		}
 	}
-	
+
 	// Return action time if we want it
 	if (action != NULL)
 	{
@@ -146,7 +146,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 		}
 		else if (cue_elapsed < cue->pre_time + cue->action_time)
 		{
-			// Calculate the action time. This is how long the cue has been runnng	
+			// Calculate the action time. This is how long the cue has been runnng
 			// less the time we were in pre-wait
 			*action = cue_elapsed - cue->pre_time;
 		}
@@ -167,7 +167,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 			case STACK_CUE_WAIT_TRIGGER_NONE:
 				*post = 0;
 				break;
-			
+
 			// If triggering immediately, it's the same as pre-time
 			case STACK_CUE_WAIT_TRIGGER_IMMEDIATE:
 				if (cue_elapsed < cue->post_time)
@@ -179,7 +179,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 					*post = cue->post_time;
 				}
 				break;
-			
+
 			// If triggering after pre, we need to check if pre has completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERPRE:
 				if (cue_elapsed < cue->pre_time)
@@ -195,7 +195,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 					*post = cue->post_time;
 				}
 				break;
-			
+
 			// If triggering after the action, we need to check if action is completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERACTION:
 				if (cue_elapsed < cue->pre_time + cue->action_time)
@@ -223,55 +223,55 @@ int stack_register_cue_class(const StackCueClass *cue_class)
 	{
 		return STACKERR_PARAM_NULL;
 	}
-	
+
 	// Debug
 	fprintf(stderr, "Registering cue type '%s'\n", cue_class->class_name);
-	
+
 	// Validate name pointer
 	if (cue_class->class_name == NULL)
 	{
 		fprintf(stderr, "stack_register_cue_class(): Class name cannot be NULL\n");
 		return STACKERR_CLASS_BADNAME;
 	}
-	
+
 	// Ensure we don't already have a class of this type
 	if (cue_class_map.find(string(cue_class->class_name)) != cue_class_map.end())
 	{
 		fprintf(stderr, "stack_register_cue_class(): Class name already registered\n");
 		return STACKERR_CLASS_DUPLICATE;
 	}
-	
+
 	// Only the 'StackCue' class is allowed to not have a superclass
 	if (cue_class->super_class_name == NULL && strcmp(cue_class->class_name, "StackCue") != 0)
 	{
 		fprintf(stderr, "stack_register_cue_class(): Cue classes must have a superclass\n");
 		return STACKERR_CLASS_NOSUPER;
 	}
-	
+
 	// Validate name length
 	if (strlen(cue_class->class_name) <= 0)
 	{
 		fprintf(stderr, "stack_register_cue_class(): Class name cannot be empty\n");
 		return STACKERR_CLASS_BADNAME;
 	}
-	
+
 	// Validate create function pointer
 	if (cue_class->create_func == NULL)
 	{
 		fprintf(stderr, "stack_register_cue_class(): Class create_func cannot be NULL. An implementation must be provided\n");
 		return STACKERR_CLASS_BADCREATE;
 	}
-	
+
 	// Validate destroy function pointer
 	if (cue_class->destroy_func == NULL)
 	{
 		fprintf(stderr, "stack_register_cue_class(): Class destroy_func cannot be NULL. An implementation must be provided\n");
 		return STACKERR_CLASS_BADDESTROY;
 	}
-	
+
 	// Store the class
 	cue_class_map[string(cue_class->class_name)] = cue_class;
-	
+
 	return 0;
 }
 
@@ -287,14 +287,14 @@ StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 		fprintf(stderr, "stack_cue_new(): Unknown class\n");
 		return NULL;
 	}
-	
+
 	// No need to iterate up through superclasses - we can't be NULL
 	return iter->second->create_func(cue_list);
 }
-	
+
 // Destroys a cue. This calls the destroy() method for the type of the cue that
 // is given in the parameter
-// @param cue The cue to destroy. 
+// @param cue The cue to destroy.
 void stack_cue_destroy(StackCue *cue)
 {
 	if (cue == NULL)
@@ -313,7 +313,7 @@ void stack_cue_destroy(StackCue *cue)
 
 	// No need to iterate up through superclasses - we can't be NULL
 	iter->second->destroy_func(cue);
-	
+
 	// Remove the cue from our UID map
 	auto uid_iter = cue_uid_map.find(cue->uid);
 	if (uid_iter == cue_uid_map.end())
@@ -332,13 +332,13 @@ bool stack_cue_play(StackCue *cue)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a playback function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->play_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	return cue_class_map[string(class_name)]->play_func(cue);
 }
@@ -348,13 +348,13 @@ void stack_cue_pause(StackCue *cue)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a pause function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->pause_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->pause_func(cue);
 }
@@ -364,13 +364,13 @@ void stack_cue_stop(StackCue *cue)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a stop function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->stop_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->stop_func(cue);
 }
@@ -380,13 +380,13 @@ void stack_cue_pulse(StackCue *cue, stack_time_t clock)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a pulse function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->pulse_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->pulse_func(cue, clock);
 }
@@ -396,13 +396,13 @@ void stack_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a set tabs function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->set_tabs_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->set_tabs_func(cue, notebook);
 }
@@ -412,13 +412,13 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for an unset tabs function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->unset_tabs_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->unset_tabs_func(cue, notebook);
 }
@@ -428,13 +428,13 @@ void stack_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for an error function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->get_error_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->get_error_func(cue, message, size);
 }
@@ -443,7 +443,7 @@ char *stack_cue_to_json(StackCue *cue)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Start a JSON response value
 	Json::Value cue_root;
 	cue_root["class"] = cue->_class_name;
@@ -453,7 +453,7 @@ char *stack_cue_to_json(StackCue *cue)
 	{
 		// Start a node
 		cue_root[class_name] = Json::Value();
-		
+
 		if (cue_class_map[class_name]->to_json_func)
 		{
 			if (cue_class_map[class_name]->free_json_func)
@@ -471,11 +471,11 @@ char *stack_cue_to_json(StackCue *cue)
 		{
 			fprintf(stderr, "stack_cue_to_json(): Warning: Class '%s' has no to_json_func - skipping\n", class_name);
 		}
-		
+
 		// Iterate up to superclass
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Generate JSON string and return it (to be free'd by stack_cue_free_json)
 	Json::FastWriter writer;
 	return strdup(writer.write(cue_root).c_str());
@@ -494,16 +494,16 @@ void stack_cue_from_json(StackCue *cue, const char *json_data)
 		fprintf(stderr, "stack_cue_from_json(): NULL cue passed\n");
 		return;
 	}
-	
+
 	// Get the class name
 	const char *class_name = cue->_class_name;
-	
+
 	// Look for a from_json tabs function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->from_json_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
 	}
-	
+
 	// Call the function
 	cue_class_map[string(class_name)]->from_json_func(cue, json_data);
 }
