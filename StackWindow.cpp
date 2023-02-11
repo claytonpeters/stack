@@ -1019,7 +1019,10 @@ static void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 
 		// The selected cue is in bounds of the selection, so update the cue
 		// properties panel too
-		saw_update_cue_properties(window, window->selected_cue);
+		if (window->selected_cue != NULL)
+		{
+			saw_update_cue_properties(window, window->selected_cue);
+		}
 	}
 }
 

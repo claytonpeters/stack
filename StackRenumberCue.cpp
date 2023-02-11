@@ -8,7 +8,7 @@ bool src_show_dialog(StackAppWindow *window)
 	GtkDialog *dialog = GTK_DIALOG(gtk_builder_get_object(builder, "StackRenumberCueDialog"));
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
 	gtk_dialog_add_buttons(dialog, "OK", 1, "Cancel", 2, NULL);
-	gtk_dialog_set_default_response(dialog, 2);
+	gtk_dialog_set_default_response(dialog, 1);
 
 	// Connect the signals
 	//gtk_builder_connect_signals(builder, (gpointer)&dialog_data);
