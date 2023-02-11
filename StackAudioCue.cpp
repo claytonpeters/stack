@@ -670,7 +670,8 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		uint64_t preview_end_samples = stack_audio_cue_time_to_sample(cue->preview_end, wave_data->header.sample_rate);
 
 		// Skip to the appropriate point in the file
-		size_t seek_point = sizeof(WaveHeader) + stack_audio_cue_time_to_byte(cue->preview_start, wave_data->header.sample_rate, wave_data->header.num_channels, wave_data->header.bits_per_sample);
+		size_t data_bytes_read = stack_audio_cue_time_to_byte(cue->preview_start, wave_data->header.sample_rate, wave_data->header.num_channels, wave_data->header.bits_per_sample);
+		size_t seek_point = sizeof(WaveHeader) + data_bytes_read;
 		g_seekable_seek(G_SEEKABLE(stream), seek_point,	G_SEEK_SET, NULL, NULL);
 
 		size_t samples_per_channel = 1024;
@@ -689,12 +690,22 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 
 		while (cue->preview_thread_run && !no_more_data && sample < preview_end_samples)
 		{
+			// Don't read past the end of the RIFF.WAVE.data chunk
+			if (bytes_to_read > wave_data->header.subchunk_2_size - data_bytes_read)
+			{
+				bytes_to_read = wave_data->header.subchunk_2_size - data_bytes_read;
+			}
+
 			// Read data
 			gssize bytes_read = g_input_stream_read((GInputStream*)stream, read_buffer, bytes_to_read, NULL, NULL);
 
 			// If we've read data
 			if (bytes_read > 0)
 			{
+				// Keep track of how far through the file we are (so we don't end up
+				// going past the end of the RIFF.WAVE.data chunk into other data)
+				data_bytes_read += bytes_read;
+
 				// If we attempted to read past the end of the file (or at least if we
 				// didn't get the number of bytes we were expecting), work out how many
 				// samples we got based on the number of bytes read
@@ -722,7 +733,8 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 					last_redraw_time = stack_get_clock_time();
 				}
 			}
-			else
+
+			if (bytes_read == 0 || data_bytes_read == wave_data->header.subchunk_2_size)
 			{
 				no_more_data = true;
 			}
