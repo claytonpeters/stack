@@ -64,19 +64,6 @@ void stack_pulse_audio_device_free_audio_buffer(void *p)
 	delete [] (float*)p;
 }
 
-void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, size_t bytes, bool lock = true, bool free_callback = false)
-{
-	if (lock)
-	{
-		pa_threaded_mainloop_lock(mainloop);
-	}
-	pa_stream_write(STACK_PULSE_AUDIO_DEVICE(device)->stream, data, bytes, free_callback ? stack_pulse_audio_device_free_audio_buffer : NULL, 0, PA_SEEK_RELATIVE);
-	if (lock)
-	{
-		pa_threaded_mainloop_unlock(mainloop);
-	}
-}
-
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
 void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* userdata)
 {
@@ -87,25 +74,32 @@ void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* user
 	// Whilst it wants more
 	while (writable != (size_t)-1 && writable > 0)
 	{
-		// Determine how many samples per channel (rather than bytes) PulseAudio wants
+		// Get PulseAudio to give us a buffer of that size and read (up to)
+		// that many bytes
+		float *buffer = NULL;
+		pa_stream_begin_write(STACK_PULSE_AUDIO_DEVICE(userdata)->stream, (void**)&buffer, &writable);
+
+		// Determine how many samples per channel (rather than bytes) PulseAudio
+		// wants (pa_stream_begin_write can change the value of 'writable')
 		size_t writable_samples = writable / sizeof(float) / channels;
 
-		// Get a buffer of that size and read (up to) that many bytes
-		float *buffer = new float[writable_samples * channels];
+		// Get up to writable_samples samples from the cue list
 		size_t read = STACK_AUDIO_DEVICE(userdata)->request_audio(writable_samples, buffer, STACK_AUDIO_DEVICE(userdata)->request_audio_user_data);
 
+		// Warn if we didn't get enough
 		if (read < writable_samples)
 		{
+			writable = read * channels * sizeof(float);
 			fprintf(stderr, "Buffer underflow: %lu < %lu!\n", read, writable_samples);
 		}
 
 		// Write the data to PulseAudio
-		stack_pulse_audio_device_write(&STACK_PULSE_AUDIO_DEVICE(userdata)->super, (char*)buffer, read * channels * sizeof(float), false, true);
+		pa_stream_write(STACK_PULSE_AUDIO_DEVICE(userdata)->stream, buffer, writable, NULL, 0, PA_SEEK_RELATIVE);
 
 		// Determine if PulseAudio still wants more
 		writable = pa_stream_writable_size(STACK_PULSE_AUDIO_DEVICE(userdata)->stream);
 
-		// Note: we don't free "buffer" here, as PulseAudio callback will free for us
+		// Note: we don't free "buffer" here, as PulseAudio handles this for us
 	}
 
 }
