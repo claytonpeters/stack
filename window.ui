@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.0 -->
+<!-- Generated with glade 3.38.2 -->
 <interface>
   <requires lib="gtk+" version="3.8"/>
   <object class="GtkAccelGroup" id="sawAccelGroup"/>
@@ -44,35 +44,35 @@
     </columns>
   </object>
   <object class="GtkApplicationWindow" id="StackAppWindow">
-    <property name="can_focus">False</property>
+    <property name="can-focus">False</property>
     <child>
       <object class="GtkBox" id="StackAppWindowContents">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
+        <property name="can-focus">False</property>
         <property name="orientation">vertical</property>
         <child>
           <object class="GtkMenuBar" id="sawMenuBar">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <child>
               <object class="GtkMenuItem" id="sawFileMI">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_File</property>
-                <property name="use_underline">True</property>
+                <property name="use-underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="sawFileMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="accel_group">sawAccelGroup</property>
+                    <property name="can-focus">False</property>
+                    <property name="accel-group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawFileNewMI">
                         <property name="label">gtk-new</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_file_new_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -80,10 +80,10 @@
                       <object class="GtkImageMenuItem" id="sawFileOpenMI">
                         <property name="label">gtk-open</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_file_open_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -91,10 +91,10 @@
                       <object class="GtkImageMenuItem" id="sawFileSaveMI">
                         <property name="label">gtk-save</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_file_save_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -102,27 +102,27 @@
                       <object class="GtkImageMenuItem" id="sawFileSaveAsMI">
                         <property name="label">gtk-save-as</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_file_save_as_clicked" swapped="no"/>
                       </object>
                     </child>
                     <child>
                       <object class="GtkSeparatorMenuItem" id="sawFileSep1">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="sawFileQuitMI">
                         <property name="label">gtk-quit</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_file_quit_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -133,22 +133,22 @@
             <child>
               <object class="GtkMenuItem" id="sawEditMI">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_Edit</property>
-                <property name="use_underline">True</property>
+                <property name="use-underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="sawEditMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="accel_group">sawAccelGroup</property>
+                    <property name="can-focus">False</property>
+                    <property name="accel-group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawEditCutMI">
                         <property name="label">gtk-cut</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_edit_cut_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -156,10 +156,10 @@
                       <object class="GtkImageMenuItem" id="sawEditCopyMI">
                         <property name="label">gtk-copy</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_edit_copy_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -167,10 +167,10 @@
                       <object class="GtkImageMenuItem" id="sawEditPasteMI">
                         <property name="label">gtk-paste</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_edit_paste_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -178,10 +178,10 @@
                       <object class="GtkImageMenuItem" id="sawEditDeleteMI">
                         <property name="label">gtk-delete</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_edit_delete_clicked" swapped="no"/>
                         <accelerator key="Delete" signal="activate"/>
                       </object>
@@ -189,16 +189,16 @@
                     <child>
                       <object class="GtkSeparatorMenuItem" id="sawEditSep1">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="sawEditShowSettingsMI">
                         <property name="label" translatable="yes">_Show Settings</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">False</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">False</property>
                         <signal name="activate" handler="saw_edit_show_settings_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -209,20 +209,20 @@
             <child>
               <object class="GtkMenuItem" id="sawCueMI">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_Cue</property>
-                <property name="use_underline">True</property>
+                <property name="use-underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="sawCueMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="accel_group">sawAccelGroup</property>
+                    <property name="can-focus">False</property>
+                    <property name="accel-group">sawAccelGroup</property>
                     <child>
                       <object class="GtkMenuItem" id="sawCueAddGroupMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Add Cue _Group</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_group_clicked" swapped="no"/>
                         <accelerator key="g" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
@@ -230,15 +230,15 @@
                     <child>
                       <object class="GtkSeparatorMenuItem" id="sawCueSep1">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkMenuItem" id="sawCueAddAudioCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Add _Audio Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_audio_clicked" swapped="no"/>
                         <accelerator key="1" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
@@ -246,9 +246,9 @@
                     <child>
                       <object class="GtkMenuItem" id="sawCueAddFadeCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Add _Fade Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_fade_clicked" swapped="no"/>
                         <accelerator key="2" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
@@ -256,11 +256,26 @@
                     <child>
                       <object class="GtkMenuItem" id="sawCueAddActionCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Add A_ction Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_action_clicked" swapped="no"/>
                         <accelerator key="3" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="sawCueSep2">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="sawCueRenumberMI">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Re_number</property>
+                        <property name="use-underline">True</property>
+                        <signal name="activate" handler="saw_cue_renumber_clicked" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -270,20 +285,20 @@
             <child>
               <object class="GtkMenuItem" id="sawViewMI">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_View</property>
-                <property name="use_underline">True</property>
+                <property name="use-underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="accel_group">sawAccelGroup</property>
+                    <property name="can-focus">False</property>
+                    <property name="accel-group">sawAccelGroup</property>
                     <child>
                       <object class="GtkMenuItem" id="sawViewActiveCueList">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">_Active Cue List</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_view_active_cue_list_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -294,22 +309,22 @@
             <child>
               <object class="GtkMenuItem" id="sawHelpMI">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_Help</property>
-                <property name="use_underline">True</property>
+                <property name="use-underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="sawHelpMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="accel_group">sawAccelGroup</property>
+                    <property name="can-focus">False</property>
+                    <property name="accel-group">sawAccelGroup</property>
                     <child>
                       <object class="GtkImageMenuItem" id="sawHelpAboutMI">
                         <property name="label">gtk-about</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="use_underline">True</property>
-                        <property name="use_stock">True</property>
-                        <property name="accel_group">sawAccelGroup</property>
+                        <property name="can-focus">False</property>
+                        <property name="use-underline">True</property>
+                        <property name="use-stock">True</property>
+                        <property name="accel-group">sawAccelGroup</property>
                         <signal name="activate" handler="saw_help_about_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -327,15 +342,15 @@
         <child>
           <object class="GtkToolbar" id="sawToolbar">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="icon_size">2</property>
             <child>
               <object class="GtkToolButton" id="sawNewTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">New Show</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">New Show</property>
                 <property name="label" translatable="yes">New</property>
-                <property name="stock_id">gtk-new</property>
+                <property name="stock-id">gtk-new</property>
                 <signal name="clicked" handler="saw_file_new_clicked" swapped="no"/>
               </object>
               <packing>
@@ -346,10 +361,10 @@
             <child>
               <object class="GtkToolButton" id="sawOpenTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Open Show</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Open Show</property>
                 <property name="label" translatable="yes">Open</property>
-                <property name="stock_id">gtk-open</property>
+                <property name="stock-id">gtk-open</property>
                 <signal name="clicked" handler="saw_file_open_clicked" swapped="no"/>
               </object>
               <packing>
@@ -360,10 +375,10 @@
             <child>
               <object class="GtkToolButton" id="sawSaveTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Save Show</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Save Show</property>
                 <property name="label" translatable="yes">Save</property>
-                <property name="stock_id">gtk-save</property>
+                <property name="stock-id">gtk-save</property>
                 <signal name="clicked" handler="saw_file_save_clicked" swapped="no"/>
               </object>
               <packing>
@@ -374,7 +389,7 @@
             <child>
               <object class="GtkSeparatorToolItem" id="sawTSep1">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -384,10 +399,10 @@
             <child>
               <object class="GtkToolButton" id="sawPlayTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Run selected cue [Space]</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Run selected cue [Space]</property>
                 <property name="label" translatable="yes">Play Cue</property>
-                <property name="stock_id">gtk-media-play</property>
+                <property name="stock-id">gtk-media-play</property>
                 <signal name="clicked" handler="saw_cue_play_clicked" swapped="no"/>
               </object>
               <packing>
@@ -398,10 +413,10 @@
             <child>
               <object class="GtkToolButton" id="sawStopTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Stop selected cue</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Stop selected cue</property>
                 <property name="label" translatable="yes">Stop Cue</property>
-                <property name="stock_id">gtk-media-stop</property>
+                <property name="stock-id">gtk-media-stop</property>
                 <signal name="clicked" handler="saw_cue_stop_clicked" swapped="no"/>
               </object>
               <packing>
@@ -412,10 +427,10 @@
             <child>
               <object class="GtkToolButton" id="sawStopAllTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Stop all cues [Escape, Escape]</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Stop all cues [Escape, Escape]</property>
                 <property name="label" translatable="yes">Stop All</property>
-                <property name="stock_id">gtk-delete</property>
+                <property name="stock-id">gtk-delete</property>
                 <signal name="clicked" handler="saw_cue_stop_all_clicked" swapped="no"/>
               </object>
               <packing>
@@ -426,7 +441,7 @@
             <child>
               <object class="GtkSeparatorToolItem" id="sawTSep2">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -436,54 +451,54 @@
             <child>
               <object class="GtkMenuToolButton" id="sawAddTButton">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Add a cue</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Add a cue</property>
                 <property name="label" translatable="yes">Add Cue</property>
-                <property name="use_underline">True</property>
-                <property name="stock_id">gtk-add</property>
+                <property name="use-underline">True</property>
+                <property name="stock-id">gtk-add</property>
                 <child type="menu">
                   <object class="GtkMenu" id="sawAddTMenu">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
+                    <property name="can-focus">False</property>
                     <child>
                       <object class="GtkMenuItem" id="sawAddCueGroupMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Cue Group</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_group_clicked" swapped="no"/>
                       </object>
                     </child>
                     <child>
                       <object class="GtkSeparatorMenuItem" id="sawAddSep1">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkMenuItem" id="sawAddAudioCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Audio Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_audio_clicked" swapped="no"/>
                       </object>
                     </child>
                     <child>
                       <object class="GtkMenuItem" id="sawAddFadeCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Fade Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_fade_clicked" swapped="no"/>
                       </object>
                     </child>
                     <child>
                       <object class="GtkMenuItem" id="sawAddActionCueMI">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Action Cue</property>
-                        <property name="use_underline">True</property>
+                        <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_action_clicked" swapped="no"/>
                       </object>
                     </child>
@@ -505,47 +520,48 @@
         <child>
           <object class="GtkPaned" id="sawHPanel">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
+            <property name="can-focus">True</property>
             <property name="position">660</property>
-            <property name="position_set">True</property>
+            <property name="position-set">True</property>
             <child>
               <object class="GtkPaned" id="sawVPanel">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
+                <property name="can-focus">True</property>
                 <property name="orientation">vertical</property>
                 <property name="position">300</property>
-                <property name="position_set">True</property>
+                <property name="position-set">True</property>
                 <child>
                   <object class="GtkScrolledWindow" id="sawsCueScrollWindow">
                     <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="shadow_type">in</property>
+                    <property name="can-focus">True</property>
+                    <property name="shadow-type">in</property>
                     <child>
                       <object class="GtkTreeView" id="sawCuesTreeView">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
+                        <property name="can-focus">True</property>
                         <property name="model">sawCueListStore</property>
-                        <property name="headers_clickable">False</property>
+                        <property name="headers-clickable">False</property>
                         <property name="reorderable">True</property>
-                        <property name="rules_hint">True</property>
-                        <property name="enable_search">False</property>
-                        <property name="search_column">0</property>
-                        <property name="show_expanders">False</property>
-                        <property name="enable_grid_lines">vertical</property>
-                        <property name="tooltip_column">11</property>
-                        <property name="activate_on_single_click">True</property>
+                        <property name="rules-hint">True</property>
+                        <property name="enable-search">False</property>
+                        <property name="search-column">0</property>
+                        <property name="show-expanders">False</property>
+                        <property name="enable-grid-lines">vertical</property>
+                        <property name="tooltip-column">11</property>
+                        <property name="activate-on-single-click">True</property>
                         <signal name="key-press-event" handler="saw_treeview_key_event" swapped="no"/>
                         <signal name="key-release-event" handler="saw_treeview_key_event" swapped="no"/>
                         <child internal-child="selection">
                           <object class="GtkTreeSelection" id="treeview-selection">
+                            <property name="mode">multiple</property>
                             <signal name="changed" handler="saw_cue_selected" swapped="no"/>
                           </object>
                         </child>
                         <child>
                           <object class="GtkTreeViewColumn" id="sawCuesColumnState">
-                            <property name="fixed_width">25</property>
-                            <property name="min_width">25</property>
-                            <property name="max_width">25</property>
+                            <property name="fixed-width">25</property>
+                            <property name="min-width">25</property>
+                            <property name="max-width">25</property>
                             <property name="reorderable">True</property>
                             <child>
                               <object class="GtkCellRendererPixbuf" id="cellrendererpixbuf1">
@@ -560,13 +576,13 @@
                         <child>
                           <object class="GtkTreeViewColumn" id="sawCuesColumnCueID">
                             <property name="resizable">True</property>
-                            <property name="fixed_width">40</property>
-                            <property name="min_width">40</property>
+                            <property name="fixed-width">40</property>
+                            <property name="min-width">40</property>
                             <property name="title" translatable="yes">Cue</property>
                             <property name="reorderable">True</property>
                             <child>
                               <object class="GtkCellRendererText" id="cellrenderertext1">
-                                <property name="xalign">0.50999999046325684</property>
+                                <property name="xalign">0.5099999904632568</property>
                               </object>
                               <attributes>
                                 <attribute name="foreground">9</attribute>
@@ -595,8 +611,8 @@
                         <child>
                           <object class="GtkTreeViewColumn" id="sawCuesColumnPreWait">
                             <property name="resizable">True</property>
-                            <property name="fixed_width">100</property>
-                            <property name="min_width">75</property>
+                            <property name="fixed-width">100</property>
+                            <property name="min-width">75</property>
                             <property name="title" translatable="yes">Pre-Wait</property>
                             <property name="reorderable">True</property>
                             <child>
@@ -611,8 +627,8 @@
                         <child>
                           <object class="GtkTreeViewColumn" id="sawCuesColumnAction">
                             <property name="resizable">True</property>
-                            <property name="fixed_width">100</property>
-                            <property name="min_width">75</property>
+                            <property name="fixed-width">100</property>
+                            <property name="min-width">75</property>
                             <property name="title" translatable="yes">Action</property>
                             <property name="reorderable">True</property>
                             <child>
@@ -627,8 +643,8 @@
                         <child>
                           <object class="GtkTreeViewColumn" id="sawCuesColumnPostWait">
                             <property name="resizable">True</property>
-                            <property name="fixed_width">100</property>
-                            <property name="min_width">75</property>
+                            <property name="fixed-width">100</property>
+                            <property name="min-width">75</property>
                             <property name="title" translatable="yes">Post-Wait</property>
                             <property name="reorderable">True</property>
                             <child>
@@ -651,37 +667,38 @@
                 <child>
                   <object class="GtkNotebook" id="sawCuePropsTabs">
                     <property name="visible">True</property>
-                    <property name="can_focus">True</property>
+                    <property name="can-focus">True</property>
                     <child>
+                      <!-- n-columns=3 n-rows=3 -->
                       <object class="GtkGrid" id="sawCuePropsCommonGrid">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="margin_top">10</property>
-                        <property name="margin_bottom">10</property>
-                        <property name="row_spacing">8</property>
-                        <property name="column_spacing">8</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-left">10</property>
+                        <property name="margin-right">10</property>
+                        <property name="margin-top">10</property>
+                        <property name="margin-bottom">10</property>
+                        <property name="row-spacing">8</property>
+                        <property name="column-spacing">8</property>
                         <child>
                           <object class="GtkLabel" id="sawCueNumberLabel">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
-                            <property name="label" translatable="yes">Cue Number:</property>
+                            <property name="label" translatable="yes">Number:</property>
                             <property name="justify">right</property>
                             <accessibility>
                               <relation type="label-for" target="sawCueNumber"/>
                             </accessibility>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">0</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawCueNameLabel">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
                             <property name="label" translatable="yes">Name:</property>
                             <property name="justify">right</property>
@@ -690,40 +707,40 @@
                             </accessibility>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">1</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkEntry" id="sawCueName">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="can-focus">True</property>
                             <property name="hexpand">True</property>
-                            <property name="width_chars">1</property>
-                            <property name="caps_lock_warning">False</property>
-                            <property name="placeholder_text" translatable="yes">A name for the cue, displayed in the table above</property>
+                            <property name="width-chars">1</property>
+                            <property name="caps-lock-warning">False</property>
+                            <property name="placeholder-text" translatable="yes">A name for the cue, displayed in the table above</property>
                             <signal name="focus-out-event" handler="saw_cue_name_changed" swapped="no"/>
                             <accessibility>
                               <relation type="labelled-by" target="sawCueNameLabel"/>
                             </accessibility>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">1</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkBox" id="sawCueNumberBox">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="spacing">8</property>
                             <child>
                               <object class="GtkEntry" id="sawCueNumber">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
+                                <property name="can-focus">True</property>
                                 <property name="hexpand">True</property>
-                                <property name="width_chars">1</property>
-                                <property name="placeholder_text" translatable="yes">The cue number for the script</property>
+                                <property name="width-chars">1</property>
+                                <property name="placeholder-text" translatable="yes">The cue number for the script</property>
                                 <signal name="focus-out-event" handler="saw_cue_number_changed" swapped="no"/>
                                 <accessibility>
                                   <relation type="labelled-by" target="sawCueNumberLabel"/>
@@ -738,9 +755,9 @@
                             <child>
                               <object class="GtkLabel" id="sawCueColorLabel">
                                 <property name="visible">True</property>
-                                <property name="can_focus">False</property>
+                                <property name="can-focus">False</property>
                                 <property name="halign">end</property>
-                                <property name="margin_left">40</property>
+                                <property name="margin-left">40</property>
                                 <property name="label" translatable="yes">Colour:</property>
                                 <accessibility>
                                   <relation type="label-for" target="sawCueColor"/>
@@ -755,8 +772,8 @@
                             <child>
                               <object class="GtkColorButton" id="sawCueColor">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">True</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">True</property>
                                 <property name="hexpand">True</property>
                                 <signal name="color-set" handler="saw_cue_color_changed" swapped="no"/>
                                 <accessibility>
@@ -771,17 +788,17 @@
                             </child>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">0</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawCueNoteLabels">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
                             <property name="valign">start</property>
-                            <property name="margin_top">6</property>
+                            <property name="margin-top">6</property>
                             <property name="label" translatable="yes">Notes:</property>
                             <property name="justify">right</property>
                             <property name="ellipsize">end</property>
@@ -790,29 +807,29 @@
                             </accessibility>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">2</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkScrolledWindow" id="sawCueNotesScroll">
                             <property name="visible">True</property>
-                            <property name="can_focus">True</property>
+                            <property name="can-focus">True</property>
                             <property name="hexpand">True</property>
                             <property name="vexpand">True</property>
-                            <property name="shadow_type">in</property>
+                            <property name="shadow-type">in</property>
                             <child>
                               <object class="GtkTextView" id="sawCueNotes">
-                                <property name="width_request">1</property>
-                                <property name="height_request">1</property>
+                                <property name="width-request">1</property>
+                                <property name="height-request">1</property>
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
+                                <property name="can-focus">True</property>
                                 <property name="hexpand">True</property>
                                 <property name="vexpand">True</property>
-                                <property name="border_width">7</property>
-                                <property name="hscroll_policy">natural</property>
-                                <property name="vscroll_policy">natural</property>
-                                <property name="wrap_mode">word</property>
+                                <property name="border-width">7</property>
+                                <property name="hscroll-policy">natural</property>
+                                <property name="vscroll-policy">natural</property>
+                                <property name="wrap-mode">word</property>
                                 <signal name="focus-out-event" handler="saw_cue_notes_changed" swapped="no"/>
                                 <accessibility>
                                   <relation type="labelled-by" target="sawCueNoteLabels"/>
@@ -821,60 +838,70 @@
                             </child>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">2</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
+                        </child>
+                        <child>
+                          <placeholder/>
+                        </child>
+                        <child>
+                          <placeholder/>
+                        </child>
+                        <child>
+                          <placeholder/>
                         </child>
                       </object>
                     </child>
                     <child type="tab">
                       <object class="GtkLabel" id="sawCuePropsCommon">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Cue Properties</property>
                       </object>
                       <packing>
-                        <property name="tab_fill">False</property>
+                        <property name="tab-fill">False</property>
                       </packing>
                     </child>
                     <child>
+                      <!-- n-columns=2 n-rows=3 -->
                       <object class="GtkGrid" id="sawCuePropsDelaysGrid">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="margin_left">10</property>
-                        <property name="margin_right">10</property>
-                        <property name="margin_top">10</property>
-                        <property name="margin_bottom">10</property>
-                        <property name="row_spacing">8</property>
-                        <property name="column_spacing">8</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-left">10</property>
+                        <property name="margin-right">10</property>
+                        <property name="margin-top">10</property>
+                        <property name="margin-bottom">10</property>
+                        <property name="row-spacing">8</property>
+                        <property name="column-spacing">8</property>
                         <child>
                           <object class="GtkLabel" id="sawPreWaitLabel">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
                             <property name="label" translatable="yes">Pre-wait Delay:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">0</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkBox" id="sawDelaysVBox">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="hexpand">True</property>
                             <property name="spacing">8</property>
                             <child>
                               <object class="GtkEntry" id="sawPreWait">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
+                                <property name="can-focus">True</property>
                                 <property name="hexpand">True</property>
-                                <property name="width_chars">1</property>
-                                <property name="placeholder_text" translatable="yes">Delay after triggering to run the cue</property>
-                                <property name="input_purpose">number</property>
+                                <property name="width-chars">1</property>
+                                <property name="placeholder-text" translatable="yes">Delay after triggering to run the cue</property>
+                                <property name="input-purpose">number</property>
                                 <signal name="focus-out-event" handler="saw_cue_prewait_changed" swapped="no"/>
                                 <accessibility>
                                   <relation type="labelled-by" target="sawPreWaitLabel"/>
@@ -889,7 +916,7 @@
                             <child>
                               <object class="GtkLabel" id="sawPostWaitLabel">
                                 <property name="visible">True</property>
-                                <property name="can_focus">False</property>
+                                <property name="can-focus">False</property>
                                 <property name="halign">end</property>
                                 <property name="label" translatable="yes">Post-wait Delay:</property>
                                 <property name="justify">right</property>
@@ -907,11 +934,11 @@
                             <child>
                               <object class="GtkEntry" id="sawPostWait">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
+                                <property name="can-focus">True</property>
                                 <property name="hexpand">True</property>
-                                <property name="width_chars">1</property>
-                                <property name="placeholder_text" translatable="yes">Delay after finishing the cue to perform actions</property>
-                                <property name="input_purpose">number</property>
+                                <property name="width-chars">1</property>
+                                <property name="placeholder-text" translatable="yes">Delay after finishing the cue to perform actions</property>
+                                <property name="input-purpose">number</property>
                                 <signal name="focus-out-event" handler="saw_cue_postwait_changed" swapped="no"/>
                               </object>
                               <packing>
@@ -922,17 +949,17 @@
                             </child>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">0</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawPostWaitTriggerLabel">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
                             <property name="valign">start</property>
-                            <property name="margin_top">6</property>
+                            <property name="margin-top">6</property>
                             <property name="label" translatable="yes">Post-wait Trigger:</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
@@ -945,45 +972,45 @@
                             </accessibility>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">1</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkLabel" id="sawOtherTriggersLabel">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="halign">end</property>
                             <property name="valign">start</property>
                             <property name="label" translatable="yes">Other Triggers:</property>
                           </object>
                           <packing>
-                            <property name="left_attach">0</property>
-                            <property name="top_attach">2</property>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
                           <object class="GtkBox" id="sawTriggersHBox">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
+                            <property name="can-focus">False</property>
                             <property name="hexpand">True</property>
                             <property name="vexpand">True</property>
                             <child>
                               <object class="GtkToolbar" id="sawTriggersToolbar">
                                 <property name="visible">True</property>
-                                <property name="can_focus">False</property>
+                                <property name="can-focus">False</property>
                                 <property name="vexpand">True</property>
                                 <property name="orientation">vertical</property>
-                                <property name="toolbar_style">icons</property>
-                                <property name="show_arrow">False</property>
+                                <property name="toolbar-style">icons</property>
+                                <property name="show-arrow">False</property>
                                 <property name="icon_size">2</property>
                                 <child>
                                   <object class="GtkToolButton" id="sawAddTriggerButton">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
+                                    <property name="can-focus">False</property>
                                     <property name="label" translatable="yes">Add Trigger</property>
-                                    <property name="use_underline">True</property>
-                                    <property name="stock_id">gtk-add</property>
+                                    <property name="use-underline">True</property>
+                                    <property name="stock-id">gtk-add</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -993,10 +1020,10 @@
                                 <child>
                                   <object class="GtkToolButton" id="sawDeleteTriggerButton">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
+                                    <property name="can-focus">False</property>
                                     <property name="label" translatable="yes">Delete Trigger</property>
-                                    <property name="use_underline">True</property>
-                                    <property name="stock_id">gtk-remove</property>
+                                    <property name="use-underline">True</property>
+                                    <property name="stock-id">gtk-remove</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -1006,10 +1033,10 @@
                                 <child>
                                   <object class="GtkToolButton" id="sawClearTriggersButton">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">False</property>
+                                    <property name="can-focus">False</property>
                                     <property name="label" translatable="yes">Delete All Triggers</property>
-                                    <property name="use_underline">True</property>
-                                    <property name="stock_id">gtk-delete</property>
+                                    <property name="use-underline">True</property>
+                                    <property name="stock-id">gtk-delete</property>
                                   </object>
                                   <packing>
                                     <property name="expand">False</property>
@@ -1026,15 +1053,15 @@
                             <child>
                               <object class="GtkScrolledWindow" id="sawTriggersScrollWindow">
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="shadow_type">in</property>
+                                <property name="can-focus">True</property>
+                                <property name="shadow-type">in</property>
                                 <child>
                                   <object class="GtkTreeView" id="sawTriggersTreeView">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="can-focus">True</property>
                                     <property name="hexpand">True</property>
                                     <property name="model">sawTriggersListStore</property>
-                                    <property name="activate_on_single_click">True</property>
+                                    <property name="activate-on-single-click">True</property>
                                     <child internal-child="selection">
                                       <object class="GtkTreeSelection"/>
                                     </child>
@@ -1044,7 +1071,7 @@
                                         <property name="title" translatable="yes">Type</property>
                                         <property name="clickable">True</property>
                                         <property name="reorderable">True</property>
-                                        <property name="sort_indicator">True</property>
+                                        <property name="sort-indicator">True</property>
                                       </object>
                                     </child>
                                     <child>
@@ -1053,7 +1080,7 @@
                                         <property name="title" translatable="yes">Event</property>
                                         <property name="clickable">True</property>
                                         <property name="reorderable">True</property>
-                                        <property name="sort_indicator">True</property>
+                                        <property name="sort-indicator">True</property>
                                       </object>
                                     </child>
                                     <child>
@@ -1062,7 +1089,7 @@
                                         <property name="title" translatable="yes">Action</property>
                                         <property name="clickable">True</property>
                                         <property name="reorderable">True</property>
-                                        <property name="sort_indicator">True</property>
+                                        <property name="sort-indicator">True</property>
                                       </object>
                                     </child>
                                     <child>
@@ -1071,7 +1098,7 @@
                                         <property name="title" translatable="yes">Name</property>
                                         <property name="clickable">True</property>
                                         <property name="reorderable">True</property>
-                                        <property name="sort_indicator">True</property>
+                                        <property name="sort-indicator">True</property>
                                       </object>
                                     </child>
                                   </object>
@@ -1085,85 +1112,86 @@
                             </child>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">2</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
+                          <!-- n-columns=2 n-rows=2 -->
                           <object class="GtkGrid" id="sawPostWaitTriggersGrid">
                             <property name="visible">True</property>
-                            <property name="can_focus">False</property>
-                            <property name="row_spacing">4</property>
-                            <property name="column_spacing">16</property>
-                            <property name="row_homogeneous">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="row-spacing">4</property>
+                            <property name="column-spacing">16</property>
+                            <property name="row-homogeneous">True</property>
                             <child>
                               <object class="GtkRadioButton" id="sawPostWaitTrigger1">
                                 <property name="label" translatable="yes">Do not follow on</property>
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">False</property>
                                 <property name="halign">start</property>
                                 <property name="active">True</property>
-                                <property name="draw_indicator">True</property>
+                                <property name="draw-indicator">True</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">0</property>
+                                <property name="left-attach">0</property>
+                                <property name="top-attach">0</property>
                               </packing>
                             </child>
                             <child>
                               <object class="GtkRadioButton" id="sawPostWaitTrigger2">
                                 <property name="label" translatable="yes">On cue trigger</property>
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">False</property>
                                 <property name="halign">start</property>
-                                <property name="draw_indicator">True</property>
+                                <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">0</property>
-                                <property name="top_attach">1</property>
+                                <property name="left-attach">0</property>
+                                <property name="top-attach">1</property>
                               </packing>
                             </child>
                             <child>
                               <object class="GtkRadioButton" id="sawPostWaitTrigger3">
                                 <property name="label" translatable="yes">After pre-wait (auto-continue)</property>
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">False</property>
                                 <property name="halign">start</property>
-                                <property name="draw_indicator">True</property>
+                                <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">1</property>
-                                <property name="top_attach">0</property>
+                                <property name="left-attach">1</property>
+                                <property name="top-attach">0</property>
                               </packing>
                             </child>
                             <child>
                               <object class="GtkRadioButton" id="sawPostWaitTrigger4">
                                 <property name="label" translatable="yes">After cue action (auto-follow)</property>
                                 <property name="visible">True</property>
-                                <property name="can_focus">True</property>
-                                <property name="receives_default">False</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">False</property>
                                 <property name="halign">start</property>
-                                <property name="draw_indicator">True</property>
+                                <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
                                 <signal name="toggled" handler="saw_cue_postwait_trigger_changed" swapped="no"/>
                               </object>
                               <packing>
-                                <property name="left_attach">1</property>
-                                <property name="top_attach">1</property>
+                                <property name="left-attach">1</property>
+                                <property name="top-attach">1</property>
                               </packing>
                             </child>
                           </object>
                           <packing>
-                            <property name="left_attach">1</property>
-                            <property name="top_attach">1</property>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">1</property>
                           </packing>
                         </child>
                       </object>
@@ -1174,12 +1202,12 @@
                     <child type="tab">
                       <object class="GtkLabel" id="sawCuePropsDelays">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
+                        <property name="can-focus">False</property>
                         <property name="label" translatable="yes">Triggers</property>
                       </object>
                       <packing>
                         <property name="position">1</property>
-                        <property name="tab_fill">False</property>
+                        <property name="tab-fill">False</property>
                       </packing>
                     </child>
                     <style>
@@ -1200,13 +1228,13 @@
             <child>
               <object class="GtkBox" id="sawActiveCuesBox">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="border_width">4</property>
+                <property name="can-focus">False</property>
+                <property name="border-width">4</property>
                 <property name="orientation">vertical</property>
                 <child>
                   <object class="GtkLabel" id="sawActiveCuesLabel">
                     <property name="visible">True</property>
-                    <property name="can_focus">False</property>
+                    <property name="can-focus">False</property>
                     <property name="halign">start</property>
                     <property name="label" translatable="yes">Active Cues</property>
                     <attributes>
@@ -1221,20 +1249,6 @@
                     <property name="position">0</property>
                   </packing>
                 </child>
-<!--                <child>
-                  <object class="GtkLabel" id="label3">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">There are currently no active cues</property>
-                    <property name="justify">center</property>
-                    <property name="wrap">True</property>
-                  </object>
-                  <packing>
-                    <property name="expand">True</property>
-                    <property name="fill">True</property>
-                    <property name="position">1</property>
-                  </packing>
-                </child> -->
               </object>
               <packing>
                 <property name="resize">True</property>

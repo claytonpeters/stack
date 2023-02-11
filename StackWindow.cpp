@@ -985,6 +985,45 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
+static void saw_cue_renumber_clicked(void* widget, gpointer user_data)
+{
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Show the dialog, and if the user clicked OK, update the UI
+	if (src_show_dialog(window))
+	{
+		// Lock the cue list
+		stack_cue_list_lock(window->cue_list);
+
+		// Get an iterator over the cue list
+		void *citer = stack_cue_list_iter_front(window->cue_list);
+
+		// Iterate over the cue list
+		while (!stack_cue_list_iter_at_end(window->cue_list, citer))
+		{
+			// Get the cue
+			StackCue *cue = stack_cue_list_iter_get(citer);
+
+			// Update the row
+			saw_update_list_store_from_cue(window->store, cue);
+
+			// Iterate
+			citer = stack_cue_list_iter_next(citer);
+		}
+
+		// Unlock the cue list
+		stack_cue_list_unlock(window->cue_list);
+
+		// Free the iterator
+		stack_cue_list_iter_free(citer);
+
+		// The selected cue is in bounds of the selection, so update the cue
+		// properties panel too
+		saw_update_cue_properties(window, window->selected_cue);
+	}
+}
+
+// Menu callback
 static void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
@@ -1818,6 +1857,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_fade_clicked", G_CALLBACK(saw_cue_add_fade_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_action_clicked", G_CALLBACK(saw_cue_add_action_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_cue_renumber_clicked", G_CALLBACK(saw_cue_renumber_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_play_clicked", G_CALLBACK(saw_cue_play_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_clicked", G_CALLBACK(saw_cue_stop_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_all_clicked", G_CALLBACK(saw_cue_stop_all_clicked));

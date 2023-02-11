@@ -76,6 +76,7 @@ StackAppWindow* stack_app_window_new(StackApp *app);
 void stack_app_window_open(StackAppWindow *window, GFile *file);
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current);
 void sss_show_dialog(StackAppWindow* window);
+bool src_show_dialog(StackAppWindow* window);
 
 // TreeViewModel / ListStore column IDs
 #define STACK_MODEL_CUEID             (0)
