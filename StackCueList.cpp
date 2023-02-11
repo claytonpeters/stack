@@ -3,12 +3,14 @@
 #include <list>
 #include <map>
 #include <cstring>
+#include <math.h>
 #include <json/json.h>
 using namespace std;
 
 typedef list<StackCue*> stackcue_list_t;
 typedef list<StackCue*>::iterator stackcue_list_iterator_t;
 typedef map<cue_uid_t, cue_uid_t> uid_remap_t;
+typedef map<cue_uid_t, StackChannelRMSData*> rms_map_t;
 
 #define SCL_GET_LIST(_scl) ((stackcue_list_t*)(((StackCueList*)(_scl))->cues))
 #define SCL_UID_REMAP(_scl) (*((uid_remap_t*)(_scl)))
@@ -35,15 +37,18 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	// Initialise a list
 	cue_list->cues = (void*)new stackcue_list_t();
 
+	// Initialise the ring buffers
+	cue_list->buffers = new StackRingBuffer*[channels];
+	for (uint16_t i = 0; i < channels; i++)
+	{
+		cue_list->buffers[i] = stack_ring_buffer_create(32768);
+	}
+
 	// Initialise a remap map
 	cue_list->uid_remap = (void*)new uid_remap_t();
 
-	// Allocate our buffer (fixed at 32k samples size for now)
-	cue_list->buffer_len = 32768;
-	cue_list->buffer = new float[channels * cue_list->buffer_len];
-	memset(cue_list->buffer, 0, channels * cue_list->buffer_len * sizeof(float));
-	cue_list->buffer_idx = 0;
-	cue_list->buffer_time = 0;
+	// Initialise a map for storing RMS data
+	cue_list->rms_data = (void*)new rms_map_t();
 
 	return cue_list;
 }
@@ -63,6 +68,32 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	{
 		stack_audio_device_destroy(cue_list->audio_device);
 	}
+
+	// Lock the cue list
+	stack_cue_list_lock(cue_list);
+
+	// Get an iterator over the cue list
+	void *citer = stack_cue_list_iter_front(cue_list);
+
+	// Iterate over the cue list
+	while (!stack_cue_list_iter_at_end(cue_list, citer))
+	{
+		// Get the cue
+		StackCue *cue = stack_cue_list_iter_get(citer);
+
+		// Remove it from the cue list
+		stack_cue_list_remove(cue_list, cue);
+
+		// Destroy the cue
+		stack_cue_destroy(cue);
+
+		// Iterate by repeatedly grabbing the top of the list
+		stack_cue_list_iter_free(citer);
+		citer = stack_cue_list_iter_front(cue_list);
+	}
+
+	// Free the iterator
+	stack_cue_list_iter_free(citer);
 
 	// If we've got a URI, free that
 	if (cue_list->uri)
@@ -84,92 +115,29 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		free(cue_list->show_revision);
 	}
 
+	// Tidy up ring buffers
+	for (uint16_t i = 0; i < cue_list->channels; i++)
+	{
+		stack_ring_buffer_destroy(cue_list->buffers[i]);
+	}
+	delete [] cue_list->buffers;
+
+	// Tidy up rms data
+	for (auto iter : *(rms_map_t*)cue_list->rms_data)
+	{
+		delete [] iter.second;
+	}
+
 	// Tidy up memory
-	delete [] cue_list->buffer;
 	delete (stackcue_list_t*)cue_list->cues;
 	delete (uid_remap_t*)cue_list->uid_remap;
+	delete (rms_map_t*)cue_list->rms_data;
+
+	// Unlock the cue list
+	stack_cue_list_unlock(cue_list);
+
+	// Free ourselves
 	delete cue_list;
-}
-
-/// Writes one channel of audio data to the cue lists audio buffer. 'data'
-/// should contain 'samples' audio samples. If 'interleaving' is greater than
-/// one, then 'data' should contain 'samples * interleaving' samples, with only
-/// very 'interleaving' samples being used.
-/// @param cue_list The cue list whose buffer is to be written to
-/// @param ptr The index within the buffer to write to (-1 to write at the read pointer)
-/// @param data The data to write
-/// @param channel The zero-based index of the output channel to write to
-/// @param samples The number of samples in the input data
-/// @param interleaved If greater than one, then the input data is interleaved as one sample per channel for this many channels. If 0 or 1, read 'samples' continuos samples.
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t channel, float *data, size_t samples, uint16_t interleaving)
-{
-	uint16_t cue_list_channels = cue_list->channels;
-
-	// If the caller doesn't know where to write to, just write to the read pointer
-	if (ptr == -1)
-	{
-		ptr = (cue_list->buffer_idx) % cue_list->buffer_len;
-	}
-
-	// If interleaving is 0, the default to one sample
-	if (interleaving == 0)
-	{
-		interleaving = 1;
-	}
-
-	// If the entire data set fits at the current start of our ring buffer
-	if (ptr + samples < cue_list->buffer_len)
-	{
-		// Calculate source and destination pointers
-		float *src = data;
-		float *dst = &cue_list->buffer[(ptr * cue_list_channels) + channel];
-
-		for (size_t i = 0; i < samples; i++)
-		{
-			*dst += *src;
-
-			// Increment source pointer
-			src += interleaving;
-
-			// Increment destination point
-			dst += cue_list_channels;
-		}
-	}
-	else
-	{
-		// Copy whatever fits at the end of our ring buffer
-		float *src = data;
-		float *dst = &cue_list->buffer[(ptr * cue_list_channels) + channel];
-		size_t count = cue_list->buffer_len - ptr;
-		for (size_t i = 0; i < count; i++)
-		{
-			*dst += *src;
-
-			// Increment source pointer
-			src += interleaving;
-
-			// Increment destination point
-			dst += cue_list_channels;
-		}
-
-		// Copy the rest to the beginning
-		src = &data[interleaving * (cue_list->buffer_len - ptr)];
-		dst = &cue_list->buffer[channel];
-		count = samples - count;
-		for (size_t i = 0; i < count; i++)
-		{
-			*dst += *src;
-
-			// Increment source pointer
-			src += interleaving;
-
-			// Increment destination point
-			dst += cue_list_channels;
-		}
-	}
-
-	// Return the new write pointer
-	return (ptr + samples) % cue_list->buffer_len;
 }
 
 /// Returns the number of cues in the cue list
@@ -299,80 +267,8 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	}
 
 	// Track how long the cue pulses took
-	stack_time_t cue_pulse_time = stack_get_clock_time() - clocktime;
+	//stack_time_t cue_pulse_time = stack_get_clock_time() - clocktime;
 
-	// If we don't have an audio device configured, don't attempt to read audio
-	// buffer and write out to the device
-	if (cue_list->audio_device == NULL)
-	{
-		return;
-	}
-
-	// Initial clock setup when we're ready on the first pulse
-	if (cue_list->buffer_time == 0)
-	{
-		cue_list->buffer_time = clocktime;
-	}
-
-	size_t index, byte_count, blocks_written = 0;
-	size_t block_size_samples = 1024;
-	stack_time_t block_size_time = ((stack_time_t)block_size_samples * NANOSECS_PER_SEC) / (stack_time_t)cue_list->audio_device->sample_rate;
-
-	// Write data to the audio streams if necessary (i.e. if there's less than 3x our block size in the buffer)
-	while (clocktime > cue_list->buffer_time - block_size_time * 3)
-	{
-		// Keep track of how many blocks we've written
-		blocks_written++;
-
-		// A test attempt at underflow detection
-		if (clocktime > cue_list->buffer_time)
-		{
-			underflow_time += clocktime - cue_list->buffer_time;
-			fprintf(stderr, "UNDERFLOW: %ldus (total: %ldus)\n", (clocktime - cue_list->buffer_time) / 1000, underflow_time / 1000);
-		}
-
-		// See if we can write an entire memory block at once
-		if (cue_list->buffer_idx + block_size_samples < cue_list->buffer_len)
-		{
-			// Calculate data index and size
-			index = cue_list->buffer_idx * cue_list->channels;
-			byte_count = block_size_samples * cue_list->channels * sizeof(float);
-
-			// Write to device
-			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
-
-			// Wipe buffer
-			memset(&cue_list->buffer[index], 0, byte_count);
-		}
-		else
-		{
-			// Calculate data index and size
-			size_t index = cue_list->buffer_idx * cue_list->channels;
-			size_t byte_count = (cue_list->buffer_len - cue_list->buffer_idx) * cue_list->channels * sizeof(float);
-
-			// Write the stuff that's at the end of the memory block
-			stack_audio_device_write(cue_list->audio_device, (const char*)&cue_list->buffer[index], byte_count);
-
-			// Wipe buffer at the end
-			memset(&cue_list->buffer[index], 0, byte_count);
-
-			// Calculate remaining size
-			byte_count = (block_size_samples - (cue_list->buffer_len - cue_list->buffer_idx)) * cue_list->channels * sizeof(float);
-
-			// Write stuff that's at the beginning of the memory block
-			stack_audio_device_write(cue_list->audio_device, (const char*)cue_list->buffer, byte_count);
-
-			// Wipe buffer at the beginning
-			memset(cue_list->buffer, 0, byte_count);
-		}
-
-		// Increment ring buffer and wrap around
-		cue_list->buffer_idx = (cue_list->buffer_idx + block_size_samples) % cue_list->buffer_len;
-		cue_list->buffer_time += block_size_time;
-	}
-
-	// Statistics: Gather how long it took to do this pulse
-	stack_time_t pulse_time = stack_get_clock_time() - clocktime;
 	//fprintf(stderr, "stack_cue_list_pulse(): Pulse took %lldns (of which cues: %lldns) (wrote %d blocks)\n", pulse_time, cue_pulse_time, blocks_written);
 }
 
@@ -708,6 +604,20 @@ void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue)
 	{
 		cue_list->state_change_func(cue_list, cue, cue_list->state_change_func_data);
 	}
+
+	// If the cue has stopped, remove any RMS data
+	if (cue->state == STACK_CUE_STATE_STOPPED)
+	{
+		rms_map_t* rms_map = (rms_map_t*)(cue_list->rms_data);
+		// Create or update RMS data
+		auto rms_iter = rms_map->find(cue->uid);
+		if (rms_iter != rms_map->end())
+		{
+			StackChannelRMSData *rms_data = rms_iter->second;
+			delete [] rms_data;
+			rms_map->erase(rms_iter);
+		}
+	}
 }
 
 /// Removes a cue from the cue list
@@ -756,6 +666,20 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 			{
 				return *iter;
 			}
+		}
+	}
+
+	return NULL;
+}
+
+StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
+{
+	// Iterate over all the cues
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		if ((*iter)->uid == uid)
+		{
+			return *iter;
 		}
 	}
 
@@ -889,3 +813,160 @@ bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_r
 	return false;
 }
 
+void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
+{
+	stack_cue_list_lock(cue_list);
+
+	rms_map_t* rms_data = (rms_map_t*)cue_list->rms_data;
+
+	// TODO: Determine a more appropriate size for this
+	size_t request_samples = samples;
+
+	// Allocate a buffer for mixing our new data in to
+	float *new_data = new float[cue_list->channels * request_samples];
+	memset(new_data, 0, cue_list->channels * request_samples * sizeof(float));
+
+	// Allocate a buffer for active channels per cue
+	bool *active_channels = new bool[cue_list->channels];
+
+	// Allocate a buffer for new cue data
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	{
+		// Get the list of active_channels
+		memset(active_channels, 0, cue_list->channels * sizeof(bool));
+		size_t active_channel_count = stack_cue_get_active_channels(*iter, active_channels);
+
+		// Skip cues with no active channels
+		if (active_channel_count == 0)
+		{
+			continue;
+		}
+
+		// Allocate a buffer for new cue audio
+		float *cue_data = new float[active_channel_count * request_samples];
+
+		// Allocate a buffer for calulating the RMS per channel
+		float *rms = new float[active_channel_count];
+		memset(rms, 0, sizeof(float) * active_channel_count);
+
+		// Get the audio data from the cue
+		size_t samples_received = stack_cue_get_audio(*iter, cue_data, request_samples);
+
+		// Add this cues data on to the new data
+		size_t source_channel = 0;
+		for (size_t dest_channel = 0; dest_channel < cue_list->channels; dest_channel++)
+		{
+			// Only need to do something if the channel is active
+			if (!active_channels[dest_channel])
+			{
+				continue;
+			}
+
+			// cue_data is multiplexed, containing active_channel_count channels
+			// new_data is NOT multiplexed (it's faster to write this to the ring buffer)
+			float *read_pointer = &cue_data[source_channel];
+			float *end_pointer = &cue_data[active_channel_count * samples_received];
+			float *write_pointer = &new_data[dest_channel * request_samples];
+			while (read_pointer < end_pointer)
+			{
+				// Keep track of the RMS whilst we're already looping
+				const float value = *read_pointer;
+				rms[source_channel] += value * value;
+
+				// Write out the data
+				*write_pointer += value;
+				write_pointer++;
+				read_pointer += active_channel_count;
+			}
+
+			// Finish off the RMS calculation
+			rms[source_channel] = stack_scalar_to_db(sqrtf(rms[source_channel] / (float)samples_received));
+
+			// Start the next channel
+			source_channel++;
+		}
+
+		// Create or update RMS data
+		auto rms_iter = rms_data->find((*iter)->uid);
+		if (rms_iter == rms_data->end())
+		{
+			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
+			for (size_t i = 0; i < active_channel_count; i++)
+			{
+				new_rms_data[i].current_level = rms[i];
+				new_rms_data[i].peak_level = rms[i];
+				new_rms_data[i].peak_time = stack_get_clock_time();
+			}
+			(*rms_data)[(*iter)->uid] = new_rms_data;
+		}
+		else
+		{
+			StackChannelRMSData *rms_data = rms_iter->second;
+			for (size_t i = 0; i < active_channel_count; i++)
+			{
+				rms_data[i].current_level = rms[i];
+				if (rms[i] >= rms_data[i].peak_level)
+				{
+					rms_data[i].peak_level = rms[i];
+					rms_data[i].peak_time = stack_get_clock_time();
+				}
+			}
+		}
+
+		// Tidy up
+		delete [] cue_data;
+		delete [] rms;
+	}
+
+	// Write the new data into the ring buffers
+	for (size_t channel = 0; channel < cue_list->channels; channel++)
+	{
+		stack_ring_buffer_write(cue_list->buffers[channel], &new_data[channel * request_samples], request_samples, 1);
+	}
+
+	// Tidy up
+	delete [] new_data;
+	delete [] active_channels;
+
+	stack_cue_list_unlock(cue_list);
+
+}
+
+void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels)
+{
+	// Determine if there's enough data in ALL the buffers (regardless of
+	bool need_audio_from_cues = false;
+	for (uint16_t i = 0; i < cue_list->channels; i++)
+	{
+		if (cue_list->buffers[i]->used < samples)
+		{
+			need_audio_from_cues = true;
+		}
+	}
+
+	// Get more data if required
+	if (need_audio_from_cues)
+	{
+		stack_cue_list_populate_buffers(cue_list, samples);
+	}
+
+	for (size_t idx = 0; idx < channel_count; idx++)
+	{
+		size_t channel = channels[idx];
+		size_t received = stack_ring_buffer_read(cue_list->buffers[channel], buffer + idx, samples, channel_count);
+
+		// TODO: Do something with "received"
+	}
+}
+
+StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid)
+{
+	rms_map_t* rms_data = (rms_map_t*)cue_list->rms_data;
+	auto rms_iter = rms_data->find(uid);
+	if (rms_iter != rms_data->end())
+	{
+		return rms_iter->second;
+	}
+
+	return NULL;
+}

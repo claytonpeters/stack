@@ -58,10 +58,56 @@ void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
 	}
 }
 
+// PULSEAUDIO CALLBACK: Free a buffer passed to PulseAudio
+void stack_pulse_audio_device_free_audio_buffer(void *p)
+{
+	delete [] (float*)p;
+}
+
+void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, size_t bytes, bool lock = true, bool free_callback = false)
+{
+	if (lock)
+	{
+		pa_threaded_mainloop_lock(mainloop);
+	}
+	pa_stream_write(STACK_PULSE_AUDIO_DEVICE(device)->stream, data, bytes, free_callback ? stack_pulse_audio_device_free_audio_buffer : NULL, 0, PA_SEEK_RELATIVE);
+	if (lock)
+	{
+		pa_threaded_mainloop_unlock(mainloop);
+	}
+}
+
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
 void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* userdata)
 {
-	fprintf(stderr, "stack_pulse_audio_underflow_callback(): UNDERFLOW AT %ld!\n", pa_stream_get_underflow_index(STACK_PULSE_AUDIO_DEVICE(userdata)->stream));
+	// Determine how many bytes PulseAudio wants
+	size_t writable = pa_stream_writable_size(STACK_PULSE_AUDIO_DEVICE(userdata)->stream);
+	const size_t channels = STACK_AUDIO_DEVICE(userdata)->channels;
+
+	// Whilst it wants more
+	while (writable != (size_t)-1 && writable > 0)
+	{
+		// Determine how many samples per channel (rather than bytes) PulseAudio wants
+		size_t writable_samples = writable / sizeof(float) / channels;
+
+		// Get a buffer of that size and read (up to) that many bytes
+		float *buffer = new float[writable_samples * channels];
+		size_t read = STACK_AUDIO_DEVICE(userdata)->request_audio(writable_samples, buffer, STACK_AUDIO_DEVICE(userdata)->request_audio_user_data);
+
+		if (read < writable_samples)
+		{
+			fprintf(stderr, "Buffer underflow: %lu < %lu!\n", read, writable_samples);
+		}
+
+		// Write the data to PulseAudio
+		stack_pulse_audio_device_write(&STACK_PULSE_AUDIO_DEVICE(userdata)->super, (char*)buffer, read * channels * sizeof(float), false, true);
+
+		// Determine if PulseAudio still wants more
+		writable = pa_stream_writable_size(STACK_PULSE_AUDIO_DEVICE(userdata)->stream);
+
+		// Note: we don't free "buffer" here, as PulseAudio callback will free for us
+	}
+
 }
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio when counting sinks
@@ -282,22 +328,36 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 	// Tidy up
 	if (STACK_PULSE_AUDIO_DEVICE(device)->stream != NULL)
 	{
-		// Unhook the notify function
+		// Cork immediately and remove callbacks to prevent any further calls to
+		// the callbacks
+		pa_threaded_mainloop_lock(mainloop);
+		pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 1, NULL, NULL);
 		pa_stream_set_state_callback(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
+		pa_stream_set_underflow_callback(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
+		pa_threaded_mainloop_unlock(mainloop);
 
 		// Disconnect from the stream
 		pa_stream_disconnect(STACK_PULSE_AUDIO_DEVICE(device)->stream);
+
+		// Stop the mainloop to ensure no more events are in progress
+		pa_threaded_mainloop_stop(mainloop);
+
+		// Mainloop might still be using the stream
 		pa_stream_unref(STACK_PULSE_AUDIO_DEVICE(device)->stream);
+
+		// Free the main loop
+		pa_threaded_mainloop_free(mainloop);
+		mainloop = NULL;
 	}
 
 	// Call superclass destroy
 	stack_audio_device_destroy_base(device);
 }
 
-StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t channels, uint32_t sample_rate)
+StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
 	// Debug
-	fprintf(stderr, "stack_pulse_audio_device_create(\"%s\", %u, %u) called\n", name, channels, sample_rate);
+	fprintf(stderr, "stack_pulse_audio_device_create(\"%s\", %u, %u, ...) called\n", name, channels, sample_rate);
 
 	// Allocate the new device
 	StackPulseAudioDevice *device = new StackPulseAudioDevice();
@@ -322,6 +382,8 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	STACK_AUDIO_DEVICE(device)->_class_name = "StackPulseAudioDevice";
 	STACK_AUDIO_DEVICE(device)->channels = channels;
 	STACK_AUDIO_DEVICE(device)->sample_rate = sample_rate;
+	STACK_AUDIO_DEVICE(device)->request_audio = request_audio;
+	STACK_AUDIO_DEVICE(device)->request_audio_user_data = user_data;
 
 	// Create a PulseAudio sample spec
 	pa_sample_spec samplespec;
@@ -340,10 +402,10 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 
 	// Connect a playback stream
 	pa_buffer_attr attr;
-	attr.maxlength = 0xffffffff;
-	attr.tlength = 16384 * 2;
-	attr.prebuf = 0;
-	attr.minreq = 0xffffffff;
+	attr.maxlength = (uint32_t)-1;
+	attr.tlength = 512 * sizeof(float) * channels;
+	attr.prebuf = (uint32_t)-1;
+	attr.minreq = (uint32_t)-1;
 	fprintf(stderr, "stack_pulse_audio_device_create(): Connecting playback stream...\n");
 	pa_stream_connect_playback(device->stream, name != NULL ? name : default_sink_name, &attr, (pa_stream_flags_t)(PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_INTERPOLATE_TIMING), NULL, NULL);
 
@@ -367,15 +429,11 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 		return NULL;
 	}
 
+	// Call the underflow callback now to trigger writing some audio
+	stack_pulse_audio_stream_underflow_callback(context, device);
+
 	// Return the newly created device
 	return STACK_AUDIO_DEVICE(device);
-}
-
-void stack_pulse_audio_device_write(StackAudioDevice *device, const char *data, size_t bytes)
-{
-	pa_threaded_mainloop_lock(mainloop);
-	pa_stream_write(STACK_PULSE_AUDIO_DEVICE(device)->stream, data, bytes, NULL, 0, PA_SEEK_RELATIVE);
-	pa_threaded_mainloop_unlock(mainloop);
 }
 
 const char *stack_pulse_audio_device_get_friendly_name()
@@ -386,7 +444,7 @@ const char *stack_pulse_audio_device_get_friendly_name()
 void stack_pulse_audio_device_register()
 {
 	// Register the Pulse audio class
-	StackAudioDeviceClass* pulse_audio_device_class = new StackAudioDeviceClass{ "StackPulseAudioDevice", "StackPulseAudioDevice", stack_pulse_audio_device_list_outputs, stack_pulse_audio_device_free_outputs, stack_pulse_audio_device_create, stack_pulse_audio_device_destroy, stack_pulse_audio_device_write, stack_pulse_audio_device_get_friendly_name };
+	StackAudioDeviceClass* pulse_audio_device_class = new StackAudioDeviceClass{ "StackPulseAudioDevice", "StackPulseAudioDevice", stack_pulse_audio_device_list_outputs, stack_pulse_audio_device_free_outputs, stack_pulse_audio_device_create, stack_pulse_audio_device_destroy, stack_pulse_audio_device_get_friendly_name };
 	stack_register_audio_device_class(pulse_audio_device_class);
 }
 

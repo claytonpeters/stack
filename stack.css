@@ -377,9 +377,14 @@ check:hover, radio:hover {
 
 check:active, radio:active { color: #eeeeec; outline-color: rgba(238, 238, 236, 0.3); border-color: #1b1f20; background-image: image(#25292b); box-shadow: inset 0 1px rgba(255, 255, 255, 0); text-shadow: none; -gtk-icon-shadow: none; }
 
+check:checked
+{
+	background-color: #307040;
+}
+
 radio:checked
 {
-	background-color: @edge_color;
+	background-color: #307040;
 	box-shadow: inset 0px 0px 0px 3px @theme_bg_color, inset 0 1px rgba(255, 255, 255, 0.05), inset 0px -2px 2px 0px @half_color;
 }
 

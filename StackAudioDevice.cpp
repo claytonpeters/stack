@@ -9,7 +9,7 @@ using namespace std;
 static map<string, const StackAudioDeviceClass*> adev_class_map;
 typedef map<string, const StackAudioDeviceClass*>::iterator sadc_iter_t;
 
-StackAudioDevice *stack_audio_device_create_base(const char *name, uint32_t channels, uint32_t sample_rate)
+StackAudioDevice *stack_audio_device_create_base(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
 	fprintf(stderr, "stack_audio_device_create_base(): Objects of type StackAudioDevice cannot be created\n");
 	return NULL;
@@ -21,11 +21,6 @@ void stack_audio_device_destroy_base(StackAudioDevice *adev)
 	delete adev;
 }
 
-void stack_audio_device_write_base(StackAudioDevice *adev, const char *buffer, size_t bytes)
-{
-	// Does nothing for base implementation
-}
-
 const char *stack_audio_device_get_friendly_name_base()
 {
 	return "Stack Null-Audio Provider";
@@ -34,7 +29,7 @@ const char *stack_audio_device_get_friendly_name_base()
 // Registers base classes
 void stack_audio_device_initsystem()
 {
-	StackAudioDeviceClass* audio_device_class = new StackAudioDeviceClass{ "StackAudioDevice", NULL, NULL, NULL, stack_audio_device_create_base, stack_audio_device_destroy_base, stack_audio_device_write_base, stack_audio_device_get_friendly_name_base };
+	StackAudioDeviceClass* audio_device_class = new StackAudioDeviceClass{ "StackAudioDevice", NULL, NULL, NULL, stack_audio_device_create_base, stack_audio_device_destroy_base, stack_audio_device_get_friendly_name_base };
 	stack_register_audio_device_class(audio_device_class);
 }
 
@@ -97,31 +92,8 @@ int stack_register_audio_device_class(StackAudioDeviceClass *adev_class)
 	return 0;
 }
 
-void stack_audio_device_write(StackAudioDevice *adev, const char *data, size_t bytes)
-{
-	// Get the class name
-	const char *class_name = adev->_class_name;
-
-	// Locate the class
-	auto iter = adev_class_map.find(adev->_class_name);
-	if (iter == adev_class_map.end())
-	{
-		fprintf(stderr, "stack_audio_device_write(): Unknown class\n");
-		return;
-	}
-
-	// Look for a write function. Iterate through superclasses if we don't have one
-	while (adev_class_map[class_name]->write_func == NULL && class_name != NULL)
-	{
-		class_name = adev_class_map[class_name]->super_class_name;
-	}
-
-	// Call function
-	iter->second->write_func(adev, data, bytes);
-}
-
 // Functions: Arbitrary audio device creation/deletion
-StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uint32_t channels, uint32_t sample_rate)
+StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *request_audio_user_data)
 {
 	// Debug
 	fprintf(stderr, "stack_audio_device_new(): Calling create for type '%s'\n", type);
@@ -135,7 +107,7 @@ StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uin
 	}
 
 	// No need to iterate up through superclasses - we can't be NULL
-	return iter->second->create_func(name, channels, sample_rate);
+	return iter->second->create_func(name, channels, sample_rate, request_audio, request_audio_user_data);
 }
 
 void stack_audio_device_destroy(StackAudioDevice *adev)

@@ -6,6 +6,9 @@
 #include <cstdint>
 #include <cstdlib>
 
+// Early typedef required by StackAudioDevice
+typedef size_t(*stack_audio_device_audio_request_t)(size_t, float *, void *);
+
 // Structure
 typedef struct StackAudioDevice
 {
@@ -17,6 +20,12 @@ typedef struct StackAudioDevice
 
 	// The sample rate of the device
 	uint32_t sample_rate;
+
+	// Function pointer to routine that gives the device audio data
+	stack_audio_device_audio_request_t request_audio;
+
+	// Arbitrary user data passed to request_audio function
+	void *request_audio_user_data;
 } StackAudioDevice;
 
 // Structure: Descriptor of an audio device
@@ -33,9 +42,8 @@ typedef struct StackAudioDeviceDesc
 // Typedefs:
 typedef size_t(*stack_audio_device_list_outputs_t)(StackAudioDeviceDesc **);
 typedef void(*stack_audio_device_free_outputs_t)(StackAudioDeviceDesc **, size_t);
-typedef StackAudioDevice*(*stack_audio_device_create_t)(const char *, uint32_t, uint32_t);
+typedef StackAudioDevice*(*stack_audio_device_create_t)(const char *, uint32_t, uint32_t, stack_audio_device_audio_request_t, void *);
 typedef void(*stack_audio_device_destroy_t)(StackAudioDevice *);
-typedef void(*stack_audio_device_write_t)(StackAudioDevice *, const char *, size_t);
 typedef const char *(*stack_audio_device_get_friendly_name_t)();
 
 // Function pointers for each type
@@ -47,7 +55,6 @@ typedef struct StackAudioDeviceClass
 	stack_audio_device_free_outputs_t free_outputs_func;	// Static function
 	stack_audio_device_create_t create_func;	// Static function
 	stack_audio_device_destroy_t destroy_func;
-	stack_audio_device_write_t write_func;
 	stack_audio_device_get_friendly_name_t get_friendly_name_func; // Static function
 } StackAudioDeviceClass;
 
@@ -56,14 +63,13 @@ int stack_register_audio_device_class(StackAudioDeviceClass *adev_class);
 
 // Functions: Base audio device functions that call the superclass
 void stack_audio_device_initsystem();
-void stack_audio_device_write(StackAudioDevice *adev, const char *data, size_t bytes);
 
 // Functions: Base functions. These should not be called except from subclasses
 // of StackAudioDevice
 void stack_audio_device_destroy_base(StackAudioDevice *adev);
 
 // Functions: Arbitrary audio device creation/deletion
-StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uint32_t channels, uint32_t sample_rate);
+StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data);
 void stack_audio_device_destroy(StackAudioDevice *adev);
 const StackAudioDeviceClass *stack_audio_device_get_class(const char *name);
 

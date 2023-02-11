@@ -16,7 +16,7 @@ static map<cue_uid_t, StackCue*> cue_uid_map;
 // Generates a UID
 static cue_uid_t stack_cue_generate_uid()
 {
-	cue_uid_t uid = 0;
+	cue_uid_t uid = STACK_CUE_UID_NONE;
 
 	// Repeatedly generate UUIDs until we find a free one
 	do
@@ -303,6 +303,8 @@ void stack_cue_destroy(StackCue *cue)
 		return;
 	}
 
+	fprintf(stderr, "stack_cue_destroy(0x%p): Destroying cue %lx\n", (void*)cue, cue->uid);
+
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));
 	if (iter == cue_class_map.end())
@@ -311,14 +313,17 @@ void stack_cue_destroy(StackCue *cue)
 		return;
 	}
 
+	// Save the UID - we need to remove it from the map once the cue is deleted
+	cue_uid_t uid = cue->uid;
+
 	// No need to iterate up through superclasses - we can't be NULL
 	iter->second->destroy_func(cue);
 
 	// Remove the cue from our UID map
-	auto uid_iter = cue_uid_map.find(cue->uid);
+	auto uid_iter = cue_uid_map.find(uid);
 	if (uid_iter == cue_uid_map.end())
 	{
-		fprintf(stderr, "stack_cue_destroy(): Assertion warning: Cue UID not in map!\n");
+		fprintf(stderr, "stack_cue_destroy(): Assertion warning: Cue UID %lx not in map!\n", uid);
 		return;
 	}
 	else
@@ -498,7 +503,7 @@ void stack_cue_from_json(StackCue *cue, const char *json_data)
 	// Get the class name
 	const char *class_name = cue->_class_name;
 
-	// Look for a from_json tabs function. Iterate through superclasses if we don't have one
+	// Look for a from_json function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->from_json_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;
@@ -513,11 +518,43 @@ static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
 	// Does nothing in the base implementation
 }
 
+// Get the active channels for a cue
+size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_active_channels function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_active_channels_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active);
+}
+
+// Gets more audio data from cue
+size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_audio function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_audio_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_audio_func(cue, buffer, samples);
+}
+
 // Initialise the StackCue system
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base };
 	stack_register_cue_class(stack_cue_class);
 }
 

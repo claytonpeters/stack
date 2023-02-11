@@ -4,6 +4,8 @@
 // Includes
 #include <gtk/gtk.h>
 #include <thread>
+#include <map>
+#include <string>
 #include "StackCue.h"
 
 struct StackApp
@@ -15,6 +17,18 @@ struct StackAppClass
 {
 	GtkApplicationClass parent_class;
 };
+
+typedef struct StackActiveCueWidget
+{
+	cue_uid_t cue_uid;
+	StackCueList *cue_list;
+	GtkBox *vbox;
+	GtkLabel *name;
+	GtkLabel *time;
+	GtkDrawingArea *levels;
+} StackActiveCueWidget;
+
+typedef std::map<cue_uid_t, StackActiveCueWidget*> stack_cue_widget_map_t;
 
 struct StackAppWindow
 {
@@ -47,6 +61,9 @@ struct StackAppWindow
 
 	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
 	int timer_state;
+
+	// Map for active cue widgets
+	stack_cue_widget_map_t active_cue_widgets;
 };
 
 struct StackAppWindowClass

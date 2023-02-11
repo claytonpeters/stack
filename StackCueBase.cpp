@@ -198,7 +198,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue->action_time)
 	{
 		// Check if we're still in post time
-		if (run_post_time < cue->post_time)
+		if (cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && run_post_time < cue->post_time)
 		{
 			// Change us to the post state
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
@@ -384,3 +384,22 @@ void stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
 	snprintf(message, size, "The base cue implementation should not be used.");
 }
 
+/// Returns the number of active channels for the cue. For the base
+/// implementation, this always returns no active channels
+/// @param cue The cue to get the active channels for
+/// @param active The array to populate
+size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active)
+{
+	return 0;
+}
+
+/// Returns the audio for the currently active cues. This should never be
+/// called for a base implementation as the base implementation always returns
+/// no active channels
+/// @param cue The cue to get the audio data for
+/// @param buffer The buffer to write to
+/// @param samples The number of samples to write
+size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples)
+{
+	return 0;
+}

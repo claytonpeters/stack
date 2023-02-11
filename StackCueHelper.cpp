@@ -96,7 +96,7 @@ void stack_format_time_as_string(stack_time_t time, char *str, size_t len)
 // @returns A value between 0.0 and 1.0 if db <= 0 and a value greater than 1.0 if db >= 1
 double stack_db_to_scalar(double db)
 {
-	return pow(10.0, db / 10.0); /* Implicit multiply by 1 */
+	return pow(10.0, db / 20.0); /* Implicit multiply by 1 */
 }
 
 // Converts a linear scalar to a number to an equivalent value in decibels
@@ -105,7 +105,7 @@ double stack_db_to_scalar(double db)
 // @returns A value in decibels
 double stack_scalar_to_db(double scalar)
 {
-	return 10.0 * log10(scalar); /* Implicit divide by 1 */
+	return 20.0 * log10(scalar); /* Implicit divide by 1 */
 }
 
 // Converts a string of the format mm:ss.ss into a stack_time_t. Also supports

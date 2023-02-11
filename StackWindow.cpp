@@ -29,6 +29,10 @@ typedef struct ShowLoadingData
 	bool finished;
 } ShowLoadingData;
 
+// Pre-define some function definitions:
+static void saw_cue_stop_all_clicked(void* widget, gpointer user_data);
+static void saw_remove_inactive_cue_widgets(StackAppWindow *window);
+
 static void set_stack_pulse_thread_priority(StackAppWindow* window)
 {
 	// Set thread priority
@@ -270,6 +274,25 @@ static void saw_update_selected_cue(gpointer user_data)
 	}
 }
 
+typedef struct StackCueListUpdateData {
+	StackAppWindow *window;
+	StackCue *cue;
+} StackCueListUpdateData;
+
+static gboolean saw_update_cue_main_thread(gpointer user_data)
+{
+	// Update the list data
+	StackCueListUpdateData* data = (StackCueListUpdateData*)user_data;
+	saw_update_list_store_from_cue(data->window->store, data->cue);
+
+	// Make the widget redraw
+	gtk_widget_queue_draw(GTK_WIDGET(data->window->treeview));
+
+	// Tidy up
+	delete data;
+	return G_SOURCE_REMOVE;
+}
+
 // Helper function that updates the list store with updated information about
 // a specific cue. A wrapper around saw_update_list_store_from_cue.
 // Also callable via the signal "update-cue", hence the gpointer rather
@@ -279,10 +302,10 @@ static void saw_update_cue(gpointer user_data, StackCue* cue)
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 	if (cue)
 	{
-		saw_update_list_store_from_cue(window->store, cue);
+		StackCueListUpdateData* data = new StackCueListUpdateData{window, cue};
 
-		// Make the widget redraw
-		gtk_widget_queue_draw(GTK_WIDGET(window->treeview));
+		// Do this on the UI thread so as not to cause thread-safety issues
+		gdk_threads_add_idle(saw_update_cue_main_thread, data);
 	}
 }
 
@@ -543,6 +566,18 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 	}
 }
 
+size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data)
+{
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	StackCueList *cue_list = window->cue_list;
+
+	// TODO: Once we can properly map audio devices to cue list channels, we need to change this
+	size_t channels[] = {0, 1};
+	stack_cue_list_get_audio(cue_list, buffer, samples, 2, channels);
+
+	return samples;
+}
+
 // Sets up an initial playback device
 static void saw_setup_default_device(StackAppWindow *window)
 {
@@ -556,7 +591,7 @@ static void saw_setup_default_device(StackAppWindow *window)
 		if (devices != NULL && num_outputs > 0)
 		{
 			// Create a PulseAudio device using the default device
-			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 0, 44100);
+			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 2, 44100, saw_get_audio_from_cuelist, window);
 
 			// Store the audio device in the cue list
 			window->cue_list->audio_device = device;
@@ -720,6 +755,19 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 				return;
 			}
 		}
+	}
+
+	// Stop all the cues
+	saw_cue_stop_all_clicked(widget, (gpointer)window);
+
+	// Tidy up the widgets from the now-stopped cuews
+	saw_remove_inactive_cue_widgets(window);
+
+	// Deselect any selected tab
+	if (window->selected_cue != NULL)
+	{
+		stack_cue_unset_tabs(window->selected_cue, window->notebook);
+		window->selected_cue = NULL;
 	}
 
 	// Kill the cue list pulsing thread
@@ -952,11 +1000,17 @@ static void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
 	{
 		// Set it to be at 75% of the width of the window (so 25% wide)
 		gtk_paned_set_position(hPanel, window_width * 3 / 4);
+
+		// Show the panel
+		gtk_widget_set_visible(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawActiveCuesBox")), true);
 	}
 	else
 	{
 		// Hide it by setting it to the width of the window
 		gtk_paned_set_position(hPanel, window_width);
+
+		// Make the panel invisible so Gtk doesn't spend time rendering it
+		gtk_widget_set_visible(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawActiveCuesBox")), false);
 	}
 }
 
@@ -966,8 +1020,8 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20180121-1");
-	gtk_about_dialog_set_copyright(about, "Copyright (c) 2018 Clayton Peters");
+	gtk_about_dialog_set_version(about, "Version 0.1.20230211-1");
+	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
 	gtk_window_set_transient_for(GTK_WINDOW(about), GTK_WINDOW(user_data));
@@ -1049,6 +1103,203 @@ static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 	stack_cue_list_iter_free(citer);
 }
 
+static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
+{
+	// Get the UI item to remov the cue from
+	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
+
+	auto iter = stack_cue_list_iter_front(window->cue_list);
+	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+	{
+		StackCue *cue = stack_cue_list_iter_get(iter);
+
+		// We're looking for cues that are stopped but have widgets
+		if (cue->state == STACK_CUE_STATE_STOPPED)
+		{
+			auto find_widget = window->active_cue_widgets.find(cue->uid);
+			if (find_widget != window->active_cue_widgets.end())
+			{
+				StackActiveCueWidget *widget = find_widget->second;
+
+				// Note that this should also destroy the children so we don't
+				// need to delete them (as their refcount should hit zero)
+				gtk_container_remove(GTK_CONTAINER(active_cues), GTK_WIDGET(widget->vbox));
+
+				// Tidy up the structure
+				delete widget;
+
+				// Remove from the map
+				window->active_cue_widgets.erase(find_widget);
+			}
+		}
+
+		// Iterate to next cue
+		stack_cue_list_iter_next(iter);
+	}
+
+	// Tidy up
+	stack_cue_list_iter_free(iter);
+}
+
+gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+	// Get details
+	GtkStyleContext *context = gtk_widget_get_style_context(widget);
+	guint width = gtk_widget_get_allocated_width(widget);
+	guint height = gtk_widget_get_allocated_height(widget);
+	StackActiveCueWidget *cue_widget = (StackActiveCueWidget*)g_object_get_data(G_OBJECT(widget), "cue-widget");
+	stack_time_t current_time = stack_get_clock_time();
+
+	// Clear the background
+	gtk_render_background(context, cr, 0, 0, width, height);
+
+	// Create a dark gradient background
+	cairo_pattern_t *dark_gradient = cairo_pattern_create_linear(0.0, 0.0, (float)width, 0.0);
+	cairo_pattern_add_color_stop_rgb(dark_gradient, 0.0, 0.0, 0.25, 0.0);
+	cairo_pattern_add_color_stop_rgb(dark_gradient, 0.75, 0.25, 0.25, 0.0);
+	cairo_pattern_add_color_stop_rgb(dark_gradient, 1.0, 0.25, 0.0, 0.0);
+
+	// Turn off antialiasing for speed
+	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+
+	// Create a gradient
+	cairo_pattern_t *gradient = cairo_pattern_create_linear(0.0, 0.0, (float)width, 0.0);
+	cairo_pattern_add_color_stop_rgb(gradient, 0.0, 0.0, 1.0, 0.0);
+	cairo_pattern_add_color_stop_rgb(gradient, 0.75, 1.0, 1.0, 0.0);
+	cairo_pattern_add_color_stop_rgb(gradient, 1.0, 1.0, 0.0, 0.0);
+
+	StackChannelRMSData *rms = stack_cue_list_get_rms_data(cue_widget->cue_list, cue_widget->cue_uid);
+	if (rms != NULL)
+	{
+		// Setup the colouring of the rectangles
+
+		// Render the rectangles
+		StackCue *cue = stack_cue_list_get_cue_by_uid(cue_widget->cue_list, cue_widget->cue_uid);
+
+		size_t channel_count = stack_cue_get_active_channels(cue, NULL);
+		float bar_height = floorf((float)height / (float)channel_count);
+		for (size_t i = 0; i < channel_count; i++)
+		{
+			// Grab the level and put it in bounds
+			const float min = -90.0;
+			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
+			float level = rms[i].current_level;
+			if (level < min) { level = min; }
+			if (level > 0.0) { level = 0.0; }
+			const float level_x = (float)width * ((level - min) / -min);
+
+			// Draw the dark section (we minus one on x for rounding errors)
+			cairo_set_source(cr, dark_gradient);
+			cairo_rectangle(cr, level_x - 1, bar_height * (float)i, width - level_x, bar_height - 1.0);
+			cairo_fill(cr);
+
+			// Draw the level
+			cairo_set_source(cr, gradient);
+			cairo_rectangle(cr, 0.0, bar_height * (float)i, level_x, bar_height - 1.0);
+			cairo_fill(cr);
+
+			// Grab the peak and put it in bounds
+			// TODO: This should probably be in StackCueList instead
+			if (current_time - rms[i].peak_time > peak_hold_time)
+			{
+				rms[i].peak_level -= 1.0;
+			}
+			float peak = rms[i].peak_level;
+			if (peak < min) { peak = min; }
+			if (peak > 0.0) { peak = 0.0; }
+			float peak_x = (float)width * ((peak - min) / -min);
+
+			// Draw the peak line
+			cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+			cairo_move_to(cr, peak_x, bar_height * (float)i);
+			cairo_rel_line_to(cr, 0, bar_height - 1);
+			cairo_stroke(cr);
+		}
+	}
+
+	// Tidy up
+	cairo_pattern_destroy(dark_gradient);
+	cairo_pattern_destroy(gradient);
+
+	return FALSE;
+}
+
+static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue *cue)
+{
+	StackActiveCueWidget *cue_widget;
+
+	// See if we already have the cue in the UI
+	auto find_widget = window->active_cue_widgets.find(cue->uid);
+	if (find_widget == window->active_cue_widgets.end())
+	{
+		// Create a container for our details
+		cue_widget = new StackActiveCueWidget;
+		cue_widget->cue_uid = cue->uid;
+		cue_widget->cue_list = window->cue_list;
+
+		// Create the container for the cue details
+		cue_widget->vbox = GTK_BOX(gtk_box_new(GTK_ORIENTATION_VERTICAL, 4));
+		gtk_widget_set_visible(GTK_WIDGET(cue_widget->vbox), true);
+
+		// Widget for cue name
+		cue_widget->name = GTK_LABEL(gtk_label_new(""));
+		gtk_widget_set_visible(GTK_WIDGET(cue_widget->name), true);
+		gtk_label_set_xalign(cue_widget->name, 0.0);
+		gtk_label_set_ellipsize(cue_widget->name, PANGO_ELLIPSIZE_END);
+		PangoAttrList *attrs = pango_attr_list_new();
+		PangoAttribute *attr = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
+		pango_attr_list_insert(attrs, attr);
+		gtk_label_set_attributes(cue_widget->name, attrs);
+
+		// Widget for cue name
+		cue_widget->time = GTK_LABEL(gtk_label_new(""));
+		gtk_widget_set_visible(GTK_WIDGET(cue_widget->time), true);
+		gtk_label_set_xalign(cue_widget->time, 0.0);
+
+		// Widget for levels
+		cue_widget->levels = GTK_DRAWING_AREA(gtk_drawing_area_new());
+		gtk_widget_set_visible(GTK_WIDGET(cue_widget->levels), true);
+		GValue height_request = G_VALUE_INIT;
+		g_value_init(&height_request, G_TYPE_INT);
+		g_value_set_int(&height_request, 20);
+		g_object_set_property(G_OBJECT(cue_widget->levels), "height-request", &height_request);
+		g_object_set_data(G_OBJECT(cue_widget->levels), "cue-widget", (gpointer)cue_widget);
+		g_signal_connect(G_OBJECT(cue_widget->levels), "draw", G_CALLBACK(stack_level_meter_draw), NULL);
+
+		// Get the UI item to add the cue to
+		GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
+
+		// Pack everything
+		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->name), false, false, 0);
+		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->time), false, false, 0);
+		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->levels), false, false, 2);
+		gtk_box_pack_start(active_cues, GTK_WIDGET(cue_widget->vbox), false, false, 4);
+
+		// Store in our map
+		window->active_cue_widgets[cue->uid] = cue_widget;
+	}
+	else
+	{
+		cue_widget = find_widget->second;
+	}
+
+	// Get live running time
+	stack_time_t raction;
+	stack_cue_get_running_times(cue, stack_get_clock_time(), NULL, &raction, NULL, NULL, NULL, NULL);
+
+	// Update details
+	gtk_label_set_text(cue_widget->name, cue->name);
+
+	// Format the times
+	char time_text[64];
+	stack_format_time_as_string(raction, time_text, 63);
+	strncat(time_text, " / ", 63);
+	stack_format_time_as_string(cue->action_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
+	gtk_label_set_text(cue_widget->time, time_text);
+
+	gtk_widget_queue_draw(GTK_WIDGET(cue_widget->levels));
+}
+
 // Callback for UI timer
 static gboolean saw_ui_timer(gpointer user_data)
 {
@@ -1086,11 +1337,17 @@ static gboolean saw_ui_timer(gpointer user_data)
 		{
 			// Update the row
 			saw_update_list_store_from_cue(window->store, cue);
+
+			// Update active cue panel
+			saw_add_or_update_active_cue_widget(window, cue);
 		}
 
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
 	}
+
+	// Remove any inactive cues
+	saw_remove_inactive_cue_widgets(window);
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
@@ -1163,7 +1420,7 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 // Callback for when the window is destroyed
 static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
-	fprintf(stderr, "saw_destroy()\n");
+	fprintf(stderr, "saw_destroy() called\n");
 
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1181,31 +1438,6 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	// Busy wait whilst we wait for the timer to stop (this probably should be
 	// done with a semaphore...)
 	while (window->timer_state == 3) {}
-
-	// Lock the cue list
-	stack_cue_list_lock(window->cue_list);
-
-	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(window->cue_list);
-
-	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
-	{
-		// Get the cue
-		StackCue *cue = stack_cue_list_iter_get(citer);
-
-		// Destroy the cue
-		stack_cue_destroy(cue);
-
-		// Iterate
-		citer = stack_cue_list_iter_next(citer);
-	}
-
-	// Free the iterator
-	stack_cue_list_iter_free(citer);
-
-	// Unlock the cue list
-	stack_cue_list_unlock(window->cue_list);
 
 	// Destroy the cue list
 	stack_cue_list_destroy(window->cue_list);
@@ -1537,6 +1769,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Object set up:
 	window->selected_cue = NULL;
 	window->use_custom_style = true;
+	window->active_cue_widgets = stack_cue_widget_map_t();
 
 	// Set up window signal handlers
 	g_signal_connect(window, "destroy", G_CALLBACK(saw_destroy), (gpointer)window);
@@ -1642,7 +1875,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up a timer to periodically refresh the UI
 	window->timer_state = 0;
-	gdk_threads_add_timeout(100, (GSourceFunc)saw_ui_timer, (gpointer)window);
+	gdk_threads_add_timeout(51, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
 	// Setup the default device
 	saw_setup_default_device(window);
@@ -1849,6 +2082,19 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		// Set up state change notification
 		sld.new_cue_list->state_change_func = saw_cue_state_changed;
 		sld.new_cue_list->state_change_func_data = (void*)window;
+
+		// Stop all the cues
+		saw_cue_stop_all_clicked(NULL, (gpointer)window);
+
+		// Tidy up the widgets from the now-stopped cuews
+		saw_remove_inactive_cue_widgets(window);
+
+		// Deselect any selected tab
+		if (window->selected_cue != NULL)
+		{
+			stack_cue_unset_tabs(window->selected_cue, window->notebook);
+			window->selected_cue = NULL;
+		}
 
 		// Kill the cue list pulsing thread
 		window->kill_thread = true;

@@ -184,8 +184,6 @@ static void stack_action_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		if ((pre_pulse_state == STACK_CUE_STATE_PLAYING_PRE && cue->state != STACK_CUE_STATE_PLAYING_PRE) ||
 			(pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION))
 		{
-			fprintf(stderr, "stack_action_cue_pulse(): Triggering action\n");
-
 			switch (STACK_ACTION_CUE(cue)->action)
 			{
 				case STACK_ACTION_CUE_PLAY:

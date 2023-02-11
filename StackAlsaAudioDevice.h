@@ -5,6 +5,7 @@
 #include "StackAudioDevice.h"
 #include "semaphore.h"
 #include <alsa/asoundlib.h>
+#include <thread>
 
 // Structure
 typedef struct StackAlsaAudioDevice
@@ -15,8 +16,14 @@ typedef struct StackAlsaAudioDevice
 	// The ALSA device
 	snd_pcm_t *stream;
 
-	// Synchronisation semaphore
-	semaphore sync_semaphore;
+	// The output format
+	snd_pcm_format_t format;
+
+	// Output loop thread
+	std::thread output_thread;
+
+	// Kill flag for the thread
+	bool thread_running;
 } StackAlsaAudioDevice;
 
 // Functions: Register the device

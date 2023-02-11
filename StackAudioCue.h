@@ -86,6 +86,9 @@ typedef struct StackAudioCue
 
 	// Audio Preview: The audio preview widget
 	GtkWidget *preview_widget;
+
+	// Time of last redraw of audio preview during playback
+	stack_time_t last_preview_redraw_time;
 } StackAudioCue;
 
 // Functions: Audio cue functions

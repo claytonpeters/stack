@@ -4,6 +4,7 @@
 // Includes:
 #include "StackError.h"
 #include "StackAudioDevice.h"
+#include "StackRingBuffer.h"
 #include <gtk/gtk.h>
 #include <cstdint>
 #include <cstdlib>
@@ -56,6 +57,13 @@ struct StackCueList;
 
 typedef void(*state_changed_t)(StackCueList*, StackCue*, void*);
 
+typedef struct StackChannelRMSData
+{
+	float current_level;
+	float peak_level;
+	stack_time_t peak_time;
+} StackChannelRMSData;
+
 // Cue list
 typedef struct StackCueList
 {
@@ -69,18 +77,6 @@ typedef struct StackCueList
 	// and a map between virtual channels and device channels)
 	StackAudioDevice *audio_device;
 
-	// Buffered audio data (ring-buffer)
-	float* buffer;
-
-	// Buffer size - the maximum number of samples to keep in the buffer (per channel)
-	size_t buffer_len;
-
-	// Index of the current start of our audio_data ring buffer
-	size_t buffer_idx;
-
-	// The time at the start of the data
-	stack_time_t buffer_time;
-
 	// Mutex lock
 	std::mutex lock;
 
@@ -89,6 +85,9 @@ typedef struct StackCueList
 
 	// Changed since we were initialised?
 	bool changed;
+
+	// Ring buffers for audio
+	StackRingBuffer **buffers;
 
 	// The URI of the currently loaded cue list (may be NULL)
 	char* uri;
@@ -105,6 +104,9 @@ typedef struct StackCueList
 	// Function to call on state change
 	state_changed_t state_change_func;
 	void* state_change_func_data;
+
+	// Audio RMS data (this a std::map internally)
+	void *rms_data;
 } StackCueList;
 
 // Base class for cues
@@ -191,6 +193,8 @@ typedef void(*stack_free_json_t)(char*);
 typedef void(*stack_from_json_t)(StackCue*, const char*);
 typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*, void*);
 typedef void(*stack_cue_get_error_t)(StackCue*, char*, size_t);
+typedef size_t(*stack_cue_get_active_channels_t)(StackCue*, bool*);
+typedef size_t(*stack_cue_get_audio_t)(StackCue*, float*, size_t);
 
 // Defines information about a class
 typedef struct StackCueClass
@@ -209,6 +213,8 @@ typedef struct StackCueClass
 	stack_free_json_t free_json_func;
 	stack_from_json_t from_json_func;
 	stack_cue_get_error_t get_error_func;
+	stack_cue_get_active_channels_t get_active_channels_func;
+	stack_cue_get_audio_t get_audio_func;
 } StackCueClass;
 
 // Functions: Helpers
@@ -251,6 +257,8 @@ char *stack_cue_to_json(StackCue *cue);
 void stack_cue_free_json(char *json_data);
 void stack_cue_from_json(StackCue *cue, const char *json_data);
 void stack_cue_get_error(StackCue *cue, char *message, size_t size);
+size_t stack_cue_get_active_channels(StackCue *cue, bool *active);
+size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -266,6 +274,8 @@ char *stack_cue_to_json_base(StackCue *cue);
 void stack_cue_free_json_base(char *json_data);
 void stack_cue_from_json_base(StackCue *cue, const char *json_data);
 void stack_cue_get_error_base(StackCue *cue, char *message, size_t size);
+size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active);
+size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
@@ -280,7 +290,6 @@ StackCue *stack_cue_list_iter_get(void *iter);
 void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
 void stack_cue_list_pulse(StackCueList *cue_list);
-size_t stack_cue_list_write_audio(StackCueList *cue_list, size_t ptr, uint16_t channel, float *data, size_t samples, uint16_t interleaving);
 void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
@@ -289,6 +298,7 @@ void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, size_t index);
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
+StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid);
 cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list);
 const char *stack_cue_list_get_show_name(StackCueList *cue_list);
 const char *stack_cue_list_get_show_designer(StackCueList *cue_list);
@@ -296,6 +306,8 @@ const char *stack_cue_list_get_show_revision(StackCueList *cue_list);
 bool stack_cue_list_set_show_name(StackCueList *cue_list, const char *show_name);
 bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_designer);
 bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision);
+void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels);
+StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))
