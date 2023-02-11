@@ -1096,7 +1096,7 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	// Generate a preview if required
 	if (generate_preview)
 	{
-		stack_audio_cue_preview_generate(cue, 0, cue->file_length, width, graph_height);
+		stack_audio_cue_preview_generate(cue, cue->preview_start, cue->preview_end, width, graph_height);
 	}
 	else
 	{
@@ -1117,8 +1117,9 @@ static void acp_play_section_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	cairo_stroke(cr);
 
 	// Calculate where the playback section appears on the graph
-	double section_left = (double)width * (double)cue->media_start_time / (double)cue->file_length;
-	double section_right = (double)width * (double)cue->media_end_time / (double)cue->file_length;
+	double preview_length = cue->preview_end - cue->preview_start;
+	double section_left = (double)width * (double)cue->media_start_time / preview_length;
+	double section_right = (double)width * (double)cue->media_end_time / preview_length;
 	double section_width = section_right - section_left;
 
 	// Draw the selected section
