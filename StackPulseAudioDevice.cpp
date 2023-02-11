@@ -237,8 +237,22 @@ bool stack_init_pulse_audio()
 
 	// Initialise the main loop and the context
 	mainloop = pa_threaded_mainloop_new();
+	if (mainloop == NULL)
+	{
+		return false;
+	}
 	mainloop_api = pa_threaded_mainloop_get_api(mainloop);
+	if  (mainloop_api == NULL)
+	{
+		pa_threaded_mainloop_free(mainloop);
+		return false;
+	}
 	context = pa_context_new(mainloop_api, "Stack");
+	if (context == NULL)
+	{
+		pa_threaded_mainloop_free(mainloop);
+		return false;
+	}
 
 	// Connect and start the main loop
 	pa_context_set_state_callback(context, (pa_context_notify_cb_t)stack_pulse_audio_notify_callback, &state_semaphore);
@@ -257,6 +271,9 @@ bool stack_init_pulse_audio()
 	if (state != PA_CONTEXT_READY)
 	{
 		fprintf(stderr, "stack_init_pulse_audio(): Failed to connect");
+		pa_threaded_mainloop_stop(mainloop);
+		pa_threaded_mainloop_free(mainloop);
+		mainloop = NULL;
 		return false;
 	}
 
@@ -280,6 +297,11 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	// Count the sinks
 	sink_count_data.count = 0;
 	pa_operation* o = pa_context_get_sink_info_list(context, (pa_sink_info_cb_t)stack_pulse_audio_sink_info_count_callback, &sink_count_data);
+	if (o == NULL)
+	{
+		*outputs = NULL;
+		return 0;
+	}
 	pa_operation_unref(o);
 
 	// Wait for count of sinks
@@ -331,7 +353,16 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 		// Cork immediately and remove callbacks to prevent any further calls to
 		// the callbacks
 		pa_threaded_mainloop_lock(mainloop);
-		pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 1, NULL, NULL);
+		pa_operation *o = pa_stream_cork(STACK_PULSE_AUDIO_DEVICE(device)->stream, 1, NULL, NULL);
+		pa_threaded_mainloop_unlock(mainloop);
+
+		// Wait for the stream to cork
+		while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) {
+			usleep(10);
+		}
+
+		// Remove the callbacks
+		pa_threaded_mainloop_lock(mainloop);
 		pa_stream_set_state_callback(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
 		pa_stream_set_underflow_callback(STACK_PULSE_AUDIO_DEVICE(device)->stream, NULL, NULL);
 		pa_threaded_mainloop_unlock(mainloop);
@@ -344,6 +375,16 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 
 		// Mainloop might still be using the stream
 		pa_stream_unref(STACK_PULSE_AUDIO_DEVICE(device)->stream);
+
+		// Disconnect our context
+		pa_context_disconnect(context);
+
+		// Wait for the disconnect
+		state_semaphore.wait();
+
+		// Tidy up
+		pa_context_unref(context);
+		context = NULL;
 
 		// Free the main loop
 		pa_threaded_mainloop_free(mainloop);
