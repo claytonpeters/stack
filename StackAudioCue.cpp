@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <math.h>
 #include <json/json.h>
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 #include <lame/lame.h>
 #endif
 #include <vector>
@@ -49,7 +49,7 @@ typedef struct PlaybackDataWave
 	gssize data_bytes_read;
 } PlaybackDataWave;
 
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 // We need some additional data for MP3 playback
 typedef struct PlaybackDataMP3
 {
@@ -168,7 +168,7 @@ static void stack_audio_cue_free_file_data(StackAudioCue *cue)
 		{
 			delete (FileDataWave*)cue->file_data;
 		}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 		else if (cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
 		{
 			delete (FileDataMP3*)cue->file_data;
@@ -227,7 +227,7 @@ static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 	stack_cue_set_action_time(STACK_CUE(cue), action_time);
 }
 
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_data, bool need_length)
 {
 	uint32_t frames = 0;
@@ -391,7 +391,7 @@ StackAudioFileFormat stack_audio_cue_read_file_header(GFile *file, GFileInputStr
 			fprintf(stderr, "stack_audio_cue_read_file_header(): Failed to get file info\n");
 		}
 	}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 	else
 	{
 		fprintf(stderr, "stack_audio_cue_file_read_header(): Didn't find Wave header, trying MP3\n");
@@ -472,7 +472,7 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		{
 			cue->file_length = ((FileDataWave*)cue->file_data)->file_length;
 		}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 		else if (format == STACK_AUDIO_FILE_FORMAT_MP3)
 		{
 			cue->file_length = ((FileDataMP3*)cue->file_data)->file_length;
@@ -740,7 +740,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		// Tidy up
 		delete wave_data;
 	}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 	else if (format == STACK_AUDIO_FILE_FORMAT_MP3)
 	{
 		// Handy pointer
@@ -1269,7 +1269,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 		size_t seek_point = sizeof(WaveHeader) + pbdata->data_bytes_read;
 		g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), seek_point, G_SEEK_SET, NULL, NULL);
 	}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
 	{
 		// Initialise playback
@@ -1334,7 +1334,7 @@ static void stack_audio_cue_stop(StackCue *cue)
 		PlaybackDataWave* pbdata = (PlaybackDataWave*)(audio_cue->playback_data);
 		delete pbdata;
 	}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 	// If we're an MP3 with playback data...
 	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3 && audio_cue->playback_data != NULL)
 	{
@@ -1599,10 +1599,12 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 		{
 			channel_count = 2;
 		}
+#if HAVE_LIBMP3LAME == 1
 		else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3 && ((FileDataMP3*)audio_cue->file_data)->num_channels == 2)
 		{
 			channel_count = 2;
 		}
+#endif
 
 		if (channels != NULL)
 		{
@@ -1723,7 +1725,7 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
 		// Tidy up
 		delete [] read_buffer;
 	}
-#ifndef NO_MP3LAME
+#if HAVE_LIBMP3LAME == 1
 	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
 	{
 		FileDataMP3* mp3_data = ((FileDataMP3*)audio_cue->file_data);
