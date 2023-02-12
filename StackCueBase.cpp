@@ -16,6 +16,7 @@ void stack_cue_destroy_base(StackCue *cue)
 {
 	// Free the super class stuff
 	free(cue->name);
+	free(cue->rendered_name);
 	free(cue->notes);
 
 	// Delete ourselves
@@ -402,4 +403,9 @@ size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active)
 size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples)
 {
 	return 0;
+}
+
+const char *stack_cue_get_field_base(StackCue *cue, const char *field)
+{
+	return "???";
 }

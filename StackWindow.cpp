@@ -224,7 +224,7 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 	// Update iterator
 	gtk_list_store_set(store, iter,
 		STACK_MODEL_CUEID,            cue_number,
-		STACK_MODEL_NAME,             cue->name,
+		STACK_MODEL_NAME,             stack_cue_get_rendered_name(cue),
 		STACK_MODEL_PREWAIT_PERCENT,  pre_pct,
 		STACK_MODEL_PREWAIT_TEXT,     pre_buffer,
 		STACK_MODEL_ACTION_PERCENT,   action_pct,
@@ -1326,19 +1326,38 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	}
 
 	// Get live running time
-	stack_time_t raction;
-	stack_cue_get_running_times(cue, stack_get_clock_time(), NULL, &raction, NULL, NULL, NULL, NULL);
+	stack_time_t rpre, raction, rpost;
+	stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
 
 	// Update details
-	gtk_label_set_text(cue_widget->name, cue->name);
+	gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
 
 	// Format the times
-	char time_text[64];
-	stack_format_time_as_string(raction, time_text, 63);
+	stack_time_t first_time = 0, second_time = 0;
+	char time_text[64] = {0};
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE)
+	{
+		strncat(time_text, "Pre: ", 63);
+		first_time = rpre;
+		second_time = cue->pre_time;
+	}
+	else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+	{
+		first_time = raction;
+		second_time = cue->action_time;
+	}
+	else if (cue->state == STACK_CUE_STATE_PLAYING_POST)
+	{
+		strncat(time_text, "Post: ", 63);
+		first_time = rpost;
+		second_time = cue->post_time;
+	}
+	stack_format_time_as_string(first_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 	strncat(time_text, " / ", 63);
-	stack_format_time_as_string(cue->action_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
-	gtk_label_set_text(cue_widget->time, time_text);
+	stack_format_time_as_string(second_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 
+	// Update the contents
+	gtk_label_set_text(cue_widget->time, time_text);
 	gtk_widget_queue_draw(GTK_WIDGET(cue_widget->levels));
 }
 
@@ -1972,7 +1991,7 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 		// Update iterator
 		gtk_list_store_set(store, &iter,
 			0, cue_number,
-			1, cue->name,
+			1, stack_cue_get_rendered_name(cue),
 			2, col_buffer,
 			3, (gpointer)cue, -1);
 

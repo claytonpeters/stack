@@ -122,6 +122,9 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->preview_widget = NULL;
 	cue->last_preview_redraw_time = 0;
 
+	// Change some superclass variables
+	stack_cue_set_name(STACK_CUE(cue), "${filename}");
+
 	return STACK_CUE(cue);
 }
 
@@ -483,18 +486,9 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		// Update the cue state
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
 
-		// If we were previously empty, or if this new file is shorter
-		// than the previous file, update the media end point
-		if (was_empty || cue->file_length < cue->media_end_time)
-		{
-			cue->media_end_time = cue->file_length;
-		}
-
-		// If the media start point is past the length of the file, reset it
-		if (cue->media_start_time > cue->file_length)
-		{
-			cue->media_start_time = 0;
-		}
+		// Reset the media start/end times to the whole file
+		cue->media_start_time = 0;
+		cue->media_end_time = cue->file_length;
 
 		// Update the name if we don't currently have one
 		if (STACK_CUE(cue)->name == NULL || strlen(STACK_CUE(cue)->name) == 0)
@@ -1885,11 +1879,44 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
 	return samples;
 }
 
+const char *stack_audio_cue_get_field_base(StackCue *cue, const char *field)
+{
+	if (strcmp(field, "filepath") == 0)
+	{
+		if (strlen(STACK_AUDIO_CUE(cue)->file) == 0)
+		{
+			return "<no file selected>";
+		}
+
+		return STACK_AUDIO_CUE(cue)->file;
+	}
+	else if (strcmp(field, "filename") == 0)
+	{
+		if (strlen(STACK_AUDIO_CUE(cue)->file) == 0)
+		{
+			return "<no file selected>";
+		}
+
+		char *last_slash = strrchr(STACK_AUDIO_CUE(cue)->file, '/');
+		if (last_slash != NULL)
+		{
+			return &last_slash[1];
+		}
+		else
+		{
+			return STACK_AUDIO_CUE(cue)->file;
+		}
+	}
+
+	// Call the super class if we didn't return anything
+	return stack_cue_get_field_base(cue, field);
+}
+
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field_base };
 	stack_register_cue_class(audio_cue_class);
 }
 

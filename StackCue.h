@@ -127,8 +127,11 @@ typedef struct StackCue
 	// Cue UID - unique id - this should be used to reference a cue
 	cue_uid_t uid;
 
-	// Cue name - displayed in the list
+	// Cue name - can include variables
 	char *name;
+
+	// Cue name as displayed
+	char *rendered_name;
 
 	// Notes - displayed to the user when waiting to start the cue
 	char *notes;
@@ -195,6 +198,7 @@ typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*
 typedef void(*stack_cue_get_error_t)(StackCue*, char*, size_t);
 typedef size_t(*stack_cue_get_active_channels_t)(StackCue*, bool*);
 typedef size_t(*stack_cue_get_audio_t)(StackCue*, float*, size_t);
+typedef const char*(*stack_cue_get_field_t)(StackCue*, const char *);
 
 // Defines information about a class
 typedef struct StackCueClass
@@ -215,6 +219,7 @@ typedef struct StackCueClass
 	stack_cue_get_error_t get_error_func;
 	stack_cue_get_active_channels_t get_active_channels_func;
 	stack_cue_get_audio_t get_audio_func;
+	stack_cue_get_field_t get_field_func;
 } StackCueClass;
 
 // Functions: Helpers
@@ -257,6 +262,7 @@ char *stack_cue_to_json(StackCue *cue);
 void stack_cue_free_json(char *json_data);
 void stack_cue_from_json(StackCue *cue, const char *json_data);
 void stack_cue_get_error(StackCue *cue, char *message, size_t size);
+const char* stack_cue_get_rendered_name(StackCue *cue);
 size_t stack_cue_get_active_channels(StackCue *cue, bool *active);
 size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples);
 
@@ -276,6 +282,7 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data);
 void stack_cue_get_error_base(StackCue *cue, char *message, size_t size);
 size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active);
 size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples);
+const char* stack_cue_get_field_base(StackCue *cue, const char *field);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
@@ -308,6 +315,7 @@ bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_d
 bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision);
 void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels);
 StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid);
+const char* stack_cue_get_field(StackCue *cue, const char *field);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

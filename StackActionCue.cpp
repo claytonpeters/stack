@@ -31,6 +31,10 @@ static StackCue* stack_action_cue_create(StackCueList *cue_list)
 	cue->builder = NULL;
 	cue->action_tab = NULL;
 	stack_cue_set_action_time(STACK_CUE(cue), 1);
+	cue->target_cue_id_string[0] = '\0';
+
+	// Initialise superclass variables
+	stack_cue_set_name(STACK_CUE(cue), "${action} cue ${target}");
 
 	return STACK_CUE(cue);
 }
@@ -114,11 +118,14 @@ static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 
 		// Build the string
 		std::string button_text;
-		button_text = std::string(cue_number) + ": " + std::string(new_target->name);
+		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(new_target));
 
 		// Update the UI
 		gtk_button_set_label(widget, button_text.c_str());
 	}
+
+	// Notify the cue list that the cue has changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 
 	// Fire an updated-selected-cue signal to signal the UI to change (we might
 	// have changed state)
@@ -140,7 +147,12 @@ static void acp_action_changed(GtkToggleButton *widget, gpointer user_data)
 	if (widget == r2 && gtk_toggle_button_get_active(r2)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_PAUSE); }
 	if (widget == r3 && gtk_toggle_button_get_active(r3)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_STOP); }
 
-	// No need to update the UI on this one (currently)
+	// Notify the cue list that the cue has changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+	// Notify UI to update (name might have changed as a result)
+	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
+	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -242,7 +254,7 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 		// Build the string
 		std::string button_text;
-		button_text = std::string(cue_number) + ": " + std::string(target_cue->name);
+		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(target_cue));
 
 		// Set the button text
 		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(builder, "acpCue")), button_text.c_str());
@@ -350,6 +362,41 @@ void stack_action_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 }
 
+const char *stack_action_cue_get_field(StackCue *cue, const char *field)
+{
+	if (strcmp(field, "action") == 0)
+	{
+		switch (STACK_ACTION_CUE(cue)->action)
+		{
+			case STACK_ACTION_CUE_PLAY:
+				return "Play";
+			case STACK_ACTION_CUE_PAUSE:
+				return "Pause";
+			case STACK_ACTION_CUE_STOP:
+				return "Stop";
+		}
+	}
+	else if (strcmp(field, "target") == 0)
+	{
+		if (STACK_ACTION_CUE(cue)->target == STACK_CUE_UID_NONE)
+		{
+			return "<no target>";
+		}
+
+		StackCue *target_cue = stack_cue_list_get_cue_by_uid(cue->parent, STACK_ACTION_CUE(cue)->target);
+		if (target_cue == NULL)
+		{
+			return "<invalid target>";
+		}
+
+		stack_cue_id_to_string(target_cue->id, STACK_ACTION_CUE(cue)->target_cue_id_string, 32);
+		return STACK_ACTION_CUE(cue)->target_cue_id_string;
+	}
+
+	// Call the super class if we didn't return anything
+	return stack_cue_get_field_base(cue, field);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
@@ -357,7 +404,7 @@ void stack_action_cue_get_error(StackCue *cue, char *message, size_t size)
 void stack_action_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json, stack_action_cue_get_error };
+	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json, stack_action_cue_get_error, NULL, NULL, stack_action_cue_get_field };
 	stack_register_cue_class(action_cue_class);
 }
 

@@ -30,6 +30,8 @@ typedef struct StackActionCue
 	// The action tab
 	GtkWidget *action_tab;
 
+	// A string of the target cue ID
+	char target_cue_id_string[32];
 } StackActionCue;
 
 // Functions: Action cue functions

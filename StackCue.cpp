@@ -50,6 +50,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->id = stack_cue_list_get_next_cue_number(cue_list);
 	cue->uid = stack_cue_generate_uid();
 	cue->name = strdup("");
+	cue->rendered_name = strdup("");
 	cue->notes = strdup("");
 	cue->pre_time = 0;
 	cue->action_time = 0;
@@ -534,6 +535,72 @@ size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
 	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active);
 }
 
+const char *stack_cue_get_rendered_name(StackCue *cue)
+{
+	std::string result;
+	const size_t name_len = strlen(cue->name);
+	size_t search_start = 0;
+	size_t search_end = 0;
+	bool in_var = false;
+
+	while (1)
+	{
+		// If we hit the end of the string, just copy what we had left and
+		// stop iterating, regardless of whether we're parsing a variable name
+		// or not
+		if (cue->name[search_end] == '\0')
+		{
+			result = result + std::string(&cue->name[search_start], search_end - search_start);
+			break;
+		}
+
+		if (!in_var)
+		{
+			// If we hit a dollar sign, we might have hit a variable
+			if (cue->name[search_end] == '$')
+			{
+				// If we're at the end of the string though, just copy the
+				// dollar and stop iterating
+				if (search_end == name_len - 1)
+				{
+					result = result + std::string(&cue->name[search_start], search_end - search_start + 1);
+					break;
+				}
+
+				// If the next char is a brace, then copy what we found so far,
+				// and mark that we're in a variable
+				if (cue->name[search_end + 1] == '{')
+				{
+					result = result + std::string(&cue->name[search_start], search_end - search_start);
+					in_var = true;
+					search_start = search_end;
+					search_end++;
+				}
+			}
+		}
+		// If we're currently parsing a variable name
+		else
+		{
+			if (cue->name[search_end] == '}')
+			{
+				std::string variable_name = std::string(&cue->name[search_start + 2], search_end - search_start - 2);
+				result = result + std::string(stack_cue_get_field(cue, variable_name.c_str()));
+
+				// We're no longer in a variable
+				in_var = false;
+				search_start = search_end + 1;
+			}
+		}
+
+		search_end++;
+	}
+
+	// Cache the result and return it
+	free(cue->rendered_name);
+	cue->rendered_name = strdup(result.c_str());
+	return cue->rendered_name;
+}
+
 // Gets more audio data from cue
 size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
 {
@@ -550,11 +617,27 @@ size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
 	return cue_class_map[string(class_name)]->get_audio_func(cue, buffer, samples);
 }
 
+// Gets a value of a field for a cue
+const char *stack_cue_get_field(StackCue *cue, const char *field)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_field function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_field_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_field_func(cue, field);
+}
+
 // Initialise the StackCue system
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base };
 	stack_register_cue_class(stack_cue_class);
 }
 

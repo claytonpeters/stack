@@ -32,9 +32,13 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	cue->target = STACK_CUE_UID_NONE;
 	cue->target_volume = -INFINITY;
 	cue->stop_target = true;
-	cue->profile = STACK_FADE_PROFILE_LINEAR;
+	cue->profile = STACK_FADE_PROFILE_EXP;
 	cue->builder = NULL;
 	cue->fade_tab = NULL;
+	cue->target_cue_id_string[0] = '\0';
+
+	// Initialise superclass variables
+	stack_cue_set_name(STACK_CUE(cue), "${action} cue ${target}");
 
 	return STACK_CUE(cue);
 }
@@ -78,6 +82,10 @@ void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+	// Notify UI to update (name might have changed as a result)
+	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
+	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 /// Sets the change in volume of the target cue
@@ -103,6 +111,10 @@ void stack_fade_cue_set_stop_target(StackFadeCue *cue, bool stop_target)
 
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+	// Notify UI to update (name might have changed as a result)
+	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
+	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 /// Sets the fade profile
@@ -146,7 +158,7 @@ static void fcp_cue_changed(GtkButton *widget, gpointer user_data)
 
 		// Build the string
 		std::string button_text;
-		button_text = std::string(cue_number) + ": " + std::string(new_target->name);
+		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(new_target));
 
 		// Update the UI
 		gtk_button_set_label(widget, button_text.c_str());
@@ -385,7 +397,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 		// Build the string
 		std::string button_text;
-		button_text = std::string(cue_number) + ": " + std::string(target_cue->name);
+		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(target_cue));
 
 		// Set the button text
 		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(builder, "fcpCue")), button_text.c_str());
@@ -542,6 +554,40 @@ void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 }
 
+const char *stack_fade_cue_get_field(StackCue *cue, const char *field)
+{
+	if (strcmp(field, "action") == 0)
+	{
+		if (STACK_FADE_CUE(cue)->stop_target)
+		{
+			return "Fade and stop";
+		}
+		else
+		{
+			return "Fade";
+		}
+	}
+	if (strcmp(field, "target") == 0)
+	{
+		if (STACK_FADE_CUE(cue)->target == STACK_CUE_UID_NONE)
+		{
+			return "<no target>";
+		}
+
+		StackCue *target_cue = stack_cue_list_get_cue_by_uid(cue->parent, STACK_FADE_CUE(cue)->target);
+		if (target_cue == NULL)
+		{
+			return "<invalid target>";
+		}
+
+		stack_cue_id_to_string(target_cue->id, STACK_FADE_CUE(cue)->target_cue_id_string, 32);
+		return STACK_FADE_CUE(cue)->target_cue_id_string;
+	}
+
+	// Call the super class if we didn't return anything
+	return stack_cue_get_field_base(cue, field);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
@@ -549,7 +595,7 @@ void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 void stack_fade_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error, NULL, NULL, stack_fade_cue_get_field };
 	stack_register_cue_class(fade_cue_class);
 }
 
