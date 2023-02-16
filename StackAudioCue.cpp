@@ -6,78 +6,8 @@
 #include <cstdlib>
 #include <math.h>
 #include <json/json.h>
-#if HAVE_LIBMP3LAME == 1
-#include <lame/lame.h>
-#endif
 #include <vector>
 #include <time.h>
-
-// hip_decode is not thread-safe and audio glitches if you're decoding two
-// blocks concurrently, so we have to synchronise
-static std::mutex mp3_decode_mutex;
-
-// RIFF Wave header structure
-#pragma pack(push, 2)
-typedef struct WaveHeader
-{
-	char chunk_id[4];
-	uint32_t chunk_size;
-	char format[4];
-	char subchunk_1_id[4];
-	uint32_t subchunk_1_size;
-	uint16_t audio_format;
-	uint16_t num_channels;
-	uint32_t sample_rate;
-	uint32_t byte_rate;
-	uint16_t block_align;
-	uint16_t bits_per_sample;
-	char subchunk_2_id[4];
-	uint32_t subchunk_2_size;
-} WaveHeader;
-#pragma pack(pop)
-
-// Wave File Information
-typedef struct FileDataWave
-{
-	WaveHeader header;
-	stack_time_t file_length;
-} FileDataWave;
-
-// Data we need to keep around for Wave file playback
-typedef struct PlaybackDataWave
-{
-	gssize data_bytes_read;
-} PlaybackDataWave;
-
-#if HAVE_LIBMP3LAME == 1
-// We need some additional data for MP3 playback
-typedef struct PlaybackDataMP3
-{
-	hip_t decoder;
-	uint8_t *read_buffer;
-	int32_t read_buffer_size;
-	int16_t *left;
-	int16_t *right;
-	int16_t *left_ring;
-	int16_t *right_ring;
-	size_t ring_read_pointer;
-	size_t ring_write_pointer;
-	size_t ring_used;
-	uint32_t size;
-} PlaybackDataMP3;
-
-// MP3 File information
-typedef struct FileDataMP3
-{
-	uint32_t sample_rate;
-	uint16_t num_channels;
-	uint32_t byte_rate;
-	uint16_t bits_per_sample;
-	size_t audio_size;
-	stack_time_t file_length;
-	std::vector<MP3FrameInfo> frames;
-} FileDataMP3;
-#endif
 
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
@@ -99,20 +29,16 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->short_filename = (char*)strdup("");
 	cue->media_start_time = 0;
 	cue->media_end_time = 0;
-	cue->file_length = 0;
 	cue->play_volume = 0.0;
 	cue->builder = NULL;
 	cue->media_tab = NULL;
-	cue->format = STACK_AUDIO_FILE_FORMAT_NONE;
-	cue->file_data = NULL;
 
 	// Initialise our variables: playback
 	cue->playback_data_sent = 0;
 	cue->playback_live_volume = 0.0;
 	cue->playback_file = NULL;
-	cue->playback_file_stream = NULL;
 	cue->playback_audio_ptr = 0;
-	cue->playback_data = NULL;
+	cue->resampler = NULL;
 
 	// Initialise our variables: preview
 	cue->preview_thread_run = false;
@@ -120,6 +46,8 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->preview_cr = NULL;
 	cue->preview_start = 0;
 	cue->preview_end = 0;
+	cue->preview_width = 0;
+	cue->preview_height = 0;
 	cue->preview_widget = NULL;
 	cue->last_preview_redraw_time = 0;
 
@@ -160,32 +88,27 @@ static void stack_audio_cue_preview_tidy(StackAudioCue *cue)
 	cue->preview_end = 0;
 }
 
-// Tidies up cached file data
-static void stack_audio_cue_free_file_data(StackAudioCue *cue)
-{
-	if (cue->file_data != NULL)
-	{
-		if (cue->format == STACK_AUDIO_FILE_FORMAT_WAVE)
-		{
-			delete (FileDataWave*)cue->file_data;
-		}
-#if HAVE_LIBMP3LAME == 1
-		else if (cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
-		{
-			delete (FileDataMP3*)cue->file_data;
-		}
-#endif
-	}
-}
 
 // Destroys an audio cue
 static void stack_audio_cue_destroy(StackCue *cue)
 {
 	StackAudioCue *acue = STACK_AUDIO_CUE(cue);
 
-	// Our tidyup here
+	// Our tidy up here
 	free(acue->file);
 	free(acue->short_filename);
+
+	// Tidy up our file
+	if (acue->playback_file != NULL)
+	{
+		stack_audio_file_destroy(acue->playback_file);
+	}
+
+	// Tidy up our resampler
+	if (acue->resampler != NULL)
+	{
+		stack_resampler_destroy(acue->resampler);
+	}
 
 	// Tidy up
 	if (acue->builder)
@@ -202,9 +125,6 @@ static void stack_audio_cue_destroy(StackCue *cue)
 		// Unref the builder
 		g_object_unref(acue->builder);
 	}
-
-	// Tidy up file data
-	stack_audio_cue_free_file_data(STACK_AUDIO_CUE(cue));
 
 	// Tidy up preview
 	stack_audio_cue_preview_tidy(acue);
@@ -229,212 +149,6 @@ static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 	stack_cue_set_action_time(STACK_CUE(cue), action_time);
 }
 
-#if HAVE_LIBMP3LAME == 1
-static bool stack_audio_cue_process_mp3(GInputStream *stream, FileDataMP3 *mp3_data, bool need_length)
-{
-	uint32_t frames = 0;
-	uint64_t samples = 0;
-
-	// Logging:
-	fprintf(stderr, "stack_audio_cue_process_mp3(): Processing file...\n");
-
-	if (!mpeg_audio_file_find_frames(stream, &mp3_data->num_channels, &mp3_data->sample_rate, &frames, &samples, &mp3_data->frames))
-	{
-		fprintf(stderr, "stack_audio_cue_process_mp3(): Processing failed\n");
-		return false;
-	}
-
-	// Return our information
-	mp3_data->byte_rate = mp3_data->num_channels * mp3_data->sample_rate * sizeof(short);
-	mp3_data->bits_per_sample = 16;
-	if (need_length)
-	{
-		mp3_data->audio_size = samples * mp3_data->num_channels * sizeof(short);
-	}
-	else
-	{
-		mp3_data->audio_size = 0;
-	}
-
-	// Return whether we succesfully parsed the header
-	return true;
-}
-#endif
-
-static bool stack_audio_cue_read_wavehdr(GInputStream *stream, FileDataWave *wave_data)
-{
-	if (g_input_stream_read(stream, &wave_data->header, 44, NULL, NULL) != 44)
-	{
-		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to read 44 byte header\n");
-		return false;
-	}
-
-	// Check for RIFF header
-	if (!(wave_data->header.chunk_id[0] == 'R' && wave_data->header.chunk_id[1] == 'I' && wave_data->header.chunk_id[2] == 'F' && wave_data->header.chunk_id[3] == 'F'))
-	{
-		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find RIFF header\n");
-		return false;
-	}
-
-	// Check for WAVE format
-	if (!(wave_data->header.format[0] == 'W' && wave_data->header.format[1] == 'A' && wave_data->header.format[2] == 'V' && wave_data->header.format[3] == 'E'))
-	{
-		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find WAVE format\n");
-		return false;
-	}
-
-	// Check for 'fmt ' subchunk
-	if (!(wave_data->header.subchunk_1_id[0] == 'f' && wave_data->header.subchunk_1_id[1] == 'm' && wave_data->header.subchunk_1_id[2] == 't' && wave_data->header.subchunk_1_id[3] == ' '))
-	{
-		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to find fmt chunk\n");
-		return false;
-	}
-
-	// Check the audio_format. We support PCM (1) and IEEE-float (3)
-	if (wave_data->header.audio_format != 1 && (wave_data->header.audio_format != 3 && wave_data->header.bits_per_sample != 32))
-	{
-		fprintf(stderr, "stack_audio_cue_read_wavehdr(): Non-PCM audio format (%d) is not supported\n", wave_data->header.audio_format);
-		return false;
-	}
-
-	// If the byte rate isn't given, calculate it
-	if (wave_data->header.byte_rate == 0)
-	{
-		wave_data->header.byte_rate = wave_data->header.sample_rate * wave_data->header.num_channels * wave_data->header.bits_per_sample / 8;
-	}
-
-	// Check that our second subchunk is "data"
-	if (wave_data->header.subchunk_2_id[0] == 'd' && wave_data->header.subchunk_2_id[1] == 'a' && wave_data->header.subchunk_2_id[2] == 't' && wave_data->header.subchunk_2_id[3] == 'a')
-	{
-		return true;
-	}
-
-	// If our second subchunk is not data, search for the subchunk
-
-	// Seek past chunk 2 (we've already read it's size as part of the normal
-	// WaveHeader structure)
-	g_seekable_seek(G_SEEKABLE(stream), wave_data->header.subchunk_2_size, G_SEEK_CUR, NULL, NULL);
-
-	// Find the data chunk
-	bool found_data_chunk = false;
-	while (!found_data_chunk)
-	{
-		char chunk_id[4];
-		uint32_t subchunk_size;
-
-		// Read chunk ID and size
-		if (g_input_stream_read(stream, &chunk_id, 4, NULL, NULL) == 4 && g_input_stream_read(stream, &subchunk_size, 4, NULL, NULL) == 4)
-		{
-			// If the chunk ID is data
-			if (chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' && chunk_id[3] == 'a')
-			{
-				// Stop searching
-				found_data_chunk = true;
-			}
-			else
-			{
-				// Seek past the chunk
-				g_seekable_seek(G_SEEKABLE(stream), subchunk_size, G_SEEK_CUR, NULL, NULL);
-			}
-		}
-		else
-		{
-			fprintf(stderr, "stack_audio_cue_read_wavehdr(): Failed to read chunk ID\n");
-			return false;
-		}
-	}
-
-	return true;
-}
-
-StackAudioFileFormat stack_audio_cue_read_file_header(GFile *file, GFileInputStream *stream, void **file_data)
-{
-	// Validate parameters
-	if (file_data == NULL)
-	{
-		return STACK_AUDIO_FILE_FORMAT_NONE;
-	}
-
-	if (file == NULL || stream == NULL)
-	{
-		*file_data = NULL;
-		return STACK_AUDIO_FILE_FORMAT_NONE;
-	}
-
-	// Attempt to read a wave header
-	FileDataWave wave_data;
-	if (stack_audio_cue_read_wavehdr((GInputStream*)stream, &wave_data))
-	{
-		// Query the file info
-		GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
-		if (file_info != NULL)
-		{
-			// Get the file size and work out the length of the file in seconds
-			goffset size = g_file_info_get_size(file_info);
-			double seconds = double(size - 44) / double(wave_data.header.byte_rate);
-
-			// Debug
-			fprintf(stderr, "stack_audio_cue_read_file_header(): Wave: File info: %ld bytes / %d byte rate = %.4f seconds\n", size, wave_data.header.byte_rate, seconds);
-
-			// Store the file length
-			wave_data.file_length = (stack_time_t)(seconds * 1.0e9);
-
-			// Store the data
-			*file_data = new FileDataWave(wave_data);
-
-			// Tidy up
-			g_object_unref(file_info);
-
-			// Set the result
-			return STACK_AUDIO_FILE_FORMAT_WAVE;
-		}
-		else
-		{
-			fprintf(stderr, "stack_audio_cue_read_file_header(): Failed to get file info\n");
-		}
-	}
-#if HAVE_LIBMP3LAME == 1
-	else
-	{
-		fprintf(stderr, "stack_audio_cue_file_read_header(): Didn't find Wave header, trying MP3\n");
-
-		// Reset back to start of file
-		if (!g_seekable_seek(G_SEEKABLE(stream), 0, G_SEEK_SET, NULL, NULL))
-		{
-			fprintf(stderr, "stack_audio_cue_file_read_header(): Seek failed. MP3 Header will likely fail\n");
-		}
-
-		FileDataMP3 mp3_data;
-		if (stack_audio_cue_process_mp3((GInputStream*)stream, &mp3_data, true))
-		{
-			double seconds = double(mp3_data.audio_size) / double(mp3_data.byte_rate);
-
-			// Debug
-			fprintf(stderr, "stack_audio_cue_file_header(): MP3: File info: %ld bytes / %d byte rate = %.4f seconds\n", mp3_data.audio_size, mp3_data.byte_rate, seconds);
-
-			// Store the file length
-			mp3_data.file_length = (stack_time_t)(seconds * 1.0e9);
-
-			// Store the data
-			*file_data = new FileDataMP3(mp3_data);
-
-			return STACK_AUDIO_FILE_FORMAT_MP3;
-		}
-		else
-		{
-			fprintf(stderr, "acp_file_changed(): Failed to read header\n");
-		}
-	}
-#else
-	else
-	{
-		fprintf(stderr, "acp_file_changed(): Failed to read header\n");
-	}
-#endif
-
-	return STACK_AUDIO_FILE_FORMAT_NONE;
-}
-
 bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 {
 	// Result
@@ -443,43 +157,20 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	// Check to see if file was previously empty
 	bool was_empty = (strlen(cue->file) == 0) && (cue->media_start_time == 0) && (cue->media_end_time == 0);
 
-	// Open the file
-	GFile *file = g_file_new_for_uri(uri);
-	if (file == NULL)
-	{
-		return false;
-	}
-
-	// Open a stream
-	GFileInputStream *stream = g_file_read(file, NULL, NULL);
-	if (stream == NULL)
-	{
-		g_object_unref(file);
-		return false;
-	}
-
-	// Read the file header
-	void *file_data;
-	StackAudioFileFormat format = stack_audio_cue_read_file_header(file, stream, &file_data);
+	StackAudioFile *new_playback_file = stack_audio_file_create(uri);
 
 	// If we successfully got a file, then update the cue
-	if (format != STACK_AUDIO_FILE_FORMAT_NONE)
+	if (new_playback_file != NULL)
 	{
-		// Store the file data
-		stack_audio_cue_free_file_data(cue);
-		cue->file_data = file_data;
-		cue->format = format;
+		// Update the cue state
+		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
 
-		if (format == STACK_AUDIO_FILE_FORMAT_WAVE)
+		// Store the file data
+		if (cue->playback_file != NULL)
 		{
-			cue->file_length = ((FileDataWave*)cue->file_data)->file_length;
+			stack_audio_file_destroy(cue->playback_file);
 		}
-#if HAVE_LIBMP3LAME == 1
-		else if (format == STACK_AUDIO_FILE_FORMAT_MP3)
-		{
-			cue->file_length = ((FileDataMP3*)cue->file_data)->file_length;
-		}
-#endif
+		cue->playback_file = new_playback_file;
 
 		// Store the filename
 		free(cue->file);
@@ -487,12 +178,9 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		free(cue->short_filename);
 		cue->short_filename = g_filename_from_uri(uri, NULL, NULL);
 
-		// Update the cue state
-		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
-
 		// Reset the media start/end times to the whole file
 		cue->media_start_time = 0;
-		cue->media_end_time = cue->file_length;
+		cue->media_end_time = new_playback_file->length;
 
 		// Update the cue action time;
 		stack_audio_cue_update_action_time(cue);
@@ -500,15 +188,11 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		// Reset the audio preview to the full new file
 		stack_audio_cue_preview_tidy(cue);
 		cue->preview_start = 0;
-		cue->preview_end = cue->file_length;
+		cue->preview_end = new_playback_file->length;
 
 		// We succeeded
 		result = true;
 	}
-
-	// Tidy up
-	g_object_unref(stream);
-	g_object_unref(file);
 
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
@@ -516,95 +200,37 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	return result;
 }
 
-static inline uint64_t stack_audio_cue_time_to_sample(stack_time_t t, uint32_t sample_rate)
+static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, const float *data, uint32_t sample_rate, uint16_t num_channels, uint32_t frames, uint64_t preview_start_samples, uint64_t data_start_frames)
 {
-	return ((uint64_t)t * (uint64_t)sample_rate) / NANOSECS_PER_SEC;
-}
-
-static inline uint64_t stack_audio_cue_time_to_byte(stack_time_t t, uint32_t sample_rate, uint16_t num_channels, uint16_t bits_per_sample)
-{
-	return stack_audio_cue_time_to_sample(t, sample_rate) * (uint64_t)(num_channels * bits_per_sample / 8);
-}
-
-static uint64_t stack_audio_cue_preview_render_points(StackAudioCue *cue, void *data, uint32_t sample_rate, uint16_t bits_per_sample, uint16_t num_channels, uint32_t samples_per_channel, uint64_t preview_start_samples, uint64_t data_start_samples)
-{
-	uint64_t sample = data_start_samples;
+	uint64_t frame = data_start_frames;
 
 	// Calculate the preview width in samples
 	float preview_width_samples = (float)sample_rate * (float)(cue->preview_end - cue->preview_start) / NANOSECS_PER_SEC_F;
 	double sample_width = cue->preview_width / (double)preview_width_samples;
 	double half_preview_height = cue->preview_height / 2.0;
 
+	// Calculate the highest value given floating point (-1.0 < x < 1.0)
+	// and the number of channels
+	float scalar = 1.0 / (float)num_channels;
+
 	// Draw the audio data. We sum all the channels together to draw a single waveform
-	if (bits_per_sample == 8)
+	for (size_t i = 0; i < frames; i++, frame++)
 	{
-		// Calculate the highest value given 8-bits and the number of channels
-		float range_max = 128.0 * (float)num_channels;
-
-		int8_t *ibp = (int8_t*)data;
-		for (size_t i = 0; i < samples_per_channel; i++, sample++)
+		// Sum all the channels
+		float y = 0;
+		for (size_t channel = 0; channel < num_channels; channel++)
 		{
-			// Sum all the channels
-			float y = 0;
-			for (size_t j = 0; j < num_channels; j++)
-			{
-				y += (float)*(ibp++);
-			}
-
-			// Scale y back in to -1.0 < y < 1.0
-			y /= range_max;
-
-			// Draw the line
-			cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
+			y += *(data++);
 		}
-	}
-	else if (bits_per_sample == 16)
-	{
-		// Calculate the highest value given 16-bits and the number of channels
-		float range_max = 32768.0 * (float)num_channels;
 
-		int16_t *ibp = (int16_t*)data;
-		for (size_t i = 0; i < samples_per_channel; i++, sample++)
-		{
-			// Sum all the channels
-			float y = 0;
-			for (size_t j = 0; j < num_channels; j++)
-			{
-				y += (float)*(ibp++);
-			}
+		// Scale y back in to -1.0 < y < 1.0
+		y *= scalar;
 
-			// Scale y back in to -1.0 < y < 1.0
-			y /= range_max;
-
-			// Draw the line
-			cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
-		}
-	}
-	else if (bits_per_sample == 32)
-	{
-		// Calculate the highest value given floating point (-1.0 < x < 1.0)
-		// and the number of channels
-		float range_max = 1.0 * (float)num_channels;
-
-		float *ibp = (float*)data;
-		for (size_t i = 0; i < samples_per_channel; i++, sample++)
-		{
-			// Sum all the channels
-			float y = 0;
-			for (size_t j = 0; j < num_channels; j++)
-			{
-				y += *(ibp++);
-			}
-
-			// Scale y back in to -1.0 < y < 1.0
-			y /= range_max;
-
-			// Draw the line
-			cairo_line_to(cue->preview_cr, (double)(sample - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
-		}
+		// Draw the line
+		cairo_line_to(cue->preview_cr, (double)(frame - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
 	}
 
-	return sample;
+	return frame;
 }
 
 // Thread to generate the code preview
@@ -613,28 +239,15 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 	fprintf(stderr, "stack_audio_cue_preview_thread(): started\n");
 
 	// Open the file
-	GFile *file = g_file_new_for_uri(cue->file);
+	StackAudioFile *file = stack_audio_file_create(cue->file);
 	if (file == NULL)
 	{
 		fprintf(stderr, "stack_audio_cue_preview_thread(): file open failed\n");
 		return;
 	}
 
-	// Open a stream
-	GFileInputStream *stream = g_file_read(file, NULL, NULL);
-	if (stream == NULL)
-	{
-		fprintf(stderr, "stack_audio_cue_preview_thread(): stream open failed\n");
-		g_object_unref(file);
-		return;
-	}
-
 	// Flag that the thread is running
 	cue->preview_thread_run = true;
-
-	// Read the file header
-	void *file_data;
-	StackAudioFileFormat format = stack_audio_cue_read_file_header(file, stream, &file_data);
 
 	// Initialise drawing: fill the background
 	cairo_set_source_rgb(cue->preview_cr, 0.1, 0.1, 0.1);
@@ -649,189 +262,58 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 	// We force a redraw periodically, get the current time
 	stack_time_t last_redraw_time = stack_get_clock_time();
 
-	// If we successfully got a file, we can start previewing
-	if (format == STACK_AUDIO_FILE_FORMAT_WAVE)
+	// Seek to the right time in the file
+	stack_audio_file_seek(file, cue->preview_start);
+
+	// Convert out start and end times from seconds to samples
+	uint64_t preview_start_samples = stack_time_to_samples(cue->preview_start, file->sample_rate);
+	uint64_t preview_end_samples = stack_time_to_samples(cue->preview_end, file->sample_rate);
+
+	size_t frames = 1024;
+	size_t samples = frames * file->channels;
+
+	// Allocate buffers
+	float *read_buffer = new float[samples];
+	bool no_more_data = false;
+	uint64_t sample = preview_start_samples;
+
+	// Calculate the width of a single sample on the surface
+	uint64_t samples_in_file = (uint64_t)((double)file->length / 1.0e9 * (double)file->sample_rate);
+
+	while (cue->preview_thread_run && !no_more_data && sample < preview_end_samples)
 	{
-		// Handy pointer
-		FileDataWave *wave_data = (FileDataWave*)file_data;
+		// Get some more data
+		size_t frames_read = stack_audio_file_read(file, read_buffer, frames);
 
-		// Convert out start and end times from seconds to samples
-		uint64_t preview_start_samples = stack_audio_cue_time_to_sample(cue->preview_start, wave_data->header.sample_rate);
-		uint64_t preview_end_samples = stack_audio_cue_time_to_sample(cue->preview_end, wave_data->header.sample_rate);
-
-		// Skip to the appropriate point in the file
-		size_t data_bytes_read = stack_audio_cue_time_to_byte(cue->preview_start, wave_data->header.sample_rate, wave_data->header.num_channels, wave_data->header.bits_per_sample);
-		size_t seek_point = sizeof(WaveHeader) + data_bytes_read;
-		g_seekable_seek(G_SEEKABLE(stream), seek_point,	G_SEEK_SET, NULL, NULL);
-
-		size_t samples_per_channel = 1024;
-		size_t total_samples = samples_per_channel * wave_data->header.num_channels;
-
-		// Set up buffer for the number of samples of each channel
-		size_t bytes_to_read = total_samples * wave_data->header.bits_per_sample / 8;
-
-		// Allocate buffers
-		char *read_buffer = new char[bytes_to_read];
-		bool no_more_data = false;
-		uint64_t sample = preview_start_samples;
-
-		// Calculate the width of a single sample on the surface
-		uint64_t samples_in_file = (uint64_t)((double)wave_data->file_length / 1.0e9 * (double)wave_data->header.sample_rate);
-
-		while (cue->preview_thread_run && !no_more_data && sample < preview_end_samples)
+		// If we've read data
+		if (frames_read > 0)
 		{
-			// Don't read past the end of the RIFF.WAVE.data chunk
-			if (bytes_to_read > wave_data->header.subchunk_2_size - data_bytes_read)
+			// Render the samples
+			sample = stack_audio_cue_preview_render_points(cue, read_buffer, file->sample_rate, file->channels, frames_read, preview_start_samples, sample);
+
+			// Intentionally slow this down so that we don't chew through
+			// CPU that might be needed for playback
+			usleep(125);
+
+			// Redraw a few times per second
+			if (stack_get_clock_time() - last_redraw_time > NANOSECS_PER_SEC / 25)
 			{
-				bytes_to_read = wave_data->header.subchunk_2_size - data_bytes_read;
-			}
-
-			// Read data
-			gssize bytes_read = g_input_stream_read((GInputStream*)stream, read_buffer, bytes_to_read, NULL, NULL);
-
-			// If we've read data
-			if (bytes_read > 0)
-			{
-				// Keep track of how far through the file we are (so we don't end up
-				// going past the end of the RIFF.WAVE.data chunk into other data)
-				data_bytes_read += bytes_read;
-
-				// If we attempted to read past the end of the file (or at least if we
-				// didn't get the number of bytes we were expecting), work out how many
-				// samples we got based on the number of bytes read
-				if (bytes_read < bytes_to_read)
+				cairo_stroke(cue->preview_cr);
+				if (cue->media_tab != NULL)
 				{
-					samples_per_channel = bytes_read / (wave_data->header.num_channels * wave_data->header.bits_per_sample / 8);
-					total_samples = samples_per_channel * wave_data->header.num_channels;
+					gtk_widget_queue_draw(cue->preview_widget);
 				}
-
-				// Render the samples
-				sample = stack_audio_cue_preview_render_points(cue, read_buffer, wave_data->header.sample_rate, wave_data->header.bits_per_sample, wave_data->header.num_channels, samples_per_channel, preview_start_samples, sample);
-
-				// Intentionally slow this down so that we don't chew through
-				// CPU that might be needed for playback
-				usleep(125);
-
-				// Redraw a few times per second
-				if (stack_get_clock_time() - last_redraw_time > NANOSECS_PER_SEC / 25)
-				{
-					cairo_stroke(cue->preview_cr);
-					if (cue->media_tab != NULL)
-					{
-						gtk_widget_queue_draw(cue->preview_widget);
-					}
-					last_redraw_time = stack_get_clock_time();
-				}
-			}
-
-			if (bytes_read == 0 || data_bytes_read == wave_data->header.subchunk_2_size)
-			{
-				no_more_data = true;
+				last_redraw_time = stack_get_clock_time();
 			}
 		}
-
-		// Tidy up
-		delete [] read_buffer;
-
-		// Tidy up
-		delete wave_data;
-	}
-#if HAVE_LIBMP3LAME == 1
-	else if (format == STACK_AUDIO_FILE_FORMAT_MP3)
-	{
-		// Handy pointer
-		FileDataMP3 *mp3_data = (FileDataMP3*)file_data;
-
-		// Convert out start and end times from seconds to samples
-		uint64_t preview_start_samples = stack_audio_cue_time_to_sample(cue->preview_start, mp3_data->sample_rate);
-		uint64_t preview_end_samples = stack_audio_cue_time_to_sample(cue->preview_end, mp3_data->sample_rate);
-
-		// Calculate the preview width in samples
-		float preview_width_samples = (float)mp3_data->sample_rate * (float)(cue->preview_end - cue->preview_start) / NANOSECS_PER_SEC_F;
-
-		// Allocate buffers
-		char *read_buffer = new char[2048];
-		int16_t *left_data = new int16_t[100000];
-		int16_t *right_data = new int16_t[100000];
-		int16_t *combined_data = new int16_t[200000];
-		bool no_more_data = false;
-		uint64_t sample = preview_start_samples;
-
-		// Initialise the decoder
-		hip_t decoder = hip_decode_init();
-
-		// Reset back to the start of the file
-		g_seekable_seek(G_SEEKABLE(stream), 0,	G_SEEK_SET, NULL, NULL);
-
-		// TODO: Seek to the start of the correct frame based on preview_start_samples
-
-		while (cue->preview_thread_run && !no_more_data && sample < preview_end_samples)
+		else
 		{
-			// Read some more data. Reading more than 2048 bytes at a time seems
-			// to cause the decoder to not decode the entire file for unclear
-			// reasons
-			gssize data_read = g_input_stream_read((GInputStream*)stream, read_buffer, 2048, NULL, NULL);
-			if (data_read <= 0)
-			{
-				// Assume EOF, break out of both the loop
-				no_more_data = true;
-				break;
-			}
-
-			// Decode more of the MP3 (ignoring headers), putting it into our left/right buffers
-			mp3_decode_mutex.lock();
-			int decoded_samples = hip_decode(decoder, (unsigned char*)read_buffer, data_read, left_data, right_data);
-			mp3_decode_mutex.unlock();
-			if (decoded_samples > 0)
-			{
-				int16_t *data_ptr = left_data;
-				if (mp3_data->num_channels == 2)
-				{
-					// Combine the left/right data
-					int16_t *combined_ptr = combined_data;
-					for (int i = 0; i < decoded_samples; i++)
-					{
-						*combined_ptr++ = left_data[i];
-						*combined_ptr++ = right_data[i];
-					}
-
-					// Use our combined data for two-channel audio
-					data_ptr = combined_data;
-				}
-
-				// Render the samples
-				sample = stack_audio_cue_preview_render_points(cue, data_ptr, mp3_data->sample_rate, mp3_data->bits_per_sample, mp3_data->num_channels, decoded_samples, preview_start_samples, sample);
-
-				// Intentionally slow this down so that we don't chew through
-				// CPU that might be needed for playback
-				usleep(125);
-
-				// Redraw a few times per second
-				if (stack_get_clock_time() - last_redraw_time > NANOSECS_PER_SEC / 25)
-				{
-					cairo_stroke(cue->preview_cr);
-					if (cue->media_tab != NULL)
-					{
-						gtk_widget_queue_draw(cue->preview_widget);
-					}
-					last_redraw_time = stack_get_clock_time();
-				}
-			}
+			no_more_data = true;
 		}
+	}
 
-		// Tidy up
-		hip_decode_exit(decoder);
-		delete mp3_data;
-		delete [] read_buffer;
-		delete [] left_data;
-		delete [] right_data;
-		delete [] combined_data;
-	}
-#endif
-	else
-	{
-		fprintf(stderr, "stack_audio_cue_preview_thread(): Cannot preview: unknown file format\n");
-	}
+	// Tidy up
+	delete [] read_buffer;
 
 	// We've finished - force a redraw
 	cairo_stroke(cue->preview_cr);
@@ -841,8 +323,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 	}
 
 	// Tidy up
-	g_object_unref(stream);
-	g_object_unref(file);
+	stack_audio_file_destroy(file);
 
 	// Finished
 	cue->preview_thread_run = false;
@@ -910,7 +391,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 	{
 		// Display the file length
 		char time_buffer[32], text_buffer[128];
-		stack_format_time_as_string(cue->file_length, time_buffer, 32);
+		stack_format_time_as_string(cue->playback_file->length, time_buffer, 32);
 		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
 		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "acpFileLengthLabel")), text_buffer);
 
@@ -944,9 +425,9 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 	{
 		cue->media_start_time = 0;
 	}
-	if (cue->media_start_time > cue->file_length)
+	if (cue->file && cue->media_start_time > cue->playback_file->length)
 	{
-		cue->media_start_time = cue->file_length;
+		cue->media_start_time = cue->playback_file->length;
 	}
 
 	// Update the action_time
@@ -979,9 +460,9 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	{
 		cue->media_end_time = 0;
 	}
-	if (cue->media_end_time > cue->file_length)
+	if (cue->file && cue->media_end_time > cue->playback_file->length)
 	{
-		cue->media_end_time = cue->file_length;
+		cue->media_end_time = cue->playback_file->length;
 	}
 
 	// Update the action time
@@ -1232,73 +713,15 @@ static bool stack_audio_cue_play(StackCue *cue)
 	audio_cue->playback_live_volume = audio_cue->play_volume;
 	audio_cue->playback_audio_ptr = -1;
 
-	// Initialise playback: open the file
-	audio_cue->playback_file = g_file_new_for_uri(audio_cue->file);
-	if (audio_cue->playback_file == NULL)
+	// If the sample rate of the file does not match the playback device, set
+	// up a resampler
+	if (audio_cue->playback_file->sample_rate != audio_cue->super.parent->audio_device->sample_rate)
 	{
-		fprintf(stderr, "stack_audio_cue_play(): Failed to open playback file\n");
-		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
-		return false;
+		audio_cue->resampler = stack_resampler_create(audio_cue->playback_file->sample_rate, audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
 	}
 
-	// Initialise playback: get a stream
-	audio_cue->playback_file_stream = g_file_read(audio_cue->playback_file, NULL, NULL);
-	if (audio_cue->playback_file_stream == NULL)
-	{
-		fprintf(stderr, "stack_audio_cue_play(): Failed to open playback stream\n");
-		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
-		g_object_unref(audio_cue->playback_file);
-		audio_cue->playback_file = NULL;
-		return false;
-	}
-
-	if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE)
-	{
-		// Initialise playback structure
-		audio_cue->playback_data = (void*)new PlaybackDataWave;
-		PlaybackDataWave *pbdata = (PlaybackDataWave*)(audio_cue->playback_data);
-		pbdata->data_bytes_read = 0;
-
-		// Skip to the appropriate point in the file
-		WaveHeader *wave_header = &(((FileDataWave*)audio_cue->file_data)->header);
-		pbdata->data_bytes_read = (gssize)stack_audio_cue_time_to_byte(audio_cue->media_start_time, wave_header->sample_rate, wave_header->num_channels, wave_header->bits_per_sample);
-		size_t seek_point = sizeof(WaveHeader) + pbdata->data_bytes_read;
-		g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), seek_point, G_SEEK_SET, NULL, NULL);
-	}
-#if HAVE_LIBMP3LAME == 1
-	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
-	{
-		// Initialise playback
-		audio_cue->playback_data = (void*)new PlaybackDataMP3;
-		PlaybackDataMP3* pbdata = (PlaybackDataMP3*)(audio_cue->playback_data);
-		pbdata->decoder = hip_decode_init();
-		pbdata->read_buffer = new uint8_t[1024];
-		pbdata->read_buffer_size = 1024;
-		pbdata->size = 100000;
-		pbdata->left = new int16_t[pbdata->size];
-		pbdata->right = new int16_t[pbdata->size];
-		pbdata->left_ring = new int16_t[pbdata->size];
-		pbdata->right_ring = new int16_t[pbdata->size];
-		pbdata->ring_read_pointer = 0;
-		pbdata->ring_write_pointer = 0;
-		pbdata->ring_used = 0;
-
-		FileDataMP3* file_data = (FileDataMP3*)audio_cue->file_data;
-		int64_t start_sample = ((double)file_data->sample_rate * (double)audio_cue->media_start_time / NANOSECS_PER_SEC);
-
-		// Iterate through the known frames
-		for (auto frame : file_data->frames)
-		{
-			// If the frame we're looking at contains our start_sample
-			if (frame.sample_position + frame.frame_size_samples >= start_sample)
-			{
-				// Seek to the start of the frame
-				g_seekable_seek(G_SEEKABLE(audio_cue->playback_file_stream), frame.byte_position, G_SEEK_SET, NULL, NULL);
-				break;
-			}
-		}
-	}
-#endif
+	// Seek to the right point in the file
+	stack_audio_file_seek(audio_cue->playback_file, audio_cue->media_start_time);
 
 	return true;
 }
@@ -1324,52 +747,15 @@ static void stack_audio_cue_stop(StackCue *cue)
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
 
-	// If we're an MP3 with playback data...
-	if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE && audio_cue->playback_data != NULL)
+	// Tidy up the resampler
+	if (audio_cue->resampler != NULL)
 	{
-		PlaybackDataWave* pbdata = (PlaybackDataWave*)(audio_cue->playback_data);
-		delete pbdata;
-	}
-#if HAVE_LIBMP3LAME == 1
-	// If we're an MP3 with playback data...
-	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3 && audio_cue->playback_data != NULL)
-	{
-		PlaybackDataMP3* pbdata = (PlaybackDataMP3*)(audio_cue->playback_data);
-
-		// Tidy up the decoder
-		hip_decode_exit(pbdata->decoder);
-
-		// Tidy up our buffers
-		delete [] pbdata->read_buffer;
-		delete [] pbdata->left;
-		delete [] pbdata->right;
-		delete [] pbdata->left_ring;
-		delete [] pbdata->right_ring;
-
-		// Tidy up the playback data structure
-		delete pbdata;
-	}
-#endif
-
-	// In all cases, NULL this out so we don't free it again
-	audio_cue->playback_data = NULL;
-
-	// Tidy up the open file stream...
-	if (audio_cue->playback_file_stream != NULL)
-	{
-		g_object_unref(audio_cue->playback_file_stream);
-		audio_cue->playback_file_stream = NULL;
-	}
-
-	// ...and then the file
-	if (STACK_AUDIO_CUE(cue)->playback_file != NULL)
-	{
-		g_object_unref(audio_cue->playback_file);
-		audio_cue->playback_file = NULL;
+		stack_resampler_destroy(audio_cue->resampler);
+		audio_cue->resampler = NULL;
 	}
 
 	// Queue a redraw of the media tab if our UI is active (to hide the playback marker)
-	if (STACK_AUDIO_CUE(cue)->media_tab != NULL)
+	if (audio_cue->media_tab != NULL)
 	{
 		gdk_threads_add_idle(stack_audio_cue_threaded_redraw_widget, cue);
 	}
@@ -1437,7 +823,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 		// Display the file length
 		char time_buffer[32], text_buffer[128];
-		stack_format_time_as_string(scue->file_length, time_buffer, 32);
+		stack_format_time_as_string(scue->playback_file->length, time_buffer, 32);
 		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
 		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "acpFileLengthLabel")), text_buffer);
 	}
@@ -1567,7 +953,7 @@ void stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
 	{
 		snprintf(message, size, "No audio file selected");
 	}
-	if (STACK_AUDIO_CUE(cue)->format == STACK_AUDIO_FILE_FORMAT_NONE)
+	if (STACK_AUDIO_CUE(cue)->playback_file == NULL)
 	{
 		snprintf(message, size, "Invalid audio file");
 	}
@@ -1591,16 +977,10 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 
 		// TODO  Do this properly once we've implemented cross-points
 		size_t channel_count = 1;
-		if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE && ((FileDataWave*)audio_cue->file_data)->header.num_channels == 2)
+		if (audio_cue->playback_file->channels = 2)
 		{
 			channel_count = 2;
 		}
-#if HAVE_LIBMP3LAME == 1
-		else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3 && ((FileDataMP3*)audio_cue->file_data)->num_channels == 2)
-		{
-			channel_count = 2;
-		}
-#endif
 
 		if (channels != NULL)
 		{
@@ -1616,7 +996,7 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 }
 
 /// Returns audio
-size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
+size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 {
 	// We don't need to do anything if we're not in the playing state
 	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
@@ -1631,250 +1011,58 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
 	// scale from 16-bit signed int to 0.0-1.0 range
 	float base_audio_scaler = stack_db_to_scalar(audio_cue->playback_live_volume);
 
-	if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_WAVE)
+	size_t frames_to_return = 0;
+
+	if (audio_cue->resampler == NULL)
 	{
-		FileDataWave* wave_data = ((FileDataWave*)audio_cue->file_data);
-		PlaybackDataWave* pbdata = (PlaybackDataWave*)(audio_cue->playback_data);
-
-		size_t total_samples = samples * wave_data->header.num_channels;
-
-		// Set up buffer for the number of samples of each channel
-		size_t bytes_to_read = total_samples * wave_data->header.bits_per_sample / 8;
-
-		// Don't read past the end of the RIFF.WAVE.data chunk
-		if (bytes_to_read > wave_data->header.subchunk_2_size - pbdata->data_bytes_read)
-		{
-			bytes_to_read = wave_data->header.subchunk_2_size - pbdata->data_bytes_read;
-			total_samples = bytes_to_read / (wave_data->header.bits_per_sample / 8);
-		}
-
-		// Allocate buffers
-		char *read_buffer = new char[bytes_to_read];
-
-		// Read data
-		gssize bytes_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, read_buffer, bytes_to_read, NULL, NULL);
-
-		// If we've read data
-		if (bytes_read > 0)
-		{
-			// Keep track of how far through the file we are (so we don't end up
-			// going past the end of the RIFF.WAVE.data chunk into other data)
-			pbdata->data_bytes_read += bytes_read;
-
-			// If we attempted to read past the end of the file (or at least if we
-			// didn't get the number of bytes we were expecting), work out how many
-			// samples we got based on the number of bytes read
-			if (bytes_read < bytes_to_read)
-			{
-				samples = bytes_read / (wave_data->header.num_channels * wave_data->header.bits_per_sample / 8);
-				total_samples = samples * wave_data->header.num_channels;
-			}
-
-			// Calculate audio scaler. Volume (fading) is taken from base_audio_scaler,
-			// and the rest convert audio to -1.0 < y < 1.0
-			float audio_scaler = base_audio_scaler;
-			if (wave_data->header.bits_per_sample == 8)
-			{
-				audio_scaler /= 128.0f;
-			}
-			else if (wave_data->header.bits_per_sample == 16)
-			{
-				audio_scaler /= 32768.0f;
-			}
-			// (32-bit audio is already in the correct range as it's floating point)
-
-			// TODO: This only works if the number of active channels matches the number
-			// of channels in the file
-
-			// Convert to float and apply audio scaling
-			float *obp = buffer;
-			if (wave_data->header.bits_per_sample == 8)
-			{
-				int8_t *ibp = (int8_t*)read_buffer;
-				for (size_t i = 0; i < total_samples; i++)
-				{
-					*(obp++) = *(ibp++) * audio_scaler;
-				}
-			}
-			else if (wave_data->header.bits_per_sample == 16)
-			{
-				int16_t *ibp = (int16_t*)read_buffer;
-				for (size_t i = 0; i < total_samples; i++)
-				{
-					*(obp++) = *(ibp++) * audio_scaler;
-				}
-			}
-			else if (wave_data->header.bits_per_sample == 32)
-			{
-				float *ibp = (float*)read_buffer;
-				for (size_t i = 0; i < total_samples; i++)
-				{
-					*(obp++) = *(ibp++) * audio_scaler;
-				}
-			}
-			else
-			{
-				fprintf(stderr, "stack_audio_cue_get_audio(): Unsupported format: %d bits\n", wave_data->header.bits_per_sample);
-			}
-		}
-
-		// Tidy up
-		delete [] read_buffer;
+		// Get some more data from the file
+		frames_to_return = stack_audio_file_read(audio_cue->playback_file, buffer, frames);
 	}
-#if HAVE_LIBMP3LAME == 1
-	else if (audio_cue->format == STACK_AUDIO_FILE_FORMAT_MP3)
+	else
 	{
-		FileDataMP3* mp3_data = ((FileDataMP3*)audio_cue->file_data);
-		PlaybackDataMP3* pbdata = (PlaybackDataMP3*)(audio_cue->playback_data);
-		gssize data_read = 0;
+		bool eof = false;
+		size_t frames_read = 0;
 
-		// MP3s always decode to 16-bit signed integer
-		float audio_scaler = base_audio_scaler / 32768.0;
-
-		// While we don't have enough to play in the ring buffers
-		while (pbdata->ring_used < samples)
+		size_t current_size = stack_resampler_get_buffered_size(audio_cue->resampler);
+		while (current_size < frames && !eof)
 		{
-			// Read some more data
-			data_read = g_input_stream_read((GInputStream*)audio_cue->playback_file_stream, pbdata->read_buffer, pbdata->read_buffer_size, NULL, NULL);
-			if (data_read <= 0)
-			{
-				// Assume EOF, break out of both the loop
-				break;
-			}
+			// Get some more data from the file
+			frames_read = stack_audio_file_read(audio_cue->playback_file, buffer, frames);
 
-			// Decode more of the MP3 (ignoring headers), putting it into our left/right (non-ring) buffers
-			mp3_decode_mutex.lock();
-			int decoded_samples = hip_decode(pbdata->decoder, pbdata->read_buffer, data_read, pbdata->left, pbdata->right);
-			mp3_decode_mutex.unlock();
-			if (decoded_samples > 0)
-			{
-				// If it can all be written to the ring buffers at once
-				if (pbdata->ring_write_pointer + decoded_samples <= pbdata->size)
-				{
-					// Write left and right data into ring buffers
-					memcpy(&pbdata->left_ring[pbdata->ring_write_pointer], pbdata->left, sizeof(int16_t) * decoded_samples);
-					if (mp3_data->num_channels > 1)
-					{
-						memcpy(&pbdata->right_ring[pbdata->ring_write_pointer], pbdata->right, sizeof(int16_t) * decoded_samples);
-					}
-				}
-				else
-				{
-					// Write left and right into end of ring buffer
-					memcpy(&pbdata->left_ring[pbdata->ring_write_pointer], pbdata->left, sizeof(int16_t) * (pbdata->size - pbdata->ring_write_pointer));
-					if (mp3_data->num_channels > 1)
-					{
-						memcpy(&pbdata->right_ring[pbdata->ring_write_pointer], pbdata->right, sizeof(int16_t) * (pbdata->size - pbdata->ring_write_pointer));
-					}
+			// Give it to the resampler for resampling
+			current_size = stack_resampler_push(audio_cue->resampler, buffer, frames_read);
 
-					// Write remaining left and right into start of ring buffer
-					memcpy(pbdata->left_ring, &pbdata->left[pbdata->size - pbdata->ring_write_pointer], sizeof(int16_t) * (decoded_samples - (pbdata->size - pbdata->ring_write_pointer)));
-					if (mp3_data->num_channels > 1)
-					{
-						memcpy(pbdata->right_ring, &pbdata->right[pbdata->size - pbdata->ring_write_pointer], sizeof(int16_t) * (decoded_samples - (pbdata->size - pbdata->ring_write_pointer)));
-					}
-				}
-
-				// Update ring buffer details
-				pbdata->ring_write_pointer = (pbdata->ring_write_pointer + decoded_samples) % pbdata->size;
-				pbdata->ring_used += decoded_samples;
-			}
-			else if (decoded_samples < 0)
+			// If we've hit the end of the file, stop reading
+			if (frames_read < frames)
 			{
-				fprintf(stderr, "stack_audio_cue_get_audio(): hip_decode returned -1\n");
-				break;
+				eof = true;
 			}
 		}
 
-		// If there's data in the ring buffer
-		if (pbdata->ring_used > 0)
+		// Keep pushing NULLs to the resampler when there's no more data
+		// so that it finishes resampling what it has
+		if (eof)
 		{
-			// Figure out how much to write
-			if (pbdata->ring_used < samples)
-			{
-				samples = pbdata->ring_used;
-			}
-
-			// Convert to float, and apply audio scaling to left channel
-			if (pbdata->ring_read_pointer + samples < pbdata->size)
-			{
-				float *obp = buffer;
-				int16_t *ibp = (int16_t*)&pbdata->left_ring[pbdata->ring_read_pointer];
-				for (size_t i = 0; i < samples; i++)
-				{
-					*obp = *(ibp++) * audio_scaler;
-					obp += mp3_data->num_channels;
-				}
-			}
-			else
-			{
-				float *obp = buffer;
-
-				// End of ring buffer
-				int16_t *ibp = (int16_t*)&pbdata->left_ring[pbdata->ring_read_pointer];
-				for (size_t i = pbdata->ring_read_pointer; i < pbdata->size; i++)
-				{
-					*obp = *(ibp++) * audio_scaler;
-					obp += mp3_data->num_channels;
-				}
-
-				// Start of ring buffer
-				ibp = (int16_t*)pbdata->left_ring;
-				for (size_t i = pbdata->size - pbdata->ring_read_pointer; i < samples; i++)
-				{
-					*obp = *(ibp++) * audio_scaler;
-					obp += mp3_data->num_channels;
-				}
-			}
-
-			// Convert to float, and apply audio scaling to right channel
-			if (mp3_data->num_channels > 1)
-			{
-				if (pbdata->ring_read_pointer + samples < pbdata->size)
-				{
-					float *obp = buffer + 1;
-					int16_t *ibp = (int16_t*)&pbdata->right_ring[pbdata->ring_read_pointer];
-					for (size_t i = 0; i < samples; i++)
-					{
-						*obp = *(ibp++) * audio_scaler;
-						obp += mp3_data->num_channels;
-					}
-				}
-				else
-				{
-					float *obp = buffer + 1;
-
-					// End of ring buffer
-					int16_t *ibp = (int16_t*)&pbdata->right_ring[pbdata->ring_read_pointer];
-					for (size_t i = pbdata->ring_read_pointer; i < pbdata->size; i++)
-					{
-						*obp = *(ibp++) * audio_scaler;
-						obp += mp3_data->num_channels;
-					}
-
-					// Start of ring buffer
-					ibp = (int16_t*)pbdata->right_ring;
-					for (size_t i = pbdata->size - pbdata->ring_read_pointer; i < samples; i++)
-					{
-						*obp = *(ibp++) * audio_scaler;
-						obp += mp3_data->num_channels;
-					}
-				}
-			}
-
-			// Update ring buffer details
-			pbdata->ring_read_pointer = (pbdata->ring_read_pointer + samples) % pbdata->size;
-			pbdata->ring_used -= samples;
+			current_size = stack_resampler_push(audio_cue->resampler, NULL, 0);
 		}
-		else
-		{
-			// Only say we returned samples if we did!
-			samples = 0;
-		}
+
+		// Determine how much data we can output
+		size_t fetch_frames = current_size < frames ? current_size : frames;
+
+		// Get the samples out of the resampler
+		frames_to_return = stack_resampler_get_frames(audio_cue->resampler, buffer, fetch_frames);
 	}
-#endif
 
-	return samples;
+	// Determine how many samles we got
+	size_t samples = frames_to_return * audio_cue->playback_file->channels;
+
+	// Do some scaling for volume
+	for (size_t i = 0; i < samples; i++)
+	{
+		buffer[i] *= base_audio_scaler;
+	}
+
+	return frames_to_return;
 }
 
 const char *stack_audio_cue_get_field_base(StackCue *cue, const char *field)
