@@ -93,7 +93,7 @@ void stack_audio_file_destroy_mp3(StackAudioFileMP3 *audio_file)
 	stack_ring_buffer_destroy(audio_file->decoded_buffer);
 	if (audio_file->frames_buffer != NULL)
 	{
-		delete audio_file->frames_buffer;
+		delete [] audio_file->frames_buffer;
 	}
 
 	// Tidy up ourselves
@@ -283,6 +283,13 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 
 	// Reset ring buffer
 	stack_ring_buffer_reset(audio_file->decoded_buffer);
+
+	// Reset frames buffer
+	if (audio_file->frames_buffer != NULL)
+	{
+		delete [] audio_file->frames_buffer;
+		audio_file->frames_buffer = NULL;
+	}
 
 	// Determine which sample we're looking for
 	uint64_t start_sample = stack_time_to_samples(pos, audio_file->super.sample_rate);
