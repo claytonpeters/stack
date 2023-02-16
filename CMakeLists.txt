@@ -21,12 +21,6 @@ pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 ## We need libdl for our plugin loading support
 find_library(DL_LIBRARIES dl REQUIRED)
 
-## LAME doesn't ship with a CMake file
-find_path(LAME_INCLUDE_DIRS lame/lame.h)
-find_library(LAME_LIBRARIES mp3lame)
-find_package_handle_standard_args(LAME DEFAULT_MSG LAME_INCLUDE_DIRS LAME_LIBRARIES)
-mark_as_advanced(LAME_INCLUDE_DIRS LAME_LIBRARIES LAME_DEFINITIONS)
-
 ## MAD doesn't ship with a CMake file
 find_path(MAD_INCLUDE_DIRS mad.h)
 find_library(MAD_LIBRARIES mad)
@@ -61,14 +55,6 @@ if (ALSA_FOUND)
 	include_directories(${ALSA_INCLUDE_DIRS})
 	link_directories(${ALSA_LIBRARY_DIRS})
 	target_link_libraries(StackAlsaAudioDevice ${ALSA_LIBRARY})
-endif()
-
-# Optional: Add in LAME if it was found
-if (LAME_FOUND)
-	list(APPEND LAME_DEFINITIONS -DHAVE_LIBMP3LAME=1)
-	include_directories(${LAME_INCLUDE_DIRS})
-	add_definitions(${LAME_DEFINITIONS})
-	target_link_libraries(StackAudioCue ${LAME_LIBRARIES})
 endif()
 
 # Optional: Add in MAD if it was found
