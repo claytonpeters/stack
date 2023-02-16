@@ -8,9 +8,7 @@ StackRingBuffer *stack_ring_buffer_create(size_t capacity)
 	buffer->start_pointer = new float[capacity];
 	buffer->end_pointer = &buffer->start_pointer[capacity];
 	buffer->capacity = capacity;
-	buffer->used = 0;
-	buffer->read_pointer = buffer->start_pointer;
-	buffer->write_pointer = buffer->start_pointer;
+	stack_ring_buffer_reset(buffer);
 
 	return buffer;
 }
@@ -139,4 +137,40 @@ size_t stack_ring_buffer_write(StackRingBuffer *buffer, const float *data, size_
 	}
 
 	return count;
+}
+
+void stack_ring_buffer_reset(StackRingBuffer *buffer)
+{
+	buffer->used = 0;
+	buffer->read_pointer = buffer->start_pointer;
+	buffer->write_pointer = buffer->start_pointer;
+}
+
+size_t stack_ring_buffer_skip(StackRingBuffer *buffer, size_t count)
+{
+	// If we're skipping more than we currently have in the buffer, it's easier
+	// to just reset entirely
+	if (count >= buffer->used)
+	{
+		stack_ring_buffer_reset(buffer);
+		return 0;
+	}
+
+	// Move the write pointer forward
+	buffer->read_pointer += count;
+
+	// If the write pointer is now past the end of the buffer, then subtract the
+	// length of the buffer to bring us back inside and to the right position
+	// relative to the start. We need not modulus this as we know count must be
+	// less than capacity, because count has already been checked to be less
+	// than used in the if statement above
+	if (buffer->read_pointer > buffer->end_pointer)
+	{
+		buffer->read_pointer -= buffer->capacity;
+	}
+
+	// Update how much data is left
+	buffer->used -= count;
+
+	return buffer->used;
 }
