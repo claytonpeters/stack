@@ -3,15 +3,9 @@
 
 // Includes:
 #include "StackCue.h"
+#include "StackAudioFile.h"
+#include "StackResampler.h"
 #include <thread>
-
-// Supported file formats
-typedef enum StackAudioFileFormat
-{
-	STACK_AUDIO_FILE_FORMAT_NONE = 0,
-	STACK_AUDIO_FILE_FORMAT_WAVE = 1,
-	STACK_AUDIO_FILE_FORMAT_MP3 = 2,
-} StackAudioFileFormat;
 
 // An audio cue
 typedef struct StackAudioCue
@@ -31,9 +25,6 @@ typedef struct StackAudioCue
 	// media file)
 	stack_time_t media_end_time;
 
-	// The (untrimmed) length of the media file
-	stack_time_t file_length;
-
 	// Post-fade-in, pre-fade-out volume, in dB
 	double play_volume;
 
@@ -43,12 +34,6 @@ typedef struct StackAudioCue
 	// The media tab
 	GtkWidget *media_tab;
 
-	// The audio format
-	StackAudioFileFormat format;
-
-	// Arbitrary per-file data
-	void *file_data;
-
 	// Amount of audio data sent so far in playback
 	stack_time_t playback_data_sent;
 
@@ -56,14 +41,13 @@ typedef struct StackAudioCue
 	double playback_live_volume;
 
 	// The currently open file
-	GFile *playback_file;
-	GFileInputStream *playback_file_stream;
+	StackAudioFile *playback_file;
+
+	// The resampler to resample from file-rate to device-rate
+	StackResampler *resampler;
 
 	// Audio pointer
 	size_t playback_audio_ptr;
-
-	// Arbitrary per-file playback data
-	void *playback_data;
 
 	// Audio Preview: is thread running
 	bool preview_thread_run;

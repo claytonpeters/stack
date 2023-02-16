@@ -252,7 +252,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		*channels = mpeg_channels[frame_header.channel_mode];
 
 		// Store the frame details
-		frame_info->push_back(MP3FrameInfo{ total_read, total_samples, samples_per_frame });
+		frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame });
 
 		// Move on to the next frame
 		total_samples += samples_per_frame;
