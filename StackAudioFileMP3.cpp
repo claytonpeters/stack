@@ -230,21 +230,25 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 
 	// Perform the scaling from 24-bit int to float
 	size_t frames_to_add = audio_file->mp3_synth.pcm.length;
-	if (audio_file->mp3_synth.pcm.length > 0)
+	if (frames_to_add > 0)
 	{
 		if (audio_file->mp3_synth.pcm.channels == 1)
 		{
-			for (size_t i = audio_file->delay; i < audio_file->mp3_synth.pcm.length; i++)
+			const mad_fixed_t *pcm_samples = audio_file->mp3_synth.pcm.samples[0];
+			for (size_t i = audio_file->delay; i < frames_to_add; i++)
 			{
-				scale_buffer[i] = (float)mad_f_todouble(audio_file->mp3_synth.pcm.samples[0][i]);
+				scale_buffer[i] = (float)mad_f_todouble(pcm_samples[i]);
 			}
 		}
 		else if (audio_file->mp3_synth.pcm.channels == 2)
 		{
-			for (size_t i = audio_file->delay; i < audio_file->mp3_synth.pcm.length; i++)
+			float *obp = &scale_buffer[audio_file->delay * 2];
+			const mad_fixed_t *l_pcm_samples = audio_file->mp3_synth.pcm.samples[0];
+			const mad_fixed_t *r_pcm_samples = audio_file->mp3_synth.pcm.samples[0];
+			for (size_t i = audio_file->delay; i < frames_to_add; i++)
 			{
-				scale_buffer[i*2] = (float)mad_f_todouble(audio_file->mp3_synth.pcm.samples[0][i]);
-				scale_buffer[i*2+1] = (float)mad_f_todouble(audio_file->mp3_synth.pcm.samples[1][i]);
+				*obp++ = (float)mad_f_todouble(l_pcm_samples[i]);
+				*obp++ = (float)mad_f_todouble(r_pcm_samples[i]);
 			}
 		}
 
@@ -340,8 +344,7 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 
 size_t stack_audio_file_read_mp3(StackAudioFileMP3 *audio_file, float *buffer, size_t frames)
 {
-	// TODO: Don't hardcode this!
-	size_t channels = 2;
+	const size_t channels = audio_file->super.channels;
 
 	size_t frames_out = 0;
 	while (frames_out < frames && (audio_file->frame_iterator != audio_file->frames.end() || audio_file->decoded_buffer->used > 0))
