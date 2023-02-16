@@ -96,6 +96,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 
 	// Initialise our variables: cue data
 	cue->file = strdup("");
+	cue->short_filename = (char*)strdup("");
 	cue->media_start_time = 0;
 	cue->media_end_time = 0;
 	cue->file_length = 0;
@@ -184,6 +185,7 @@ static void stack_audio_cue_destroy(StackCue *cue)
 
 	// Our tidyup here
 	free(acue->file);
+	free(acue->short_filename);
 
 	// Tidy up
 	if (acue->builder)
@@ -482,6 +484,8 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		// Store the filename
 		free(cue->file);
 		cue->file = strdup(uri);
+		free(cue->short_filename);
+		cue->short_filename = g_filename_from_uri(uri, NULL, NULL);
 
 		// Update the cue state
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
@@ -489,14 +493,6 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 		// Reset the media start/end times to the whole file
 		cue->media_start_time = 0;
 		cue->media_end_time = cue->file_length;
-
-		// Update the name if we don't currently have one
-		if (STACK_CUE(cue)->name == NULL || strlen(STACK_CUE(cue)->name) == 0)
-		{
-			gchar* filename = g_filename_from_uri(uri, NULL, NULL);
-			stack_cue_set_name(STACK_CUE(cue), basename(filename));
-			free(filename);
-		}
 
 		// Update the cue action time;
 		stack_audio_cue_update_action_time(cue);
@@ -1894,19 +1890,19 @@ const char *stack_audio_cue_get_field_base(StackCue *cue, const char *field)
 	}
 	else if (strcmp(field, "filename") == 0)
 	{
-		if (strlen(STACK_AUDIO_CUE(cue)->file) == 0)
+		if (strlen(STACK_AUDIO_CUE(cue)->short_filename) == 0)
 		{
 			return "<no file selected>";
 		}
 
-		char *last_slash = strrchr(STACK_AUDIO_CUE(cue)->file, '/');
+		char *last_slash = strrchr(STACK_AUDIO_CUE(cue)->short_filename, '/');
 		if (last_slash != NULL)
 		{
 			return &last_slash[1];
 		}
 		else
 		{
-			return STACK_AUDIO_CUE(cue)->file;
+			return STACK_AUDIO_CUE(cue)->short_filename;
 		}
 	}
 
