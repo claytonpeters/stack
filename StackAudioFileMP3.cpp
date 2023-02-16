@@ -289,7 +289,7 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 
 	// Iterate through the known frames, and search for the frame that contains
 	// data for our given position
-	size_t previous_frame_position = 0;
+	size_t previous_frame_position = audio_file->frames.begin()->byte_position;
 	for (MP3FrameInfoVector::iterator frame = audio_file->frames.begin(); frame != audio_file->frames.end(); frame++)
 	{
 		// If the frame we're looking at contains our start_sample
@@ -303,7 +303,10 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 			// Set our read iterator to the previous frame (where we're about
 			// to seek to)
 			audio_file->frame_iterator = frame;
-			audio_file->frame_iterator--;
+			if (audio_file->frame_iterator != audio_file->frames.begin())
+			{
+				audio_file->frame_iterator--;
+			}
 
 			break;
 		}
@@ -315,12 +318,17 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 	// Seek to the start of the frame before
 	g_seekable_seek(G_SEEKABLE(audio_file->super.stream), previous_frame_position, G_SEEK_SET, NULL, NULL);
 
+	// Skip past however many samples we additionally decoded before our target sample
+	size_t skip_frames = start_sample - audio_file->frame_iterator->sample_position;
+
+	fprintf(stderr, "stack_audio_file_seek_mp3(): seek pos %lu (sample %lu) - seek to mpegframe at byte %lu = offset %ld frames\n", pos, start_sample, previous_frame_position, skip_frames);
+
 	// Decode the next two frames into our buffer
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 
-	// Skip past however many samples we additionally decoded before our target sample
-	stack_ring_buffer_skip(audio_file->decoded_buffer, start_sample - audio_file->frame_iterator->sample_position);
+	// TODO: This offset probably needs to account for encoder delay
+	stack_ring_buffer_skip(audio_file->decoded_buffer, skip_frames);
 }
 
 size_t stack_audio_file_read_mp3(StackAudioFileMP3 *audio_file, float *buffer, size_t frames)
