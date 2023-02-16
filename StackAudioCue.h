@@ -21,6 +21,7 @@ typedef struct StackAudioCue
 
 	// The file to playback
 	char *file;
+	gchar *short_filename;
 
 	// Media start time (e.g. this much time is skipped at the start of the
 	// media file)
