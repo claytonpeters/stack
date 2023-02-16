@@ -8,7 +8,7 @@ set_target_properties(runstack PROPERTIES ENABLE_EXPORTS TRUE)
 add_library(StackPulseAudioDevice SHARED StackPulseAudioDevice.cpp)
 add_library(StackActionCue SHARED StackActionCue.cpp)
 add_library(StackFadeCue SHARED StackFadeCue.cpp)
-add_library(StackAudioCue SHARED StackAudioCue.cpp MPEGAudioFile.cpp)
+add_library(StackAudioCue SHARED StackAudioCue.cpp StackAudioFile.cpp StackAudioFileWave.cpp StackAudioFileMP3.cpp MPEGAudioFile.cpp)
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 find_package(PkgConfig REQUIRED)
@@ -26,6 +26,12 @@ find_path(LAME_INCLUDE_DIRS lame/lame.h)
 find_library(LAME_LIBRARIES mp3lame)
 find_package_handle_standard_args(LAME DEFAULT_MSG LAME_INCLUDE_DIRS LAME_LIBRARIES)
 mark_as_advanced(LAME_INCLUDE_DIRS LAME_LIBRARIES LAME_DEFINITIONS)
+
+## MAD doesn't ship with a CMake file
+find_path(MAD_INCLUDE_DIRS mad.h)
+find_library(MAD_LIBRARIES mad)
+find_package_handle_standard_args(MAD DEFAULT_MSG MAD_INCLUDE_DIRS MAD_LIBRARIES)
+mark_as_advanced(MAD_INCLUDE_DIRS MAD_LIBRARIES MAD_DEFINITIONS)
 
 ## SOXR doesn't ship with a CMake file
 find_path(SOXR_INCLUDE_DIRS soxr.h)
@@ -63,6 +69,14 @@ if (LAME_FOUND)
 	include_directories(${LAME_INCLUDE_DIRS})
 	add_definitions(${LAME_DEFINITIONS})
 	target_link_libraries(StackAudioCue ${LAME_LIBRARIES})
+endif()
+
+# Optional: Add in MAD if it was found
+if (MAD_FOUND)
+	list(APPEND MAD_DEFINITIONS -DHAVE_LIBMAD=1)
+	include_directories(${MAD_INCLUDE_DIRS})
+	add_definitions(${MAD_DEFINITIONS})
+	target_link_libraries(StackAudioCue ${MAD_LIBRARIES})
 endif()
 
 # Optional: Add in SOXR if it was found
