@@ -977,7 +977,7 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 
 		// TODO  Do this properly once we've implemented cross-points
 		size_t channel_count = 1;
-		if (audio_cue->playback_file->channels = 2)
+		if (audio_cue->playback_file->channels == 2)
 		{
 			channel_count = 2;
 		}

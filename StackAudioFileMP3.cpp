@@ -244,7 +244,7 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 		{
 			float *obp = &scale_buffer[audio_file->delay * 2];
 			const mad_fixed_t *l_pcm_samples = audio_file->mp3_synth.pcm.samples[0];
-			const mad_fixed_t *r_pcm_samples = audio_file->mp3_synth.pcm.samples[0];
+			const mad_fixed_t *r_pcm_samples = audio_file->mp3_synth.pcm.samples[1];
 			for (size_t i = audio_file->delay; i < frames_to_add; i++)
 			{
 				*obp++ = (float)mad_f_todouble(l_pcm_samples[i]);
