@@ -32,6 +32,7 @@ typedef struct StackAudioFile
 	size_t channels;
 	size_t sample_rate;
 	stack_time_t length;
+	size_t frames;
     GFile *file;
     GFileInputStream *stream;
 } StackAudioFile;

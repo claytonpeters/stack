@@ -62,6 +62,7 @@ StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 	result->super.format = STACK_AUDIO_FILE_FORMAT_MP3;
 	result->super.channels = mp3_info.num_channels;
 	result->super.sample_rate = mp3_info.sample_rate;
+	result->super.frames = mp3_info.num_samples_per_channel;
 	result->super.length = (stack_time_t)(double(mp3_info.num_samples_per_channel) / double(mp3_info.sample_rate) * NANOSECS_PER_SEC_F);
 	std::swap(result->frames, mp3_info.frames);
 	result->frames_buffer = NULL;

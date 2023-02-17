@@ -198,7 +198,7 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	return result;
 }
 
-static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, const float *data, uint32_t sample_rate, uint16_t num_channels, uint32_t frames, uint64_t preview_start_samples, uint64_t data_start_frames)
+static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, const float *data, uint32_t sample_rate, uint16_t num_channels, uint32_t frames, uint64_t preview_start_samples, uint64_t data_start_frames, bool downsample)
 {
 	uint64_t frame = data_start_frames;
 
@@ -210,6 +210,10 @@ static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, 
 	// Calculate the highest value given floating point (-1.0 < x < 1.0)
 	// and the number of channels
 	float scalar = 1.0 / (float)num_channels;
+
+	// Setup for min/max calculation
+	float min = std::numeric_limits<float>::max();
+	float max = std::numeric_limits<float>::min();
 
 	// Draw the audio data. We sum all the channels together to draw a single waveform
 	for (size_t i = 0; i < frames; i++, frame++)
@@ -224,8 +228,28 @@ static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, 
 		// Scale y back in to -1.0 < y < 1.0
 		y *= scalar;
 
+		if (!downsample)
+		{
+			// If we're not downsampling, draw the line
+			cairo_line_to(cue->preview_cr, (double)(frame - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
+		}
+		else
+		{
+			// If we're downsampling, just calculate the min and max for the block
+			if (y > max) { max = y; }
+			if (y < min) { min = y; }
+		}
+	}
+
+	// If we're downsampling, we just draw a single vertical line from min to max
+	if (downsample)
+	{
+		// Our x position is the position of the sample in the middle of our frame
+		const double x = (double)(data_start_frames + (frames / 2) - preview_start_samples) * sample_width;
+
 		// Draw the line
-		cairo_line_to(cue->preview_cr, (double)(frame - preview_start_samples) * sample_width, half_preview_height * (1.0 - y));
+		cairo_move_to(cue->preview_cr, x, half_preview_height * (1.0 - min));
+		cairo_line_to(cue->preview_cr, x, half_preview_height * (1.0 - max));
 	}
 
 	return frame;
@@ -253,9 +277,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 
 	// Initialise drawing: prepare for lines
 	cairo_set_antialias(cue->preview_cr, CAIRO_ANTIALIAS_FAST);
-	cairo_set_line_width(cue->preview_cr, 1.0);
 	cairo_set_source_rgb(cue->preview_cr, 0.0, 0.8, 0.0);
-	cairo_move_to(cue->preview_cr, 0.0, cue->preview_height / 2.0);
 
 	// We force a redraw periodically, get the current time
 	stack_time_t last_redraw_time = stack_get_clock_time();
@@ -267,7 +289,31 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 	uint64_t preview_start_samples = stack_time_to_samples(cue->preview_start, file->sample_rate);
 	uint64_t preview_end_samples = stack_time_to_samples(cue->preview_end, file->sample_rate);
 
+	// Calculate how many audio frames fit in to one pixel on the preview
+	size_t frames_per_pixel = file->frames / cue->preview_width;
+
+	// Default to not downsampling (render every frame)
+	bool downsample = false;
 	size_t frames = 1024;
+
+	// Determine if we should downsample
+	if (frames_per_pixel > 10)
+	{
+		frames = frames_per_pixel;
+		downsample = true;
+
+		// Bump up the line width a smidge to prevent tiny gaps in the
+		// waveform caused by rounding errors of it not being _exactly_
+		// one pixel between blocks of frames
+		cairo_set_line_width(cue->preview_cr, 1.1);
+	}
+	else
+	{
+		cairo_set_line_width(cue->preview_cr, 1.0);
+		cairo_move_to(cue->preview_cr, 0.0, cue->preview_height / 2.0);
+	}
+
+	// Calculate how many samples we need to read
 	size_t samples = frames * file->channels;
 
 	// Allocate buffers
@@ -287,11 +333,7 @@ static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 		if (frames_read > 0)
 		{
 			// Render the samples
-			sample = stack_audio_cue_preview_render_points(cue, read_buffer, file->sample_rate, file->channels, frames_read, preview_start_samples, sample);
-
-			// Intentionally slow this down so that we don't chew through
-			// CPU that might be needed for playback
-			usleep(125);
+			sample = stack_audio_cue_preview_render_points(cue, read_buffer, file->sample_rate, file->channels, frames_read, preview_start_samples, sample, downsample);
 
 			// Redraw a few times per second
 			if (stack_get_clock_time() - last_redraw_time > NANOSECS_PER_SEC / 25)

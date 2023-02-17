@@ -179,8 +179,9 @@ StackAudioFileWave *stack_audio_file_create_wave(GFileInputStream *stream)
 	result->super.format = STACK_AUDIO_FILE_FORMAT_WAVE;
 	result->super.channels = header.num_channels;
 	result->super.sample_rate = header.sample_rate;
-	result->super.length = (stack_time_t)(double(header.subchunk_2_size) / double(header.byte_rate) * NANOSECS_PER_SEC_F);
+	result->super.length = (stack_time_t)(double(data_size) / double(header.byte_rate) * NANOSECS_PER_SEC_F);
 	result->frame_size = header.num_channels * header.bits_per_sample / 8;
+	result->super.frames = data_size / result->frame_size;
 	result->sample_format = format;
 	result->data_start_offset = data_start_offset;
 	result->data_size = data_size;
