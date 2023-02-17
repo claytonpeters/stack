@@ -1008,25 +1008,13 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 	}
 	else
 	{
-		StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
-
 		// TODO  Do this properly once we've implemented cross-points
-		size_t channel_count = 1;
-		if (audio_cue->playback_file->channels == 2)
-		{
-			channel_count = 2;
-		}
-
 		if (channels != NULL)
 		{
 			channels[0] = true;
-			if (channel_count == 2)
-			{
-				channels[1] = true;
-			}
+			channels[1] = true;
 		}
-
-		return channel_count;
+		return 2;
 	}
 }
 
@@ -1095,6 +1083,17 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	for (size_t i = 0; i < samples; i++)
 	{
 		buffer[i] *= base_audio_scaler;
+	}
+
+	// TODO: This is only temporary, but for mono files, remap them to
+	// two channel for now
+	if (audio_cue->playback_file->channels == 1)
+	{
+		for (size_t i = frames_to_return; i >= 1; i--)
+		{
+			buffer[i * 2] = buffer[i];
+			buffer[i * 2 + 1] = buffer[i];
+		}
 	}
 
 	return frames_to_return;
