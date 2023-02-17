@@ -1329,8 +1329,12 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	stack_time_t rpre, raction, rpost;
 	stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
 
-	// Update details
-	gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
+	// Update the name of the cue. We compare the strings first to avoid a more
+	// expensive redraw in Gtk if it hasn't changed
+	if (strcmp(gtk_label_get_text(cue_widget->name), stack_cue_get_rendered_name(cue)) != 0)
+	{
+		gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
+	}
 
 	// Format the times
 	stack_time_t first_time = 0, second_time = 0;
