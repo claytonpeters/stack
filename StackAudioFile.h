@@ -6,16 +6,16 @@
 #include <gtk/gtk.h>
 
 // Supported file formats
-typedef enum StackAudioFileFormat
+enum StackAudioFileFormat
 {
     STACK_AUDIO_FILE_FORMAT_NONE = 0,
     STACK_AUDIO_FILE_FORMAT_WAVE = 1,
     STACK_AUDIO_FILE_FORMAT_MP3 = 2,
 	STACK_AUDIO_FILE_FORMAT_OGG = 3, // Reserved for future implementation
 	STACK_AUDIO_FILE_FORMAT_AAC = 4, // Reserved for future implementation
-} StackAudioFileFormat;
+};
 
-typedef enum StackSampleFormat
+enum StackSampleFormat
 {
 	STACK_SAMPLE_FORMAT_UNKNOWN = 0,
 	STACK_SAMPLE_FORMAT_INT8 = 1,
@@ -24,9 +24,9 @@ typedef enum StackSampleFormat
 	STACK_SAMPLE_FORMAT_INT32 = 4,
 	STACK_SAMPLE_FORMAT_FLOAT32 = 5,
 	STACK_SAMPLE_FORMAT_FLOAT64 = 6,
-} StackSampleFormat;
+};
 
-typedef struct StackAudioFile
+struct StackAudioFile
 {
 	StackAudioFileFormat format;
 	size_t channels;
@@ -35,7 +35,7 @@ typedef struct StackAudioFile
 	size_t frames;
     GFile *file;
     GFileInputStream *stream;
-} StackAudioFile;
+};
 
 // Opens the audio file at path, and parses any headers. Returns NULL if no
 // supported audio-format could be found or returns something that extends

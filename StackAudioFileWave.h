@@ -4,7 +4,7 @@
 // Includes:
 #include "StackAudioFile.h"
 
-typedef struct StackAudioFileWave
+struct StackAudioFileWave
 {
 	StackAudioFile super;
 
@@ -22,7 +22,7 @@ typedef struct StackAudioFileWave
 
 	// The amount of the data chunk we've read, in bytes
 	size_t data_read;
-} StackAudioFileWave;
+};
 
 StackAudioFileWave *stack_audio_file_create_wave(GFileInputStream *file);
 void stack_audio_file_destroy_wave(StackAudioFileWave *audio_file);

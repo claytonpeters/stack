@@ -5,15 +5,15 @@
 #include "StackCue.h"
 
 // Supported file formats
-typedef enum StackActionCueAction
+enum StackActionCueAction
 {
 	STACK_ACTION_CUE_PLAY = 0,
 	STACK_ACTION_CUE_PAUSE = 1,
 	STACK_ACTION_CUE_STOP = 2,
-} StackActionCueAction;
+};
 
 // An audio cue
-typedef struct StackActionCue
+struct StackActionCue
 {
 	// Superclass
 	StackCue super;
@@ -32,7 +32,7 @@ typedef struct StackActionCue
 
 	// A string of the target cue ID
 	char target_cue_id_string[32];
-} StackActionCue;
+};
 
 // Functions: Action cue functions
 void stack_action_cue_register();

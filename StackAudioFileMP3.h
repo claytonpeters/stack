@@ -11,7 +11,7 @@
 
 typedef std::vector<MP3FrameInfo> MP3FrameInfoVector;
 
-typedef struct StackAudioFileMP3
+struct StackAudioFileMP3
 {
 	StackAudioFile super;
 
@@ -37,7 +37,7 @@ typedef struct StackAudioFileMP3
 
 	// Padding added in last frame
 	uint16_t padding;
-} StackAudioFileMP3;
+};
 
 StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *file);
 void stack_audio_file_destroy_mp3(StackAudioFileMP3 *audio_file);

@@ -3,7 +3,7 @@
 
 // RIFF Wave header structure
 #pragma pack(push, 2)
-typedef struct WaveHeader
+struct WaveHeader
 {
     char chunk_id[4];
     uint32_t chunk_size;
@@ -18,7 +18,7 @@ typedef struct WaveHeader
     uint16_t bits_per_sample;
     char subchunk_2_id[4];
     uint32_t subchunk_2_size;
-} WaveHeader;
+};
 #pragma pack(pop)
 
 static bool stack_audio_file_wave_read_header(GInputStream *stream, WaveHeader *header, size_t *data_start_offset, size_t *data_size, StackSampleFormat *format)

@@ -18,7 +18,7 @@ struct StackAppClass
 	GtkApplicationClass parent_class;
 };
 
-typedef struct StackActiveCueWidget
+struct StackActiveCueWidget
 {
 	cue_uid_t cue_uid;
 	StackCueList *cue_list;
@@ -26,7 +26,7 @@ typedef struct StackActiveCueWidget
 	GtkLabel *name;
 	GtkLabel *time;
 	GtkDrawingArea *levels;
-} StackActiveCueWidget;
+};
 
 typedef std::map<cue_uid_t, StackActiveCueWidget*> stack_cue_widget_map_t;
 

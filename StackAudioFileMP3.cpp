@@ -6,13 +6,13 @@
 
 static const uint16_t DEFAULT_DECODER_DELAY = 529;
 
-typedef struct MP3Info
+struct MP3Info
 {
 	uint32_t sample_rate;
 	uint16_t num_channels;
 	uint64_t num_samples_per_channel;
 	std::vector<MP3FrameInfo> frames;
-} MP3Info;
+};
 
 static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info)
 {

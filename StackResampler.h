@@ -6,7 +6,7 @@
 #include <soxr.h>
 #include "StackRingBuffer.h"
 
-typedef struct StackResampler
+struct StackResampler
 {
 	// The sample rate of the input data
 	double input_sample_rate;
@@ -28,7 +28,7 @@ typedef struct StackResampler
 
 	// The size of our resample buffer
 	size_t resample_buffer_size;
-} StackResampler;
+};
 
 // Functions:
 

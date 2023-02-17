@@ -8,7 +8,7 @@
 #include <thread>
 
 // Structure
-typedef struct StackAlsaAudioDevice
+struct StackAlsaAudioDevice
 {
 	// Super class
 	StackAudioDevice super;
@@ -24,7 +24,7 @@ typedef struct StackAlsaAudioDevice
 
 	// Kill flag for the thread
 	bool thread_running;
-} StackAlsaAudioDevice;
+};
 
 // Functions: Register the device
 void stack_alsa_audio_device_register();

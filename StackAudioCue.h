@@ -8,7 +8,7 @@
 #include <thread>
 
 // An audio cue
-typedef struct StackAudioCue
+struct StackAudioCue
 {
 	// Superclass
 	StackCue super;
@@ -68,7 +68,7 @@ typedef struct StackAudioCue
 
 	// Time of last redraw of audio preview during playback
 	stack_time_t last_preview_redraw_time;
-} StackAudioCue;
+};
 
 // Functions: Audio cue functions
 void stack_audio_cue_register();

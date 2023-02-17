@@ -10,18 +10,18 @@ semaphore state_semaphore;
 char *default_sink_name = NULL;
 
 // Device enumeration structures:
-typedef struct PulseAudioSinkCountData
+struct PulseAudioSinkCountData
 {
 	semaphore sink_semaphore;
 	size_t count;
-} PulseAudioSinkCountData;
+};
 
-typedef struct PulseAudioSinkEnumData
+struct PulseAudioSinkEnumData
 {
 	semaphore sink_semaphore;
 	size_t count;
 	StackAudioDeviceDesc* devices;
-} PulseAudioSinkEnumData;
+};
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
 void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)

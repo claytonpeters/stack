@@ -2,7 +2,7 @@
 #include "MPEGAudioFile.h"
 //#include <mad.h>	// Necessary soon
 
-typedef struct MP3FrameHeader
+struct MP3FrameHeader
 {
 	uint16_t frame_sync;    // 11 Bits
 	uint8_t mpeg_version;   // 2 Bits
@@ -17,10 +17,10 @@ typedef struct MP3FrameHeader
 	uint8_t copyright;      // 1 Bits
 	uint8_t original;       // 1 Bits
 	uint8_t emphasis;       // 2 Bits
-} MP3FrameHeader;
+};
 
 #pragma pack(push,1)
-typedef struct ID3Header
+struct ID3Header
 {
 	char id3tag[3];
 	uint16_t version;
@@ -33,7 +33,7 @@ typedef struct ID3Header
 	uint8_t size2;
 	uint8_t size3;
 	uint8_t size4;
-} ID3Header;
+};
 #pragma pack(pop)
 
 // Bitrates - use [version_idx][layer_idx][bitrate_idx]

@@ -6,13 +6,13 @@
 #include <gtk/gtk.h>
 #include <vector>
 
-typedef struct MP3FrameInfo
+struct MP3FrameInfo
 {
 	size_t byte_position;       // Location of frame in the file
 	size_t frame_size_bytes;    // The size of the frame in bytes
 	size_t sample_position;	    // The first sample of this frame
 	size_t frame_size_samples;  // The size of the frame in samples
-} MP3FrameInfo;
+};
 
 // Functions:
 size_t mpeg_audio_file_skip_id3v2(GInputStream *stream);

@@ -10,7 +10,7 @@
 typedef size_t(*stack_audio_device_audio_request_t)(size_t, float *, void *);
 
 // Structure
-typedef struct StackAudioDevice
+struct StackAudioDevice
 {
 	// Class name
 	const char *_class_name;
@@ -26,10 +26,10 @@ typedef struct StackAudioDevice
 
 	// Arbitrary user data passed to request_audio function
 	void *request_audio_user_data;
-} StackAudioDevice;
+};
 
 // Structure: Descriptor of an audio device
-typedef struct StackAudioDeviceDesc
+struct StackAudioDeviceDesc
 {
 	uint16_t min_channels;
 	uint16_t max_channels;
@@ -37,7 +37,7 @@ typedef struct StackAudioDeviceDesc
 	char *desc;
 	uint8_t num_rates;
 	uint32_t *rates;
-} StackAudioDeviceDesc;
+};
 
 // Typedefs:
 typedef size_t(*stack_audio_device_list_outputs_t)(StackAudioDeviceDesc **);
@@ -47,7 +47,7 @@ typedef void(*stack_audio_device_destroy_t)(StackAudioDevice *);
 typedef const char *(*stack_audio_device_get_friendly_name_t)();
 
 // Function pointers for each type
-typedef struct StackAudioDeviceClass
+struct StackAudioDeviceClass
 {
 	const char *class_name;
 	const char *super_class_name;
@@ -56,7 +56,7 @@ typedef struct StackAudioDeviceClass
 	stack_audio_device_create_t create_func;	// Static function
 	stack_audio_device_destroy_t destroy_func;
 	stack_audio_device_get_friendly_name_t get_friendly_name_func; // Static function
-} StackAudioDeviceClass;
+};
 
 // Functions: Cue Type Registration
 int stack_register_audio_device_class(StackAudioDeviceClass *adev_class);

@@ -7,7 +7,7 @@
 #include "semaphore.h"
 
 // Structure
-typedef struct StackPulseAudioDevice
+struct StackPulseAudioDevice
 {
 	// Super class
 	StackAudioDevice super;
@@ -17,7 +17,7 @@ typedef struct StackPulseAudioDevice
 
 	// Synchronisation semaphore
 	semaphore sync_semaphore;
-} StackPulseAudioDevice;
+};
 
 // Functions: PulseAudio device functions
 void stack_pulse_audio_device_register();

@@ -4,16 +4,16 @@
 // Includes:
 #include "StackCue.h"
 
-typedef enum StackFadeProfile
+enum StackFadeProfile
 {
 	STACK_FADE_PROFILE_LINEAR,
 	STACK_FADE_PROFILE_QUAD,
 	STACK_FADE_PROFILE_EXP,
 	STACK_FADE_PROFILE_INVEXP,
-} StackFadeProfile;
+};
 
 // An audio cue
-typedef struct StackFadeCue
+struct StackFadeCue
 {
 	// Superclass
 	StackCue super;
@@ -41,7 +41,7 @@ typedef struct StackFadeCue
 
 	// A string of the target cue ID
 	char target_cue_id_string[32];
-} StackFadeCue;
+};
 
 // Functions: Audio cue functions
 void stack_fade_cue_register();

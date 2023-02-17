@@ -3,7 +3,7 @@
 
 #include <unistd.h>
 
-typedef struct StackRingBuffer
+struct StackRingBuffer
 {
 	// The actual buffer of data
 	float *start_pointer;
@@ -22,7 +22,7 @@ typedef struct StackRingBuffer
 
 	// Pointer to write data to
 	float *write_pointer;
-} StackRingBuffer;
+};
 
 // Functions:
 

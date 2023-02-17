@@ -10,14 +10,14 @@ G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
 #define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
 // Structure used to search for a cue within the model
-typedef struct ModelFindCue
+struct ModelFindCue
 {
 	StackCue *cue;
 	GtkTreePath *path;
-} ModelFindCue;
+};
 
 // Structure used to contain show opening data
-typedef struct ShowLoadingData
+struct ShowLoadingData
 {
 	StackAppWindow* window;
 	char* uri;
@@ -27,7 +27,7 @@ typedef struct ShowLoadingData
 	const char *message;
 	double progress;
 	bool finished;
-} ShowLoadingData;
+};
 
 // Pre-define some function definitions:
 static void saw_cue_stop_all_clicked(void* widget, gpointer user_data);
@@ -274,10 +274,10 @@ static void saw_update_selected_cue(gpointer user_data)
 	}
 }
 
-typedef struct StackCueListUpdateData {
+struct StackCueListUpdateData {
 	StackAppWindow *window;
 	StackCue *cue;
-} StackCueListUpdateData;
+};
 
 static gboolean saw_update_cue_main_thread(gpointer user_data)
 {

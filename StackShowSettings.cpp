@@ -2,11 +2,11 @@
 #include "StackAudioDevice.h"
 #include <cstring>
 
-typedef struct StackShowSettingsDialogData
+struct StackShowSettingsDialogData
 {
 	GtkDialog *dialog;
 	GtkBuilder *builder;
-} StackShowSettingsDialogData;
+};
 
 void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
 {

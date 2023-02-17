@@ -32,7 +32,7 @@ typedef uint64_t cue_uid_t;
 #define STACK_CUE_UID_NONE ((cue_uid_t)0)
 
 // Cue state
-typedef enum StackCueState
+enum StackCueState
 {
 	STACK_CUE_STATE_ERROR = -1,
 	STACK_CUE_STATE_STOPPED = 0,
@@ -41,31 +41,31 @@ typedef enum StackCueState
 	STACK_CUE_STATE_PLAYING_PRE = 3,
 	STACK_CUE_STATE_PLAYING_ACTION = 4,
 	STACK_CUE_STATE_PLAYING_POST = 5,
-} StackCueState;
+};
 
 // Cue post-wait trigger
-typedef enum StackCueWaitTrigger
+enum StackCueWaitTrigger
 {
 	STACK_CUE_WAIT_TRIGGER_NONE = 0,
 	STACK_CUE_WAIT_TRIGGER_IMMEDIATE = 1,
 	STACK_CUE_WAIT_TRIGGER_AFTERPRE = 2,
 	STACK_CUE_WAIT_TRIGGER_AFTERACTION = 3,
-} StackCuePostWaitTrigger;
+};
 
 struct StackCue;
 struct StackCueList;
 
 typedef void(*state_changed_t)(StackCueList*, StackCue*, void*);
 
-typedef struct StackChannelRMSData
+struct StackChannelRMSData
 {
 	float current_level;
 	float peak_level;
 	stack_time_t peak_time;
-} StackChannelRMSData;
+};
 
 // Cue list
-typedef struct StackCueList
+struct StackCueList
 {
 	// The array of cues (this is a std::list internally)
 	void *cues;
@@ -107,10 +107,10 @@ typedef struct StackCueList
 
 	// Audio RMS data (this a std::map internally)
 	void *rms_data;
-} StackCueList;
+};
 
 // Base class for cues
-typedef struct StackCue
+struct StackCue
 {
 	// Class name
 	const char *_class_name;
@@ -171,16 +171,16 @@ typedef struct StackCue
 
 	// Runtime data: Determines if the post-wait trigger has run or not
 	bool post_has_run;
-} StackCue;
+};
 
-typedef struct StackGroupCue
+struct StackGroupCue
 {
 	// Super class
 	StackCue super;
 
 	// The array of cues (this is a std::list internally)
 	void *cues;
-} StackGroupCue;
+};
 
 // Typedefs for create/delete functions
 typedef StackCue*(*stack_create_cue_t)(StackCueList*);
@@ -201,7 +201,7 @@ typedef size_t(*stack_cue_get_audio_t)(StackCue*, float*, size_t);
 typedef const char*(*stack_cue_get_field_t)(StackCue*, const char *);
 
 // Defines information about a class
-typedef struct StackCueClass
+struct StackCueClass
 {
 	const char *class_name;
 	const char *super_class_name;
@@ -220,7 +220,7 @@ typedef struct StackCueClass
 	stack_cue_get_active_channels_t get_active_channels_func;
 	stack_cue_get_audio_t get_audio_func;
 	stack_cue_get_field_t get_field_func;
-} StackCueClass;
+};
 
 // Functions: Helpers
 stack_time_t stack_get_clock_time();
