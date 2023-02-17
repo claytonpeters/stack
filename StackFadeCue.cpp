@@ -1,6 +1,7 @@
 // Includes:
 #include "StackApp.h"
 #include "StackFadeCue.h"
+#include "StackAudioCue.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>

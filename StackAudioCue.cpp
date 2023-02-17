@@ -34,10 +34,8 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->media_tab = NULL;
 
 	// Initialise our variables: playback
-	cue->playback_data_sent = 0;
 	cue->playback_live_volume = 0.0;
 	cue->playback_file = NULL;
-	cue->playback_audio_ptr = 0;
 	cue->resampler = NULL;
 
 	// Initialise our variables: preview
@@ -702,16 +700,11 @@ static bool stack_audio_cue_play(StackCue *cue)
 	// If we were paused before...
 	if (pre_play_state == STACK_CUE_STATE_PAUSED)
 	{
-		// ...then we need to reset the pointer into the audio buffer
-		audio_cue->playback_audio_ptr = -1;
-
 		return true;
 	}
 
 	// Initialise playback
-	audio_cue->playback_data_sent = 0;
 	audio_cue->playback_live_volume = audio_cue->play_volume;
-	audio_cue->playback_audio_ptr = -1;
 
 	// If the sample rate of the file does not match the playback device, set
 	// up a resampler

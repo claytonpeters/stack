@@ -34,9 +34,6 @@ typedef struct StackAudioCue
 	// The media tab
 	GtkWidget *media_tab;
 
-	// Amount of audio data sent so far in playback
-	stack_time_t playback_data_sent;
-
 	// The current volume of the cue
 	double playback_live_volume;
 
@@ -45,9 +42,6 @@ typedef struct StackAudioCue
 
 	// The resampler to resample from file-rate to device-rate
 	StackResampler *resampler;
-
-	// Audio pointer
-	size_t playback_audio_ptr;
 
 	// Audio Preview: is thread running
 	bool preview_thread_run;

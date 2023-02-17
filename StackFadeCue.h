@@ -3,7 +3,6 @@
 
 // Includes:
 #include "StackCue.h"
-#include "StackAudioCue.h"
 
 typedef enum StackFadeProfile
 {
