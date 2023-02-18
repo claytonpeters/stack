@@ -52,7 +52,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Show Name:</property>
+                    <property name="label" translatable="yes">Show _Name:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssShowName</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -64,7 +66,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Designer:</property>
+                    <property name="label" translatable="yes">_Designer:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssShowDesigner</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -76,7 +80,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Revision:</property>
+                    <property name="label" translatable="yes">_Revision:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssShowRevision</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -87,6 +93,7 @@
                   <object class="GtkEntry" id="sssShowName">
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
+                    <property name="has-focus">True</property>
                     <property name="hexpand">True</property>
                   </object>
                   <packing>
@@ -143,7 +150,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Provider:</property>
+                    <property name="label" translatable="yes">_Provider:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssAudioProviderCombo</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -155,7 +164,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Device:</property>
+                    <property name="label" translatable="yes">_Device:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssAudioDeviceCombo</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -167,7 +178,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Sample Rate:</property>
+                    <property name="label" translatable="yes">Sample _Rate:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssSampleRateCombo</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -224,7 +237,9 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Channels:</property>
+                    <property name="label" translatable="yes">_Channels:</property>
+                    <property name="use-underline">True</property>
+                    <property name="mnemonic-widget">sssChannelsCombo</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -296,149 +311,6 @@
               </object>
               <packing>
                 <property name="position">1</property>
-                <property name="tab-fill">False</property>
-              </packing>
-            </child>
-            <child>
-              <!-- n-columns=2 n-rows=1 -->
-              <object class="GtkGrid" id="sssVideoGrid">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="margin-start">8</property>
-                <property name="margin-end">8</property>
-                <property name="margin-top">8</property>
-                <property name="row-spacing">8</property>
-                <property name="column-spacing">8</property>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="label" translatable="yes">Surfaces:</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="hexpand">True</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">0</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="position">2</property>
-              </packing>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="sssVideoTabLabel">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">Video</property>
-              </object>
-              <packing>
-                <property name="position">2</property>
-                <property name="tab-fill">False</property>
-              </packing>
-            </child>
-            <child>
-              <!-- n-columns=2 n-rows=3 -->
-              <object class="GtkGrid" id="sssMIDIGrid">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="margin-start">8</property>
-                <property name="margin-end">8</property>
-                <property name="margin-top">8</property>
-                <property name="row-spacing">8</property>
-                <property name="column-spacing">8</property>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="halign">end</property>
-                    <property name="label" translatable="yes">Provider:</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="halign">end</property>
-                    <property name="label" translatable="yes">Device:</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="valign">end</property>
-                    <property name="label" translatable="yes">Filter:</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">2</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="hexpand">True</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="hexpand">True</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">1</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="label" translatable="yes">Filtering options would eventually go here.</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">2</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="position">3</property>
-              </packing>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="sssMIDITabLabel">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">MIDI</property>
-              </object>
-              <packing>
-                <property name="position">3</property>
                 <property name="tab-fill">False</property>
               </packing>
             </child>

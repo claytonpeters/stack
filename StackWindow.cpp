@@ -446,6 +446,23 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	}
 }
 
+// Selects the first cue on the list
+static void saw_select_first_cue(StackAppWindow *window)
+{
+	GtkTreeIter iter;
+
+	// Get an iterator and path to the last row in the model
+	gtk_tree_model_iter_nth_child(gtk_tree_view_get_model(window->treeview), &iter, NULL, 0);
+	GtkTreePath *path = gtk_tree_model_get_path(gtk_tree_view_get_model(window->treeview), &iter);	// Allocates!
+
+	// Select that row
+	gtk_tree_selection_select_iter(gtk_tree_view_get_selection(window->treeview), &iter);
+	gtk_tree_view_set_cursor(window->treeview, path, NULL, false);
+
+	// Tidy up
+	gtk_tree_path_free(path);	// From gtk_tree_model_get_path
+}
+
 // Selects the last cue on the list
 static void saw_select_last_cue(StackAppWindow *window)
 {
@@ -1726,6 +1743,14 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 
 			return true;
 		}
+
+		// If F2 (rename) was hit
+		if (((GdkEventKey*)event)->keyval == GDK_KEY_F2)
+		{
+			// Jump to the cue properties page and focus the name field
+			gtk_notebook_set_current_page(window->notebook, 0);
+			gtk_widget_grab_focus(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawCueName")));
+		}
 	}
 	else if (event->type == GDK_KEY_PRESS)
 	{
@@ -1946,9 +1971,12 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Setup the default device
 	saw_setup_default_device(window);
+
+	// Set the focus to the cue list
+	gtk_widget_grab_focus(GTK_WIDGET(window->treeview));
 }
 
-StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
+StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, StackCue *hide)
 {
 	// Build the dialog
 	GtkBuilder *builder = gtk_builder_new_from_file("SelectCue.ui");
@@ -1975,30 +2003,33 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current)
 		// Get the cue
 		StackCue *cue = stack_cue_list_iter_get(citer);
 
-		// Append a row to the dialog
-		GtkTreeIter iter;
-		gtk_list_store_append(store, &iter);
-
-		// If we're the current cue, select it
-		if (cue == current)
+		if (cue != hide)
 		{
-			gtk_tree_selection_select_iter(gtk_tree_view_get_selection(treeview), &iter);
+			// Append a row to the dialog
+			GtkTreeIter iter;
+			gtk_list_store_append(store, &iter);
+
+			// If we're the current cue, select it
+			if (cue == current)
+			{
+				gtk_tree_selection_select_iter(gtk_tree_view_get_selection(treeview), &iter);
+			}
+
+			// Build cue number
+			char cue_number[32];
+			stack_cue_id_to_string(cue->id, cue_number, 32);
+
+			// Format color
+			char col_buffer[8];
+			snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
+
+			// Update iterator
+			gtk_list_store_set(store, &iter,
+				0, cue_number,
+				1, stack_cue_get_rendered_name(cue),
+				2, col_buffer,
+				3, (gpointer)cue, -1);
 		}
-
-		// Build cue number
-		char cue_number[32];
-		stack_cue_id_to_string(cue->id, cue_number, 32);
-
-		// Format color
-		char col_buffer[8];
-		snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
-
-		// Update iterator
-		gtk_list_store_set(store, &iter,
-			0, cue_number,
-			1, stack_cue_get_rendered_name(cue),
-			2, col_buffer,
-			3, (gpointer)cue, -1);
 
 		// Iterate
 		citer = stack_cue_list_iter_next(citer);
@@ -2167,8 +2198,8 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		window->kill_thread = true;
 		window->pulse_thread.join();
 
-		// We don't need to worry about the UI timer, as that's running on the same
-		// thread as the event loop that is handling this event handler
+		// We don't need to worry about the UI timer, as that's running on the
+		// same thread as the event loop that is handling this event handler
 
 		// Destroy the old cue list
 		stack_cue_list_destroy(window->cue_list);
@@ -2184,6 +2215,11 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 		// Setup the default device
 		saw_setup_default_device(window);
+
+		// Set the focus to the cue list and select the first cue so we're
+		// ready for playback
+		gtk_widget_grab_focus(GTK_WIDGET(window->treeview));
+		saw_select_first_cue(window);
 	}
 
 	// Tidy up

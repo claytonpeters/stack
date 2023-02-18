@@ -1,97 +1,102 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.0 -->
+<!-- Generated with glade 3.38.2 -->
 <interface>
-  <requires lib="gtk+" version="3.10"/>
+  <requires lib="gtk+" version="3.20"/>
   <object class="GtkAdjustment" id="fcpVolumeAdjust">
     <property name="lower">-50</property>
     <property name="upper">21</property>
-    <property name="step_increment">0.01</property>
-    <property name="page_increment">0.10000000000000001</property>
-    <property name="page_size">1</property>
+    <property name="step-increment">0.01</property>
+    <property name="page-increment">0.10</property>
+    <property name="page-size">1</property>
   </object>
   <object class="GtkWindow" id="window1">
-    <property name="can_focus">False</property>
+    <property name="can-focus">False</property>
     <child>
+      <!-- n-columns=2 n-rows=4 -->
       <object class="GtkGrid" id="fcpGrid">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="margin_left">10</property>
-        <property name="margin_right">10</property>
-        <property name="margin_top">10</property>
-        <property name="margin_bottom">10</property>
-        <property name="row_spacing">8</property>
-        <property name="column_spacing">8</property>
+        <property name="can-focus">False</property>
+        <property name="margin-left">10</property>
+        <property name="margin-right">10</property>
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
+        <property name="row-spacing">8</property>
+        <property name="column-spacing">8</property>
         <child>
           <object class="GtkLabel" id="fcpCueLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Target Cue:</property>
+            <property name="label" translatable="yes">Target _Cue:</property>
+            <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
+            <property name="mnemonic-widget">fcpCue</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">0</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="fcpFadeTimeLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Fade Time:</property>
+            <property name="label" translatable="yes">_Fade Time:</property>
+            <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
+            <property name="mnemonic-widget">fcpFadeTime</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="fcpFadeTypeLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
             <property name="valign">start</property>
-            <property name="margin_top">6</property>
+            <property name="margin-top">6</property>
             <property name="label" translatable="yes">Fade Type:</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">2</property>
           </packing>
         </child>
         <child>
           <object class="GtkButton" id="fcpCue">
             <property name="label" translatable="yes">Select Cue...</property>
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">True</property>
+            <property name="can-focus">True</property>
+            <property name="receives-default">True</property>
             <signal name="clicked" handler="fcp_cue_changed" swapped="no"/>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">0</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="fcpFadeTypeBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <child>
               <object class="GtkRadioButton" id="fcpFadeTypeLinear">
                 <property name="label" translatable="yes">Linear</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">False</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
-                <property name="draw_indicator">True</property>
+                <property name="draw-indicator">True</property>
                 <signal name="toggled" handler="fcp_profile_changed" swapped="no"/>
               </object>
               <packing>
@@ -104,11 +109,11 @@
               <object class="GtkRadioButton" id="fcpFadeTypeQuadratic">
                 <property name="label" translatable="yes">Quadratic</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">False</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
-                <property name="draw_indicator">True</property>
+                <property name="draw-indicator">True</property>
                 <property name="group">fcpFadeTypeLinear</property>
                 <signal name="toggled" handler="fcp_profile_changed" swapped="no"/>
               </object>
@@ -122,11 +127,11 @@
               <object class="GtkRadioButton" id="fcpFadeTypeExponential">
                 <property name="label" translatable="yes">Exponential</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">False</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
-                <property name="draw_indicator">True</property>
+                <property name="draw-indicator">True</property>
                 <property name="group">fcpFadeTypeLinear</property>
                 <signal name="toggled" handler="fcp_profile_changed" swapped="no"/>
               </object>
@@ -140,11 +145,11 @@
               <object class="GtkRadioButton" id="fcpFadeTypeInvExponential">
                 <property name="label" translatable="yes">Inverse Exponential</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">False</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
-                <property name="draw_indicator">True</property>
+                <property name="draw-indicator">True</property>
                 <property name="group">fcpFadeTypeLinear</property>
                 <signal name="toggled" handler="fcp_profile_changed" swapped="no"/>
               </object>
@@ -156,41 +161,44 @@
             </child>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">2</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">2</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="fcpEndVolumeLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">End Volume:</property>
+            <property name="label" translatable="yes">End _Volume:</property>
+            <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
+            <property name="mnemonic-widget">fcpVolume</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">3</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="fcpVolumeBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="spacing">8</property>
             <child>
               <object class="GtkScale" id="fcpVolume">
-                <property name="height_request">32</property>
+                <property name="height-request">32</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="tooltip_text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
                 <property name="hexpand">True</property>
                 <property name="adjustment">fcpVolumeAdjust</property>
-                <property name="fill_level">21</property>
+                <property name="fill-level">21</property>
+                <property name="show-fill-level">True</property>
                 <property name="digits">2</property>
-                <property name="draw_value">False</property>
-                <property name="value_pos">right</property>
+                <property name="draw-value">False</property>
+                <property name="value-pos">right</property>
                 <signal name="value-changed" handler="fcp_volume_changed" swapped="no"/>
               </object>
               <packing>
@@ -202,9 +210,9 @@
             <child>
               <object class="GtkLabel" id="fcpVolumeValueLabel">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">0.00 dB</property>
-                <property name="width_chars">9</property>
+                <property name="width-chars">9</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -214,21 +222,21 @@
             </child>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">3</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="fcpFadeTimeBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="spacing">8</property>
             <child>
               <object class="GtkEntry" id="fcpFadeTime">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
+                <property name="can-focus">True</property>
                 <property name="hexpand">True</property>
-                <property name="width_chars">1</property>
+                <property name="width-chars">1</property>
                 <signal name="focus-out-event" handler="fcp_fade_time_changed" swapped="no"/>
               </object>
               <packing>
@@ -241,10 +249,10 @@
               <object class="GtkCheckButton" id="fcpStopTarget">
                 <property name="label" translatable="yes">Stop target after fade</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">False</property>
                 <property name="halign">start</property>
-                <property name="draw_indicator">True</property>
+                <property name="draw-indicator">True</property>
                 <signal name="toggled" handler="fcp_stop_target_changed" swapped="no"/>
               </object>
               <packing>
@@ -255,8 +263,8 @@
             </child>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">1</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
       </object>

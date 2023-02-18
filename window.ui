@@ -539,6 +539,7 @@
                       <object class="GtkTreeView" id="sawCuesTreeView">
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
+                        <property name="has-focus">True</property>
                         <property name="model">sawCueListStore</property>
                         <property name="headers-clickable">False</property>
                         <property name="reorderable">True</property>
@@ -669,7 +670,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <child>
-                      <!-- n-columns=3 n-rows=3 -->
+                      <!-- n-columns=2 n-rows=3 -->
                       <object class="GtkGrid" id="sawCuePropsCommonGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -684,8 +685,10 @@
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="halign">end</property>
-                            <property name="label" translatable="yes">Number:</property>
+                            <property name="label" translatable="yes">Nu_mber:</property>
+                            <property name="use-underline">True</property>
                             <property name="justify">right</property>
+                            <property name="mnemonic-widget">sawCueNumber</property>
                             <accessibility>
                               <relation type="label-for" target="sawCueNumber"/>
                             </accessibility>
@@ -700,8 +703,10 @@
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="halign">end</property>
-                            <property name="label" translatable="yes">Name:</property>
+                            <property name="label" translatable="yes">_Name:</property>
+                            <property name="use-underline">True</property>
                             <property name="justify">right</property>
+                            <property name="mnemonic-widget">sawCueName</property>
                             <accessibility>
                               <relation type="label-for" target="sawCueName"/>
                             </accessibility>
@@ -758,7 +763,9 @@
                                 <property name="can-focus">False</property>
                                 <property name="halign">end</property>
                                 <property name="margin-left">40</property>
-                                <property name="label" translatable="yes">Colour:</property>
+                                <property name="label" translatable="yes">_Colour:</property>
+                                <property name="use-underline">True</property>
+                                <property name="mnemonic-widget">sawCueColor</property>
                                 <accessibility>
                                   <relation type="label-for" target="sawCueColor"/>
                                 </accessibility>
@@ -799,8 +806,10 @@
                             <property name="halign">end</property>
                             <property name="valign">start</property>
                             <property name="margin-top">6</property>
-                            <property name="label" translatable="yes">Notes:</property>
+                            <property name="label" translatable="yes">N_otes:</property>
+                            <property name="use-underline">True</property>
                             <property name="justify">right</property>
+                            <property name="mnemonic-widget">sawCueNotes</property>
                             <property name="ellipsize">end</property>
                             <accessibility>
                               <relation type="label-for" target="sawCueNotes"/>
@@ -830,6 +839,7 @@
                                 <property name="hscroll-policy">natural</property>
                                 <property name="vscroll-policy">natural</property>
                                 <property name="wrap-mode">word</property>
+                                <property name="accepts-tab">False</property>
                                 <signal name="focus-out-event" handler="saw_cue_notes_changed" swapped="no"/>
                                 <accessibility>
                                   <relation type="labelled-by" target="sawCueNoteLabels"/>
@@ -841,15 +851,6 @@
                             <property name="left-attach">1</property>
                             <property name="top-attach">2</property>
                           </packing>
-                        </child>
-                        <child>
-                          <placeholder/>
-                        </child>
-                        <child>
-                          <placeholder/>
-                        </child>
-                        <child>
-                          <placeholder/>
                         </child>
                       </object>
                     </child>
@@ -879,9 +880,11 @@
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="halign">end</property>
-                            <property name="label" translatable="yes">Pre-wait Delay:</property>
+                            <property name="label" translatable="yes">P_re-wait Delay:</property>
+                            <property name="use-underline">True</property>
                             <property name="justify">right</property>
                             <property name="wrap">True</property>
+                            <property name="mnemonic-widget">sawPreWait</property>
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
@@ -918,9 +921,11 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
                                 <property name="halign">end</property>
-                                <property name="label" translatable="yes">Post-wait Delay:</property>
+                                <property name="label" translatable="yes">P_ost-wait Delay:</property>
+                                <property name="use-underline">True</property>
                                 <property name="justify">right</property>
                                 <property name="wrap">True</property>
+                                <property name="mnemonic-widget">sawPostWait</property>
                                 <accessibility>
                                   <relation type="label-for" target="sawPostWait"/>
                                 </accessibility>

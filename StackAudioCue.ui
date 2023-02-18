@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated with glade 3.38.2 -->
 <interface>
-  <requires lib="gtk+" version="3.10"/>
+  <requires lib="gtk+" version="3.20"/>
   <object class="GtkFileFilter" id="acpAudioFileFilter">
     <mime-types>
       <mime-type>audio/pcm</mime-type>
@@ -41,6 +41,7 @@
             <property name="halign">end</property>
             <property name="label" translatable="yes">_File:</property>
             <property name="use-underline">True</property>
+            <property name="mnemonic-widget">acpFile</property>
           </object>
           <packing>
             <property name="left-attach">0</property>
@@ -56,6 +57,7 @@
             <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
+            <property name="mnemonic-widget">acpTrimStart</property>
             <property name="ellipsize">end</property>
           </object>
           <packing>
@@ -106,6 +108,7 @@
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_to</property>
                 <property name="use-underline">True</property>
+                <property name="mnemonic-widget">acpTrimEnd</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -149,6 +152,7 @@
                 <property name="margin-left">12</property>
                 <property name="label" translatable="yes">_Loop</property>
                 <property name="use-underline">True</property>
+                <property name="mnemonic-widget">acpLoops</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -160,8 +164,8 @@
               <object class="GtkEntry" id="acpLoops">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
-                <property name="width-chars">4</property>
                 <property name="tooltip-text" translatable="yes">When playing the audio file, repeat it this many times. Zero or negative numbers will loop indefinitely.</property>
+                <property name="width-chars">4</property>
                 <property name="caps-lock-warning">False</property>
                 <property name="input-purpose">number</property>
                 <signal name="focus-out-event" handler="acp_loops_changed" swapped="no"/>
@@ -197,6 +201,7 @@
             <property name="halign">end</property>
             <property name="label" translatable="yes">_Volume:</property>
             <property name="use-underline">True</property>
+            <property name="mnemonic-widget">acpVolume</property>
           </object>
           <packing>
             <property name="left-attach">0</property>
@@ -216,6 +221,7 @@
                 <property name="tooltip-text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
                 <property name="hexpand">True</property>
                 <property name="adjustment">acpVolumeAdjust</property>
+                <property name="show-fill-level">True</property>
                 <property name="fill-level">21</property>
                 <property name="round-digits">2</property>
                 <property name="digits">2</property>

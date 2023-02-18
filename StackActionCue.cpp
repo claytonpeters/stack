@@ -100,7 +100,7 @@ static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
 
 	// Call the dialog and get the new target
-	StackCue *new_target = stack_select_cue_dialog(window, stack_cue_get_by_uid(cue->target));
+	StackCue *new_target = stack_select_cue_dialog(window, stack_cue_get_by_uid(cue->target), STACK_CUE(cue));
 
 	// Update the cue
 	stack_action_cue_set_target(cue, new_target);
