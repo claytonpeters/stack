@@ -7,6 +7,7 @@
 #include <map>
 #include <string>
 #include "StackCue.h"
+#include "StackLevelMeter.h"
 
 struct StackApp
 {
@@ -25,7 +26,7 @@ struct StackActiveCueWidget
 	GtkBox *vbox;
 	GtkLabel *name;
 	GtkLabel *time;
-	GtkDrawingArea *levels;
+	StackLevelMeter *meter;
 };
 
 typedef std::map<cue_uid_t, StackActiveCueWidget*> stack_cue_widget_map_t;

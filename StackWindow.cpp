@@ -1202,89 +1202,6 @@ static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
 	stack_cue_list_iter_free(iter);
 }
 
-gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
-{
-	// Get details
-	GtkStyleContext *context = gtk_widget_get_style_context(widget);
-	guint width = gtk_widget_get_allocated_width(widget);
-	guint height = gtk_widget_get_allocated_height(widget);
-	StackActiveCueWidget *cue_widget = (StackActiveCueWidget*)g_object_get_data(G_OBJECT(widget), "cue-widget");
-	stack_time_t current_time = stack_get_clock_time();
-
-	// Clear the background
-	gtk_render_background(context, cr, 0, 0, width, height);
-
-	// Create a dark gradient background
-	cairo_pattern_t *dark_gradient = cairo_pattern_create_linear(0.0, 0.0, (float)width, 0.0);
-	cairo_pattern_add_color_stop_rgb(dark_gradient, 0.0, 0.0, 0.25, 0.0);
-	cairo_pattern_add_color_stop_rgb(dark_gradient, 0.75, 0.25, 0.25, 0.0);
-	cairo_pattern_add_color_stop_rgb(dark_gradient, 1.0, 0.25, 0.0, 0.0);
-
-	// Turn off antialiasing for speed
-	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
-
-	// Create a gradient
-	cairo_pattern_t *gradient = cairo_pattern_create_linear(0.0, 0.0, (float)width, 0.0);
-	cairo_pattern_add_color_stop_rgb(gradient, 0.0, 0.0, 1.0, 0.0);
-	cairo_pattern_add_color_stop_rgb(gradient, 0.75, 1.0, 1.0, 0.0);
-	cairo_pattern_add_color_stop_rgb(gradient, 1.0, 1.0, 0.0, 0.0);
-
-	StackChannelRMSData *rms = stack_cue_list_get_rms_data(cue_widget->cue_list, cue_widget->cue_uid);
-	if (rms != NULL)
-	{
-		// Setup the colouring of the rectangles
-
-		// Render the rectangles
-		StackCue *cue = stack_cue_list_get_cue_by_uid(cue_widget->cue_list, cue_widget->cue_uid);
-
-		size_t channel_count = stack_cue_get_active_channels(cue, NULL);
-		float bar_height = floorf((float)height / (float)channel_count);
-		for (size_t i = 0; i < channel_count; i++)
-		{
-			// Grab the level and put it in bounds
-			const float min = -90.0;
-			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
-			float level = rms[i].current_level;
-			if (level < min) { level = min; }
-			if (level > 0.0) { level = 0.0; }
-			const float level_x = (float)width * ((level - min) / -min);
-
-			// Draw the dark section (we minus one on x for rounding errors)
-			cairo_set_source(cr, dark_gradient);
-			cairo_rectangle(cr, level_x - 1, bar_height * (float)i, width - level_x, bar_height - 1.0);
-			cairo_fill(cr);
-
-			// Draw the level
-			cairo_set_source(cr, gradient);
-			cairo_rectangle(cr, 0.0, bar_height * (float)i, level_x, bar_height - 1.0);
-			cairo_fill(cr);
-
-			// Grab the peak and put it in bounds
-			// TODO: This should probably be in StackCueList instead
-			if (current_time - rms[i].peak_time > peak_hold_time)
-			{
-				rms[i].peak_level -= 1.0;
-			}
-			float peak = rms[i].peak_level;
-			if (peak < min) { peak = min; }
-			if (peak > 0.0) { peak = 0.0; }
-			float peak_x = (float)width * ((peak - min) / -min);
-
-			// Draw the peak line
-			cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
-			cairo_move_to(cr, peak_x, bar_height * (float)i);
-			cairo_rel_line_to(cr, 0, bar_height - 1);
-			cairo_stroke(cr);
-		}
-	}
-
-	// Tidy up
-	cairo_pattern_destroy(dark_gradient);
-	cairo_pattern_destroy(gradient);
-
-	return FALSE;
-}
-
 static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue *cue)
 {
 	StackActiveCueWidget *cue_widget;
@@ -1318,14 +1235,12 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		gtk_label_set_xalign(cue_widget->time, 0.0);
 
 		// Widget for levels
-		cue_widget->levels = GTK_DRAWING_AREA(gtk_drawing_area_new());
-		gtk_widget_set_visible(GTK_WIDGET(cue_widget->levels), true);
+		cue_widget->meter = STACK_LEVEL_METER(stack_level_meter_new(2, -90.0, 0.0));
+		gtk_widget_set_visible(GTK_WIDGET(cue_widget->meter), true);
 		GValue height_request = G_VALUE_INIT;
 		g_value_init(&height_request, G_TYPE_INT);
 		g_value_set_int(&height_request, 20);
-		g_object_set_property(G_OBJECT(cue_widget->levels), "height-request", &height_request);
-		g_object_set_data(G_OBJECT(cue_widget->levels), "cue-widget", (gpointer)cue_widget);
-		g_signal_connect(G_OBJECT(cue_widget->levels), "draw", G_CALLBACK(stack_level_meter_draw), NULL);
+		g_object_set_property(G_OBJECT(cue_widget->meter), "height-request", &height_request);
 
 		// Get the UI item to add the cue to
 		GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
@@ -1333,7 +1248,7 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		// Pack everything
 		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->name), false, false, 0);
 		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->time), false, false, 0);
-		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->levels), false, false, 2);
+		gtk_box_pack_start(cue_widget->vbox, GTK_WIDGET(cue_widget->meter), false, false, 2);
 		gtk_box_pack_start(active_cues, GTK_WIDGET(cue_widget->vbox), false, false, 4);
 
 		// Store in our map
@@ -1346,13 +1261,37 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 
 	// Get live running time
 	stack_time_t rpre, raction, rpost;
-	stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
+	stack_time_t current_time = stack_get_clock_time();
+	stack_cue_get_running_times(cue, current_time, &rpre, &raction, &rpost, NULL, NULL, NULL);
 
 	// Update the name of the cue. We compare the strings first to avoid a more
 	// expensive redraw in Gtk if it hasn't changed
 	if (strcmp(gtk_label_get_text(cue_widget->name), stack_cue_get_rendered_name(cue)) != 0)
 	{
 		gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
+	}
+
+	size_t channel_count = stack_cue_get_active_channels(cue, NULL);
+	StackChannelRMSData *rms = stack_cue_list_get_rms_data(window->cue_list, cue->uid);
+	if (rms != NULL)
+	{
+		for (size_t i = 0; i < channel_count; i++)
+		{
+			stack_level_meter_set_level_and_peak(cue_widget->meter, i, rms[i].current_level, rms[i].peak_level);
+
+			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
+			// TODO: This should probably be in StackCueList instead
+			if (current_time - rms[i].peak_time > peak_hold_time)
+			{
+				rms[i].peak_level -= 1.0;
+			}
+		}
+	}
+
+	if (channel_count == 0 || rms == NULL)
+	{
+		// Reset the levels if we have no RMS data
+		stack_level_meter_reset(cue_widget->meter);
 	}
 
 	// Format the times
@@ -1381,7 +1320,6 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 
 	// Update the contents
 	gtk_label_set_text(cue_widget->time, time_text);
-	gtk_widget_queue_draw(GTK_WIDGET(cue_widget->levels));
 }
 
 // Callback for UI timer
