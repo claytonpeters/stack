@@ -1,6 +1,7 @@
 // Includes:
 #include "StackApp.h"
 #include "StackFadeCue.h"
+#include "StackGtkEntryHelper.h"
 #include "StackAudioCue.h"
 #include "StackLog.h"
 #include <cstring>
@@ -378,6 +379,9 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);
+
+	// Apply input limitin
+	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(builder, "fcpFadeTime")), false);
 
 	// Add an extra reference to the fade tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected

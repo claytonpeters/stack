@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackAudioCue.h"
+#include "StackGtkEntryHelper.h"
 #include "MPEGAudioFile.h"
 #include <cstring>
 #include <cstdlib>
@@ -910,6 +911,11 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_builder_add_callback_symbol(builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_volume_changed", G_CALLBACK(acp_volume_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_play_section_draw", G_CALLBACK(acp_play_section_draw));
+
+	// Apply input limiting
+	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(builder, "acpTrimStart")), false);
+	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(builder, "acpTrimEnd")), false);
+	stack_limit_gtk_entry_int(GTK_ENTRY(gtk_builder_get_object(builder, "acpLoops")), true);
 
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);

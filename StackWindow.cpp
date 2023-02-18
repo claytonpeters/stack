@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackAudioDevice.h"
 #include "StackLog.h"
+#include "StackGtkEntryHelper.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
@@ -1956,6 +1957,11 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
+
+	// Apply some input validation
+	stack_limit_gtk_entry_float(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueNumber")), false);
+	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawPostWait")), false);
+	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawPreWait")), false);
 
 	// Store some things in our class for easiness
 	window->treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawCuesTreeView"));
