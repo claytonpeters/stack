@@ -782,24 +782,21 @@ const char *stack_cue_list_get_show_revision(StackCueList *cue_list)
 	return NULL;
 }
 
+static void stack_cue_list_set_string(char **dest, const char *new_value)
+{
+	if (*dest != NULL)
+	{
+		free(*dest);
+	}
+
+	*dest = strdup(new_value != NULL ? new_value : "");
+}
+
 bool stack_cue_list_set_show_name(StackCueList *cue_list, const char *show_name)
 {
 	if (cue_list != NULL)
 	{
-		if (cue_list->show_name != NULL)
-		{
-			free(cue_list->show_name);
-		}
-
-		if (show_name != NULL)
-		{
-			cue_list->show_name = strdup(show_name);
-		}
-		else
-		{
-			cue_list->show_name = strdup("");
-		}
-
+		stack_cue_list_set_string(&cue_list->show_name, show_name);
 		return true;
 	}
 
@@ -810,20 +807,7 @@ bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_d
 {
 	if (cue_list != NULL)
 	{
-		if (cue_list->show_designer != NULL)
-		{
-			free(cue_list->show_designer);
-		}
-
-		if (show_designer != NULL)
-		{
-			cue_list->show_designer = strdup(show_designer);
-		}
-		else
-		{
-			cue_list->show_designer = strdup("");
-		}
-
+		stack_cue_list_set_string(&cue_list->show_designer, show_designer);
 		return true;
 	}
 
@@ -834,20 +818,7 @@ bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_r
 {
 	if (cue_list != NULL)
 	{
-		if (cue_list->show_revision != NULL)
-		{
-			free(cue_list->show_revision);
-		}
-
-		if (show_revision != NULL)
-		{
-			cue_list->show_revision = strdup(show_revision);
-		}
-		else
-		{
-			cue_list->show_revision = strdup("");
-		}
-
+		stack_cue_list_set_string(&cue_list->show_revision, show_revision);
 		return true;
 	}
 
