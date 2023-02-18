@@ -29,12 +29,14 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->short_filename = (char*)strdup("");
 	cue->media_start_time = 0;
 	cue->media_end_time = 0;
+	cue->loops = 1;
 	cue->play_volume = 0.0;
 	cue->builder = NULL;
 	cue->media_tab = NULL;
 
 	// Initialise our variables: playback
 	cue->playback_live_volume = 0.0;
+	cue->playback_loops = 0;
 	cue->playback_file = NULL;
 	cue->resampler = NULL;
 
@@ -523,6 +525,24 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	return false;
 }
 
+static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+{
+	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+
+	// Set the loops
+	cue->loops = atoi(gtk_entry_get_text(GTK_ENTRY(widget)));
+
+	// Update the UI to reformat
+	char buffer[32];
+	snprintf(buffer, 32, "%d", cue->loops);
+	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
+
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+	return false;
+}
+
 static void acp_volume_changed(GtkRange *range, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
@@ -747,6 +767,7 @@ static bool stack_audio_cue_play(StackCue *cue)
 
 	// Initialise playback
 	audio_cue->playback_live_volume = audio_cue->play_volume;
+	audio_cue->playback_loops = 0;
 
 	// If the sample rate of the file does not match the playback device, set
 	// up a resampler
@@ -799,7 +820,59 @@ static void stack_audio_cue_stop(StackCue *cue)
 // Called when we're pulsed (every few milliseconds whilst the cue is in playback)
 static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 {
-	// Call the super class
+	// Get the current action time
+	stack_time_t run_action_time;
+	stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
+
+	// If we're in playback, but we've reached the end of our time
+	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue->action_time)
+	{
+		bool loop = false;
+		StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
+
+		// Determine if we should loop
+		if (audio_cue->loops <= 0)
+		{
+			loop = true;
+		}
+		else if (audio_cue->loops > 1)
+		{
+			audio_cue->playback_loops++;
+
+			if (audio_cue->playback_loops < audio_cue->loops)
+			{
+				loop = true;
+			}
+		}
+
+		// If we are looping, we need to reset the cue start
+		if (loop)
+		{
+			// Set the cue start time to now minus the amount of time the pre-
+			// wait should have taken so it looks like we should have just
+			// started the action
+			cue->start_time = clocktime - cue->pre_time;
+
+			// Reset any pause times
+			cue->pause_time = 0;
+			cue->paused_time = 0;
+			cue->pause_paused_time = 0;
+
+			// Seek back in the file
+			stack_audio_file_seek(audio_cue->playback_file, audio_cue->media_start_time);
+
+			// We need to reset the resampler as we may have told it
+			// we're finished
+			if (audio_cue->resampler)
+			{
+				stack_resampler_destroy(audio_cue->resampler);
+				audio_cue->resampler = stack_resampler_create(audio_cue->playback_file->sample_rate, audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
+			}
+		}
+	}
+
+	// Call the super class. Note that we do this _after_ the looping code above
+	// becaues the super class will stop the cue at the end of the action time
 	stack_cue_pulse_base(cue, clocktime);
 
 	// Redraw the preview periodically whilst in playback, but schedule this on
@@ -833,6 +906,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_builder_add_callback_symbol(builder, "acp_file_changed", G_CALLBACK(acp_file_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_trim_start_changed", G_CALLBACK(acp_trim_start_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
+	gtk_builder_add_callback_symbol(builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_volume_changed", G_CALLBACK(acp_volume_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_play_section_draw", G_CALLBACK(acp_play_section_draw));
 
@@ -859,7 +933,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		// Display the file length
 		char time_buffer[32], text_buffer[128];
 		stack_format_time_as_string(scue->playback_file->length, time_buffer, 32);
-		snprintf(text_buffer, 128, "(File length is %s)", time_buffer);
+		snprintf(text_buffer, 128, "(Length is %s)", time_buffer);
 		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "acpFileLengthLabel")), text_buffer);
 	}
 
@@ -883,6 +957,10 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Set the values: trim end
 	stack_format_time_as_string(scue->media_end_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "acpTrimEnd")), buffer);
+
+	// Set the values: loops
+	snprintf(buffer, 32, "%d", scue->loops);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "acpLoops")), buffer);
 }
 
 // Removes the properties tabs for an audio cue
@@ -918,6 +996,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	cue_root["file"] = acue->file;
 	cue_root["media_start_time"] = (Json::Int64)acue->media_start_time;
 	cue_root["media_end_time"] = (Json::Int64)acue->media_end_time;
+	cue_root["loops"] = (Json::Int64)acue->loops;
 	if (isfinite(acue->play_volume))
 	{
 		cue_root["play_volume"] = acue->play_volume;
@@ -966,18 +1045,49 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	}
 
 	// Load media start and end times
-	STACK_AUDIO_CUE(cue)->media_start_time = cue_data["media_start_time"].asInt64();
-	STACK_AUDIO_CUE(cue)->media_end_time = cue_data["media_end_time"].asInt64();
-	stack_cue_set_action_time(STACK_CUE(cue), STACK_AUDIO_CUE(cue)->media_end_time - STACK_AUDIO_CUE(cue)->media_start_time);
-
-	// Load playback volume
-	if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
+	if (cue_data.isMember("media_start_time"))
 	{
-		STACK_AUDIO_CUE(cue)->play_volume = -INFINITY;
+		STACK_AUDIO_CUE(cue)->media_start_time = cue_data["media_start_time"].asInt64();
 	}
 	else
 	{
-		STACK_AUDIO_CUE(cue)->play_volume = cue_data["play_volume"].asDouble();
+		STACK_AUDIO_CUE(cue)->media_start_time = 0;
+	}
+	if (cue_data.isMember("media_end_time"))
+	{
+		STACK_AUDIO_CUE(cue)->media_end_time = cue_data["media_end_time"].asInt64();
+	}
+	else
+	{
+		STACK_AUDIO_CUE(cue)->media_end_time = STACK_AUDIO_CUE(cue)->playback_file->length;
+	}
+	stack_cue_set_action_time(STACK_CUE(cue), STACK_AUDIO_CUE(cue)->media_end_time - STACK_AUDIO_CUE(cue)->media_start_time);
+
+	// Load loops
+	if (cue_data.isMember("loops"))
+	{
+		STACK_AUDIO_CUE(cue)->loops = (int32_t)cue_data["loops"].asInt64();
+	}
+	else
+	{
+		STACK_AUDIO_CUE(cue)->loops = 1;
+	}
+
+	// Load playback volume
+	if (cue_data.isMember("play_volume"))
+	{
+		if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
+		{
+			STACK_AUDIO_CUE(cue)->play_volume = -INFINITY;
+		}
+		else
+		{
+			STACK_AUDIO_CUE(cue)->play_volume = cue_data["play_volume"].asDouble();
+		}
+	}
+	else
+	{
+		STACK_AUDIO_CUE(cue)->play_volume = 0.0;
 	}
 }
 

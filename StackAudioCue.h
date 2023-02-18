@@ -25,6 +25,10 @@ struct StackAudioCue
 	// media file)
 	stack_time_t media_end_time;
 
+	// The number of times to play the cue on a single activation. Zero or less
+	// is infinite
+	int32_t loops;
+
 	// Post-fade-in, pre-fade-out volume, in dB
 	double play_volume;
 
@@ -36,6 +40,9 @@ struct StackAudioCue
 
 	// The current volume of the cue
 	double playback_live_volume;
+
+	// The current number of playback loops
+	int32_t playback_loops;
 
 	// The currently open file
 	StackAudioFile *playback_file;

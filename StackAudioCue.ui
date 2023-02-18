@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.0 -->
+<!-- Generated with glade 3.38.2 -->
 <interface>
   <requires lib="gtk+" version="3.10"/>
   <object class="GtkFileFilter" id="acpAudioFileFilter">
@@ -15,79 +15,83 @@
   <object class="GtkAdjustment" id="acpVolumeAdjust">
     <property name="lower">-50</property>
     <property name="upper">21</property>
-    <property name="step_increment">0.01</property>
-    <property name="page_increment">0.10000000000000001</property>
-    <property name="page_size">1</property>
+    <property name="step-increment">0.01</property>
+    <property name="page-increment">0.10</property>
+    <property name="page-size">1</property>
   </object>
   <object class="GtkWindow" id="window1">
-    <property name="can_focus">False</property>
+    <property name="can-focus">False</property>
     <child>
+      <!-- n-columns=2 n-rows=4 -->
       <object class="GtkGrid" id="acpGrid">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="margin_left">10</property>
-        <property name="margin_right">10</property>
-        <property name="margin_top">10</property>
-        <property name="margin_bottom">10</property>
+        <property name="can-focus">False</property>
+        <property name="margin-left">10</property>
+        <property name="margin-right">10</property>
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="row_spacing">8</property>
-        <property name="column_spacing">8</property>
+        <property name="row-spacing">8</property>
+        <property name="column-spacing">8</property>
         <child>
           <object class="GtkLabel" id="acpFileLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">File:</property>
+            <property name="label" translatable="yes">_File:</property>
+            <property name="use-underline">True</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">0</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="acpMediaTrimLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Play Section:</property>
+            <property name="label" translatable="yes">_Play from:</property>
+            <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
             <property name="ellipsize">end</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
         <child>
           <object class="GtkFileChooserButton" id="acpFile">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="tooltip_text" translatable="yes">The audio file to play</property>
+            <property name="can-focus">False</property>
+            <property name="tooltip-text" translatable="yes">The audio file to play</property>
             <property name="hexpand">True</property>
             <property name="filter">acpAudioFileFilter</property>
             <signal name="file-set" handler="acp_file_changed" swapped="no"/>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">0</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="acpTrimBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="hexpand">True</property>
             <property name="spacing">8</property>
             <child>
               <object class="GtkEntry" id="acpTrimStart">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="tooltip_text" translatable="yes">When playing the audio file, Stack will skip this far in to the file before playing</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">When playing the audio file, Stack will skip this far in to the file before playing</property>
                 <property name="hexpand">True</property>
-                <property name="width_chars">1</property>
-                <property name="placeholder_text" translatable="yes">Start Time</property>
+                <property name="width-chars">1</property>
+                <property name="caps-lock-warning">False</property>
+                <property name="placeholder-text" translatable="yes">Start Time</property>
                 <signal name="focus-out-event" handler="acp_trim_start_changed" swapped="no"/>
               </object>
               <packing>
@@ -99,8 +103,9 @@
             <child>
               <object class="GtkLabel" id="acpTrimToLabel">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">to</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">_to</property>
+                <property name="use-underline">True</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -111,11 +116,12 @@
             <child>
               <object class="GtkEntry" id="acpTrimEnd">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="tooltip_text" translatable="yes">When playing the audio file, Stack will consider this point to be the end of the audio file.</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">When playing the audio file, Stack will consider this point to be the end of the audio file.</property>
                 <property name="hexpand">True</property>
-                <property name="width_chars">1</property>
-                <property name="placeholder_text" translatable="yes">End Time</property>
+                <property name="width-chars">1</property>
+                <property name="caps-lock-warning">False</property>
+                <property name="placeholder-text" translatable="yes">End Time</property>
                 <signal name="focus-out-event" handler="acp_trim_end_changed" swapped="no"/>
               </object>
               <packing>
@@ -127,7 +133,7 @@
             <child>
               <object class="GtkLabel" id="acpFileLengthLabel">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="wrap">True</property>
               </object>
               <packing>
@@ -136,42 +142,85 @@
                 <property name="position">3</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-left">12</property>
+                <property name="label" translatable="yes">_Loop</property>
+                <property name="use-underline">True</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">4</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="acpLoops">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="width-chars">4</property>
+                <property name="tooltip-text" translatable="yes">When playing the audio file, repeat it this many times. Zero or negative numbers will loop indefinitely.</property>
+                <property name="caps-lock-warning">False</property>
+                <property name="input-purpose">number</property>
+                <signal name="focus-out-event" handler="acp_loops_changed" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">5</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">times</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">6</property>
+              </packing>
+            </child>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">1</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="acpVolumeLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Volume:</property>
+            <property name="label" translatable="yes">_Volume:</property>
+            <property name="use-underline">True</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">3</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="acpVolumeBox">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <property name="spacing">8</property>
             <child>
               <object class="GtkScale" id="acpVolume">
-                <property name="height_request">32</property>
+                <property name="height-request">32</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="tooltip_text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
                 <property name="hexpand">True</property>
                 <property name="adjustment">acpVolumeAdjust</property>
-                <property name="fill_level">21</property>
-                <property name="round_digits">2</property>
+                <property name="fill-level">21</property>
+                <property name="round-digits">2</property>
                 <property name="digits">2</property>
-                <property name="draw_value">False</property>
-                <property name="value_pos">right</property>
+                <property name="draw-value">False</property>
+                <property name="value-pos">right</property>
                 <signal name="value-changed" handler="acp_volume_changed" swapped="no"/>
               </object>
               <packing>
@@ -183,10 +232,10 @@
             <child>
               <object class="GtkLabel" id="acpVolumeValueLabel">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can-focus">False</property>
                 <property name="label" translatable="yes">0.00 dB</property>
                 <property name="ellipsize">start</property>
-                <property name="width_chars">9</property>
+                <property name="width-chars">9</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -196,30 +245,30 @@
             </child>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">3</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkDrawingArea" id="acpPlaySectionUI">
-            <property name="height_request">120</property>
+            <property name="height-request">120</property>
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
             <signal name="draw" handler="acp_play_section_draw" swapped="no"/>
           </object>
           <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">2</property>
+            <property name="left-attach">1</property>
+            <property name="top-attach">2</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel">
             <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="can-focus">False</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
+            <property name="left-attach">0</property>
+            <property name="top-attach">2</property>
           </packing>
         </child>
       </object>
