@@ -16,6 +16,9 @@ typedef map<cue_uid_t, StackChannelRMSData*> rms_map_t;
 #define SCL_GET_LIST(_scl) ((stackcue_list_t*)(((StackCueList*)(_scl))->cues))
 #define SCL_UID_REMAP(_scl) (*((uid_remap_t*)(_scl)))
 
+// Pre-definitions:
+static void stack_cue_list_pulse_thread(StackCueList *cue_list);
+
 /// Creates a new cue list
 /// @param channels The number of audio channels to support
 StackCueList *stack_cue_list_new(uint16_t channels)
@@ -34,6 +37,8 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 
 	// Default to a two-channel set up
 	cue_list->channels = channels;
+	cue_list->active_channels_cache = new bool[cue_list->channels];
+	cue_list->rms_cache = new float[cue_list->channels];
 
 	// Initialise a list
 	cue_list->cues = (void*)new stackcue_list_t();
@@ -51,6 +56,10 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	// Initialise a map for storing RMS data
 	cue_list->rms_data = (void*)new rms_map_t();
 
+	// Start the cue list pulsing thread
+	cue_list->kill_thread = false;
+	cue_list->pulse_thread = std::thread(stack_cue_list_pulse_thread, cue_list);
+
 	return cue_list;
 }
 
@@ -63,6 +72,10 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		stack_log("stack_cue_list_destroy(): Attempted to destroy NULL!\n");
 		return;
 	}
+
+	// Stop the pulse thread
+	cue_list->kill_thread = true;
+	cue_list->pulse_thread.join();
 
 	// Destroy the audio device
 	if (cue_list->audio_device)
@@ -133,6 +146,10 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	delete (stackcue_list_t*)cue_list->cues;
 	delete (uid_remap_t*)cue_list->uid_remap;
 	delete (rms_map_t*)cue_list->rms_data;
+
+	// Tidy up caches
+	delete [] cue_list->active_channels_cache;
+	delete [] cue_list->rms_cache;
 
 	// Unlock the cue list
 	stack_cue_list_unlock(cue_list);
@@ -246,11 +263,31 @@ bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter)
 	return (*(stackcue_list_iterator_t*)(iter)) == SCL_GET_LIST(cue_list)->end();
 }
 
+// Callback for cue pulsing timer
+static void stack_cue_list_pulse_thread(StackCueList *cue_list)
+{
+	// Loop until we're being destroyed
+	while (!cue_list->kill_thread)
+	{
+		// Send pulses to all the active cues
+		stack_cue_list_pulse(cue_list);
+
+		// Sleep for a millisecond
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+
+	return;
+}
+
+
 /// Pulses all the cues in the cue list so that they may do their time-based operations
 /// @param cue_list The cue list
 void stack_cue_list_pulse(StackCueList *cue_list)
 {
 	static stack_time_t underflow_time = 0;
+
+	// Lock the cue list
+	stack_cue_list_lock(cue_list);
 
 	// Get a single clock time for all the cues
 	stack_time_t clocktime = stack_get_clock_time();
@@ -270,7 +307,10 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Track how long the cue pulses took
 	//stack_time_t cue_pulse_time = stack_get_clock_time() - clocktime;
 
-	//stack_log("stack_cue_list_pulse(): Pulse took %lldns (of which cues: %lldns) (wrote %d blocks)\n", pulse_time, cue_pulse_time, blocks_written);
+	// Unlock the cue list
+	stack_cue_list_unlock(cue_list);
+
+	//stack_log("stack_cue_list_pulse(): Pulse took %lldns\n", cue_pulse_time);
 }
 
 /// Locks a mutex for the cue list
@@ -827,15 +867,12 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	float *new_data = new float[cue_list->channels * request_samples];
 	memset(new_data, 0, cue_list->channels * request_samples * sizeof(float));
 
-	// Allocate a buffer for active channels per cue
-	bool *active_channels = new bool[cue_list->channels];
-
 	// Allocate a buffer for new cue data
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
 		// Get the list of active_channels
-		memset(active_channels, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(*iter, active_channels);
+		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
+		size_t active_channel_count = stack_cue_get_active_channels(*iter, cue_list->active_channels_cache);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)
@@ -846,10 +883,6 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		// Allocate a buffer for new cue audio
 		float *cue_data = new float[active_channel_count * request_samples];
 
-		// Allocate a buffer for calulating the RMS per channel
-		float *rms = new float[active_channel_count];
-		memset(rms, 0, sizeof(float) * active_channel_count);
-
 		// Get the audio data from the cue
 		size_t samples_received = stack_cue_get_audio(*iter, cue_data, request_samples);
 
@@ -858,7 +891,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		for (size_t dest_channel = 0; dest_channel < cue_list->channels; dest_channel++)
 		{
 			// Only need to do something if the channel is active
-			if (!active_channels[dest_channel])
+			if (!cue_list->active_channels_cache[dest_channel])
 			{
 				continue;
 			}
@@ -868,11 +901,12 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			float *read_pointer = &cue_data[source_channel];
 			float *end_pointer = &cue_data[active_channel_count * samples_received];
 			float *write_pointer = &new_data[dest_channel * request_samples];
+			float channel_rms = 0.0;
 			while (read_pointer < end_pointer)
 			{
 				// Keep track of the RMS whilst we're already looping
 				const float value = *read_pointer;
-				rms[source_channel] += value * value;
+				channel_rms += value * value;
 
 				// Write out the data
 				*write_pointer += value;
@@ -881,7 +915,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			}
 
 			// Finish off the RMS calculation
-			rms[source_channel] = stack_scalar_to_db(sqrtf(rms[source_channel] / (float)samples_received));
+			cue_list->rms_cache[source_channel] = stack_scalar_to_db(sqrtf(channel_rms / (float)samples_received));
 
 			// Start the next channel
 			source_channel++;
@@ -894,8 +928,8 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
-				new_rms_data[i].current_level = rms[i];
-				new_rms_data[i].peak_level = rms[i];
+				new_rms_data[i].current_level = cue_list->rms_cache[i];
+				new_rms_data[i].peak_level = cue_list->rms_cache[i];
 				new_rms_data[i].peak_time = stack_get_clock_time();
 			}
 			(*rms_data)[(*iter)->uid] = new_rms_data;
@@ -905,10 +939,10 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			StackChannelRMSData *rms_data = rms_iter->second;
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
-				rms_data[i].current_level = rms[i];
-				if (rms[i] >= rms_data[i].peak_level)
+				rms_data[i].current_level = cue_list->rms_cache[i];
+				if (cue_list->rms_cache[i] >= rms_data[i].peak_level)
 				{
-					rms_data[i].peak_level = rms[i];
+					rms_data[i].peak_level = cue_list->rms_cache[i];
 					rms_data[i].peak_time = stack_get_clock_time();
 				}
 			}
@@ -916,7 +950,6 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 		// Tidy up
 		delete [] cue_data;
-		delete [] rms;
 	}
 
 	// Write the new data into the ring buffers
@@ -927,7 +960,6 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 	// Tidy up
 	delete [] new_data;
-	delete [] active_channels;
 
 	stack_cue_list_unlock(cue_list);
 

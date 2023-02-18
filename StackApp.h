@@ -3,7 +3,6 @@
 
 // Includes
 #include <gtk/gtk.h>
-#include <thread>
 #include <map>
 #include <string>
 #include "StackCue.h"
@@ -55,10 +54,6 @@ struct StackAppWindow
 
 	// Don't update selections for now (mostly to work round Gtk+ oddities)
 	bool freeze_list_selections;
-
-	// The thread which handles pulsing the cue list
-	std::thread pulse_thread;
-	bool kill_thread;
 
 	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
 	int timer_state;

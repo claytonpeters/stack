@@ -35,38 +35,6 @@ struct ShowLoadingData
 static void saw_cue_stop_all_clicked(void* widget, gpointer user_data);
 static void saw_remove_inactive_cue_widgets(StackAppWindow *window);
 
-static void set_stack_pulse_thread_priority(StackAppWindow* window)
-{
-	// Set thread priority
-	struct sched_param param = { 5 };
-	if (pthread_setschedparam(window->pulse_thread.native_handle(), SCHED_RR, &param) != 0)
-	{
-		stack_log("stack_pulse_thread(): Failed to set pulse thread priority.\n");
-	}
-}
-
-// Callback for cue pulsing timer
-static void stack_pulse_thread(StackAppWindow* window)
-{
-	// Loop until we're being destroyed
-	while (!window->kill_thread)
-	{
-		// Lock the cue list
-		stack_cue_list_lock(window->cue_list);
-
-		// Send pulses to all the active cues
-		stack_cue_list_pulse(window->cue_list);
-
-		// Unlock the cue list
-		stack_cue_list_unlock(window->cue_list);
-
-		// Sleep for a millisecond
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
-
-	return;
-}
-
 // Callback when loading a show to update our loading dialog
 static void saw_open_file_callback(StackCueList *cue_list, double progress, const char *message, void *data)
 {
@@ -619,11 +587,6 @@ static void saw_setup_default_device(StackAppWindow *window)
 		// Free the list of devices
 		sadc->free_outputs_func(&devices, num_outputs);
 	}
-
-	// Start the cue list pulsing thread
-	window->kill_thread = false;
-	window->pulse_thread = std::thread(stack_pulse_thread, window);
-	set_stack_pulse_thread_priority(window);
 }
 
 // Menu callback
@@ -788,10 +751,6 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 		stack_cue_unset_tabs(window->selected_cue, window->notebook);
 		window->selected_cue = NULL;
 	}
-
-	// Kill the cue list pulsing thread
-	window->kill_thread = true;
-	window->pulse_thread.join();
 
 	// We don't need to worry about the UI timer, as that's running on the same
 	// thread as the event loop that is handling this event handler
@@ -1446,10 +1405,6 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-
-	// Kill the pulse thread and wait for it to exit
-	window->kill_thread = true;
-	window->pulse_thread.join();
 
 	// Clear the list store
 	saw_clear_list_store(window);
@@ -2137,10 +2092,6 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 			stack_cue_unset_tabs(window->selected_cue, window->notebook);
 			window->selected_cue = NULL;
 		}
-
-		// Kill the cue list pulsing thread
-		window->kill_thread = true;
-		window->pulse_thread.join();
 
 		// We don't need to worry about the UI timer, as that's running on the
 		// same thread as the event loop that is handling this event handler

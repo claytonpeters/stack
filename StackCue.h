@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
+#include <thread>
 
 // Generic type for time - in nanoseconds
 typedef int64_t stack_time_t;
@@ -77,6 +78,10 @@ struct StackCueList
 	// and a map between virtual channels and device channels)
 	StackAudioDevice *audio_device;
 
+	// The thread which handles pulsing the cue list
+	std::thread pulse_thread;
+	bool kill_thread;
+
 	// Mutex lock
 	std::mutex lock;
 
@@ -107,6 +112,10 @@ struct StackCueList
 
 	// Audio RMS data (this a std::map internally)
 	void *rms_data;
+
+	// Cache
+	bool *active_channels_cache;
+	float *rms_cache;
 };
 
 // Base class for cues
