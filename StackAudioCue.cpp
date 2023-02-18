@@ -469,7 +469,7 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 	{
 		cue->media_start_time = 0;
 	}
-	if (cue->file && cue->media_start_time > cue->playback_file->length)
+	if (cue->playback_file && cue->media_start_time > cue->playback_file->length)
 	{
 		cue->media_start_time = cue->playback_file->length;
 	}
@@ -504,7 +504,7 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	{
 		cue->media_end_time = 0;
 	}
-	if (cue->file && cue->media_end_time > cue->playback_file->length)
+	if (cue->playback_file && cue->media_end_time > cue->playback_file->length)
 	{
 		cue->media_end_time = cue->playback_file->length;
 	}
