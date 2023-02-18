@@ -998,7 +998,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	cue_root["media_start_time"] = (Json::Int64)acue->media_start_time;
 	cue_root["media_end_time"] = (Json::Int64)acue->media_end_time;
 	cue_root["loops"] = (Json::Int64)acue->loops;
-	if (isfinite(acue->play_volume))
+	if (std::isfinite(acue->play_volume))
 	{
 		cue_root["play_volume"] = acue->play_volume;
 	}

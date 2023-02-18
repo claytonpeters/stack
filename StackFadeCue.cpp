@@ -488,7 +488,7 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 	// Build JSON
 	Json::Value cue_root;
 	cue_root["target"] = (Json::UInt64)fcue->target;
-	if (isfinite(fcue->target_volume))
+	if (std::isfinite(fcue->target_volume))
 	{
 		cue_root["target_volume"] = fcue->target_volume;
 	}

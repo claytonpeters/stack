@@ -8,6 +8,7 @@
 
 // GTK stuff
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
+#define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
 // Structure used to search for a cue within the model
 struct ModelFindCue
