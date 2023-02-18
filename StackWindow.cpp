@@ -1911,7 +1911,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up a timer to periodically refresh the UI
 	window->timer_state = 0;
-	gdk_threads_add_timeout(51, (GSourceFunc)saw_ui_timer, (gpointer)window);
+	gdk_threads_add_timeout(33, (GSourceFunc)saw_ui_timer, (gpointer)window);
 
 	// Setup the default device
 	saw_setup_default_device(window);

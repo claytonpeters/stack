@@ -158,18 +158,21 @@ static gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr)
     // Turn off antialiasing for speed
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
-	float bar_height = floorf((float)height / (float)meter->channels);
+	const float bar_height = floorf((float)height / (float)meter->channels);
+	const float float_width = (float)width;
+	const float level_scalar = float_width / (meter->max - meter->min);
+
 	for (guint i = 0; i < meter->channels; i++)
 	{
 		// Grab the level and put it in bounds
 		float level = meter->levels[i];
 		if (level < meter->min) { level = meter->min; }
 		if (level > meter->max) { level = meter->max; }
-		const float level_x = (float)width * ((level - meter->min) / -meter->min);
+		const float level_x = (level - meter->min) * level_scalar;
 
 		// Draw the dark section (we minus one on x for rounding errors)
 		cairo_set_source(cr, meter->background_pattern);
-		cairo_rectangle(cr, level_x - 1, bar_height * (float)i, width - level_x, bar_height - 1.0);
+		cairo_rectangle(cr, level_x - 1, bar_height * (float)i, float_width - level_x, bar_height - 1.0);
 		cairo_fill(cr);
 
 		// Draw the level
@@ -181,7 +184,7 @@ static gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr)
 		float peak = meter->peaks[i];
 		if (peak < meter->min) { peak = meter->min; }
 		if (peak > meter->max) { peak = meter->max; }
-		float peak_x = (float)width * ((peak - meter->min) / -meter->min);
+		float peak_x = (peak - meter->min) * level_scalar;
 
 		// Draw the peak line
 		cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
