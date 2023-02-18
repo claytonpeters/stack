@@ -1,5 +1,6 @@
+// Includes:
 #include "StackRingBuffer.h"
-#include <string.h>
+#include <cstring>
 
 StackRingBuffer *stack_ring_buffer_create(size_t capacity)
 {

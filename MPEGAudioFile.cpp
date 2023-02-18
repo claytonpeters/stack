@@ -1,6 +1,6 @@
-// Includes
+// Includes:
 #include "MPEGAudioFile.h"
-//#include <mad.h>	// Necessary soon
+#include "StackLog.h"
 
 struct MP3FrameHeader
 {
@@ -95,7 +95,7 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 	// Attempt to read an ID3 header
 	if (g_input_stream_read(stream, &id3_header, sizeof(ID3Header), NULL, NULL) != sizeof(ID3Header))
 	{
-		fprintf(stderr, "mpeg_audio_file_skip_id3v2(): Failed to read whilst checking for ID3 header\n");
+		stack_log("mpeg_audio_file_skip_id3v2(): Failed to read whilst checking for ID3 header\n");
 		return (size_t)-1;
 	}
 
@@ -108,12 +108,12 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 		// removed. This line extracts the 28 relevant bits
 		uint32_t size = (uint32_t)id3_header.size4 | ((uint32_t)id3_header.size3 << 7) | ((uint32_t)id3_header.size2 << 14) | ((uint32_t)id3_header.size1 << 21);
 
-		fprintf(stderr, "mpeg_audio_file_skip_id3v2(): ID3v2 tag found. Skipping %u bytes\n", size);
+		stack_log("mpeg_audio_file_skip_id3v2(): ID3v2 tag found. Skipping %u bytes\n", size);
 
 		// Seek past the ID3 body
 		if (!g_seekable_seek(G_SEEKABLE(stream), size, G_SEEK_CUR, NULL, NULL))
 		{
-			fprintf(stderr, "mpeg_audio_file_skip_id3v2(): Seek failed when skipping ID3 body\n");
+			stack_log("mpeg_audio_file_skip_id3v2(): Seek failed when skipping ID3 body\n");
 			return (size_t)-1;
 		}
 
@@ -125,7 +125,7 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 		// We didn't have an ID3 header. Seek back the bytes we just read
 		if (!g_seekable_seek(G_SEEKABLE(stream), -sizeof(ID3Header), G_SEEK_CUR, NULL, NULL))
 		{
-			fprintf(stderr, "mpeg_audio_file_skip_id3v2(): Seek failed. MP3 Header will likely fail\n");
+			stack_log("mpeg_audio_file_skip_id3v2(): Seek failed. MP3 Header will likely fail\n");
 			return (size_t)-1;
 		}
 		else
@@ -194,13 +194,13 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			// valid audio data
 			if (!lost_sync && frame_header_buffer[0] == 'T' && frame_header_buffer[1] == 'A' && frame_header_buffer[2] == 'G')
 			{
-				fprintf(stderr, "mpeg_audio_file_find_frames(): ID3v1 tag found, skipping 128 bytes\n");
+				stack_log("mpeg_audio_file_find_frames(): ID3v1 tag found, skipping 128 bytes\n");
 
 				// Seek past the TAG block. It should be 128 bytes,
 				// so we seek 124 (as we've already read the first 4)
 				if (!g_seekable_seek(G_SEEKABLE(stream), 124, G_SEEK_CUR, NULL, NULL))
 				{
-					fprintf(stderr, "mpeg_audio_file_find_frames(): Seek failed\n");
+					stack_log("mpeg_audio_file_find_frames(): Seek failed\n");
 					return false;
 				}
 
@@ -212,7 +212,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			if (lost_sync != true)
 			{
 				lost_sync = true;
-				fprintf(stderr, "mpeg_audio_file_find_frames(): Lost MP3 frame sync at offset %lu\n", frame_start);
+				stack_log("mpeg_audio_file_find_frames(): Lost MP3 frame sync at offset %lu\n", frame_start);
 			}
 
 			// If we don't find frame sync, seek back three bytes
@@ -220,7 +220,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			// try again
 			if (!g_seekable_seek(G_SEEKABLE(stream), -3, G_SEEK_CUR, NULL, NULL))
 			{
-				fprintf(stderr, "mpeg_audio_file_find_frames(): Seek failed\n");
+				stack_log("mpeg_audio_file_find_frames(): Seek failed\n");
 				return false;
 			}
 
@@ -234,7 +234,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			// Log when we regain sync
 			if (lost_sync)
 			{
-				fprintf(stderr, "mpeg_audio_file_find_frames(): Re-sync'd MP3 frame at offset %lu\n", frame_start);
+				stack_log("mpeg_audio_file_find_frames(): Re-sync'd MP3 frame at offset %lu\n", frame_start);
 				lost_sync = true;
 			}
 		}
@@ -263,14 +263,14 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		// header that we've already read)
 		if (!g_seekable_seek(G_SEEKABLE(stream), frame_size - 4, G_SEEK_CUR, NULL, NULL))
 		{
-			fprintf(stderr, "mpeg_audio_file_find_frames(): Seek failed\n");
+			stack_log("mpeg_audio_file_find_frames(): Seek failed\n");
 			return false;
 		}
 	}
 
 	if (lost_sync)
 	{
-		fprintf(stderr, "mpeg_audio_file_find_frames(): Unsync'd at EOF - truncated file?\n");
+		stack_log("mpeg_audio_file_find_frames(): Unsync'd at EOF - truncated file?\n");
 	}
 
 	// Return the data

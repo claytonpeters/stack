@@ -1,8 +1,9 @@
 #if HAVE_LIBSOXR == 1
 // Includes:
 #include "StackResampler.h"
-#include <math.h>
-#include <stdio.h>
+#include "StackLog.h"
+#include <cmath>
+#include <cstdio>
 
 StackResampler *stack_resampler_create(double input_sample_rate, double output_sample_rate, size_t channels)
 {
@@ -29,7 +30,7 @@ StackResampler *stack_resampler_create(double input_sample_rate, double output_s
 
 	if (error)
 	{
-		fprintf(stderr, "stack_resample_create(): Failed to initialise SOXR resampler: %s\n", soxr_strerror(error));
+		stack_log("stack_resample_create(): Failed to initialise SOXR resampler: %s\n", soxr_strerror(error));
 		delete result;
 		return NULL;
 	}
@@ -76,7 +77,7 @@ size_t stack_resampler_push(StackResampler *resampler, float *input, size_t inpu
 
 	if (error)
 	{
-		fprintf(stderr, "stack_resampler_resample(): Failed to resample: %s\n", soxr_strerror(error));
+		stack_log("stack_resampler_resample(): Failed to resample: %s\n", soxr_strerror(error));
 	}
 
 	// Write the data to the ring buffer

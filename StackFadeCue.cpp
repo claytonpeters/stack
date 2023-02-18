@@ -2,10 +2,11 @@
 #include "StackApp.h"
 #include "StackFadeCue.h"
 #include "StackAudioCue.h"
+#include "StackLog.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
-#include <math.h>
+#include <cmath>
 #include <json/json.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -522,7 +523,7 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackFadeCue"))
 	{
-		fprintf(stderr, "stack_fade_cue_from_json(): Missing StackFadeCue class\n");
+		stack_log("stack_fade_cue_from_json(): Missing StackFadeCue class\n");
 		return;
 	}
 

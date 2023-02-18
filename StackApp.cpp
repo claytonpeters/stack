@@ -2,8 +2,9 @@
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <string.h>
+#include <cstring>
 #include "StackApp.h"
+#include "StackLog.h"
 
 // GTK stuff
 G_DEFINE_TYPE(StackApp, stack_app, GTK_TYPE_APPLICATION);
@@ -35,7 +36,7 @@ static void stack_app_init(StackApp *app)
 			    entry->d_name[name_length - 2] == 's' &&
 			    entry->d_name[name_length - 1] == 'o')
 			{
-				fprintf(stderr, "stack_app_init(): Loading %s...\n", entry->d_name);
+				stack_log("stack_app_init(): Loading %s...\n", entry->d_name);
 
 				// We only have the filename, which if we pass to dlopen it'll look on
 				// the library search path rather than where the file actually is, so
@@ -54,23 +55,23 @@ static void stack_app_init(StackApp *app)
 
 					if (sip_ptr != NULL)
 					{
-						fprintf(stderr, "stack_app_init(): Initialising %s...\n", entry->d_name);
+						stack_log("stack_app_init(): Initialising %s...\n", entry->d_name);
 						// If we found the symbol, call it to initialise the plugin
 						if (!sip_ptr())
 						{
-							fprintf(stderr, "stack_app_init(): Plugin didn't initialise properly");
+							stack_log("stack_app_init(): Plugin didn't initialise properly");
 						}
 					}
 					else
 					{
-						fprintf(stderr, "stack_app_init(): %s is not a Stack plugin\n", entry->d_name);
+						stack_log("stack_app_init(): %s is not a Stack plugin\n", entry->d_name);
 						// This is not a Stack plugin, close the library
 						dlclose(dl_handle);
 					}
 				}
 				else
 				{
-					fprintf(stderr, "stack_app_init(): Failed to load %s: %s\n", entry->d_name, dlerror());
+					stack_log("stack_app_init(): Failed to load %s: %s\n", entry->d_name, dlerror());
 				}
 			}
 		}

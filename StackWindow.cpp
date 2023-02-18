@@ -1,13 +1,13 @@
 // Includes:
 #include "StackApp.h"
 #include "StackAudioDevice.h"
+#include "StackLog.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
 
 // GTK stuff
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
-#define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
 // Structure used to search for a cue within the model
 struct ModelFindCue
@@ -39,7 +39,7 @@ static void set_stack_pulse_thread_priority(StackAppWindow* window)
 	struct sched_param param = { 5 };
 	if (pthread_setschedparam(window->pulse_thread.native_handle(), SCHED_RR, &param) != 0)
 	{
-		fprintf(stderr, "stack_pulse_thread(): Failed to set pulse thread priority.\n");
+		stack_log("stack_pulse_thread(): Failed to set pulse thread priority.\n");
 	}
 }
 
@@ -75,7 +75,7 @@ static void saw_open_file_callback(StackCueList *cue_list, double progress, cons
 	sld->message = message;
 	sld->progress = progress;
 
-	fprintf(stderr, "saw_open_file_callback: %s (%.2f%%)\n", message, progress * 100.0);
+	stack_log("saw_open_file_callback: %s (%.2f%%)\n", message, progress * 100.0);
 }
 
 // Timer to update Show Loading dialog and close it when complete
@@ -802,19 +802,19 @@ static void saw_file_quit_clicked(void* item, gpointer user_data)
 // Menu callback
 static void saw_edit_cut_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Edit -> Cut clicked\n");
+	stack_log("Edit -> Cut clicked\n");
 }
 
 // Menu callback
 static void saw_edit_copy_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Edit -> Copy clicked\n");
+	stack_log("Edit -> Copy clicked\n");
 }
 
 // Menu callback
 static void saw_edit_paste_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Edit -> Paste clicked\n");
+	stack_log("Edit -> Paste clicked\n");
 }
 
 // Menu callback
@@ -879,7 +879,7 @@ static void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 {
-	fprintf(stderr, "Cue -> Add Group clicked\n");
+	stack_log("Cue -> Add Group clicked\n");
 }
 
 // Menu callback
@@ -1485,7 +1485,7 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 // Callback for when the window is destroyed
 static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
-	fprintf(stderr, "saw_destroy() called\n");
+	stack_log("saw_destroy() called\n");
 
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1742,17 +1742,17 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 
 /*gboolean saw_treeview_query_tooltip(GtkWidget *widget, gint x, gint y, gboolean keyboard_mode, GtkTooltip *tooltip, gpointer user_data)
 {
-	fprintf(stderr, ".");
+	stack_log(".");
 
 	GtkTreePath *path = NULL;
 	GtkTreeViewColumn *column = NULL;
 	gint cell_x = 0, cell_y = 0;
 	if (gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), x, y, &path, &column, &cell_x, &cell_y))
 	{
-		fprintf(stderr, "!");
+		stack_log("!");
 		if (strcmp(gtk_tree_view_column_get_title(column), "") == 0)
 		{
-			fprintf(stderr, "-");
+			stack_log("-");
 			gtk_tooltip_set_text(tooltip, "Hello");
 			return true;
 		}
@@ -1813,7 +1813,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 			gpointer cue;
 			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
 
-			fprintf(stderr, "saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
+			stack_log("saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
 
 			// Remove the cue from the cue list and move it to it's new location
 			stack_cue_list_lock(window->cue_list);
@@ -1829,7 +1829,7 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 // Initialises the window
 static void stack_app_window_init(StackAppWindow *window)
 {
-	fprintf(stderr, "stack_app_window_init()\n");
+	stack_log("stack_app_window_init()\n");
 
 	// Object set up:
 	window->selected_cue = NULL;
@@ -2089,7 +2089,7 @@ StackAppWindow* stack_app_window_new(StackApp *app)
 // Opens a given file in the StackAppWindow
 void stack_app_window_open(StackAppWindow *window, GFile *file)
 {
-	fprintf(stderr, "stack_app_window_open()\n");
+	stack_log("stack_app_window_open()\n");
 
 	// Get the URI of the File
 	char *uri = g_file_get_uri(file);

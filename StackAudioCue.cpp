@@ -1,10 +1,11 @@
 // Includes:
 #include "StackApp.h"
+#include "StackLog.h"
 #include "StackAudioCue.h"
 #include "MPEGAudioFile.h"
 #include <cstring>
 #include <cstdlib>
-#include <math.h>
+#include <cmath>
 #include <json/json.h>
 #include <vector>
 #include <time.h>
@@ -260,13 +261,13 @@ static uint64_t stack_audio_cue_preview_render_points(const StackAudioCue *cue, 
 // Thread to generate the code preview
 static void stack_audio_cue_preview_thread(StackAudioCue *cue)
 {
-	fprintf(stderr, "stack_audio_cue_preview_thread(): started\n");
+	stack_log("stack_audio_cue_preview_thread(): started\n");
 
 	// Open the file
 	StackAudioFile *file = stack_audio_file_create(cue->file);
 	if (file == NULL)
 	{
-		fprintf(stderr, "stack_audio_cue_preview_thread(): file open failed\n");
+		stack_log("stack_audio_cue_preview_thread(): file open failed\n");
 		return;
 	}
 
@@ -1028,7 +1029,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackAudioCue"))
 	{
-		fprintf(stderr, "stack_audio_cue_from_json(): Missing StackFadeCue class\n");
+		stack_log("stack_audio_cue_from_json(): Missing StackFadeCue class\n");
 		return;
 	}
 

@@ -1,5 +1,6 @@
 // Includes:
 #include "StackPulseAudioDevice.h"
+#include "StackLog.h"
 #include <cstring>
 
 // Globals:
@@ -31,28 +32,28 @@ void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
 	switch (state)
 	{
 		case PA_CONTEXT_CONNECTING:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): Connecting to PulseAudio...\n");
+			stack_log("stack_pulse_audio_notify_callback(): Connecting to PulseAudio...\n");
 			break;
 		case PA_CONTEXT_AUTHORIZING:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): Authorising...\n");
+			stack_log("stack_pulse_audio_notify_callback(): Authorising...\n");
 			break;
 		case PA_CONTEXT_SETTING_NAME:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): Setting name...\n");
+			stack_log("stack_pulse_audio_notify_callback(): Setting name...\n");
 			break;
 		case PA_CONTEXT_READY:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): PulseAudio context ready\n");
+			stack_log("stack_pulse_audio_notify_callback(): PulseAudio context ready\n");
 			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
 			break;
 		case PA_CONTEXT_FAILED:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): PulseAudio connection failed\n");
+			stack_log("stack_pulse_audio_notify_callback(): PulseAudio connection failed\n");
 			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
 			break;
 		case PA_CONTEXT_TERMINATED:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): PulseAudio connection terminated\n");
+			stack_log("stack_pulse_audio_notify_callback(): PulseAudio connection terminated\n");
 			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
 			break;
 		default:
-			fprintf(stderr, "stack_pulse_audio_notify_callback(): Unknown state!\n");
+			stack_log("stack_pulse_audio_notify_callback(): Unknown state!\n");
 			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
 			break;
 	}
@@ -90,7 +91,7 @@ void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* user
 		if (read < writable_samples)
 		{
 			writable = read * channels * sizeof(float);
-			fprintf(stderr, "Buffer underflow: %lu < %lu!\n", read, writable_samples);
+			stack_log("Buffer underflow: %lu < %lu!\n", read, writable_samples);
 		}
 
 		// Write the data to PulseAudio
@@ -170,25 +171,25 @@ void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *userdata)
 	switch (state)
 	{
 		case PA_STREAM_UNCONNECTED:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Stream unconnected\n");
+			stack_log("stack_pulse_audio_stream_notify_callback(): Stream unconnected\n");
 			break;
 		case PA_STREAM_CREATING:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Creating stream\n");
+			stack_log("stack_pulse_audio_stream_notify_callback(): Creating stream\n");
 			break;
 		case PA_STREAM_READY:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Stream ready\n");
+			stack_log("stack_pulse_audio_stream_notify_callback(): Stream ready\n");
 			device->sync_semaphore.notify();
 			break;
 		case PA_STREAM_FAILED:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Stream failed\n");
+			stack_log("stack_pulse_audio_stream_notify_callback(): Stream failed\n");
 			device->sync_semaphore.notify();
 			break;
 		case PA_STREAM_TERMINATED:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Stream terminated\n");
+			stack_log("stack_pulse_audio_stream_notify_callback(): Stream terminated\n");
 			device->sync_semaphore.notify();
 			break;
 		default:
-			fprintf(stderr, "stack_pulse_audio_stream_notify_callback(): Stream unknown state: %d!\n", state);
+			stack_log("stack_pulse_audio_stream_notify_callback(): Stream unknown state: %d!\n", state);
 			device->sync_semaphore.notify();
 			break;
 	}
@@ -227,7 +228,7 @@ bool stack_init_pulse_audio()
 	}
 
 	// Debug
-	fprintf(stderr, "stack_init_pulse_audio(): Initialising PulseAudio...\n");
+	stack_log("stack_init_pulse_audio(): Initialising PulseAudio...\n");
 
 	// Initialise the main loop and the context
 	mainloop = pa_threaded_mainloop_new();
@@ -264,7 +265,7 @@ bool stack_init_pulse_audio()
 	// Exit if we're in an unknown state
 	if (state != PA_CONTEXT_READY)
 	{
-		fprintf(stderr, "stack_init_pulse_audio(): Failed to connect");
+		stack_log("stack_init_pulse_audio(): Failed to connect");
 		pa_threaded_mainloop_stop(mainloop);
 		pa_threaded_mainloop_free(mainloop);
 		mainloop = NULL;
@@ -339,7 +340,7 @@ void stack_pulse_audio_device_free_outputs(StackAudioDeviceDesc **outputs, size_
 void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 {
 	// Debug
-	fprintf(stderr, "stack_pulse_audio_device_destroy() called\n");
+	stack_log("stack_pulse_audio_device_destroy() called\n");
 
 	// Tidy up
 	if (STACK_PULSE_AUDIO_DEVICE(device)->stream != NULL)
@@ -392,7 +393,7 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
 	// Debug
-	fprintf(stderr, "stack_pulse_audio_device_create(\"%s\", %u, %u, ...) called\n", name, channels, sample_rate);
+	stack_log("stack_pulse_audio_device_create(\"%s\", %u, %u, ...) called\n", name, channels, sample_rate);
 
 	// Allocate the new device
 	StackPulseAudioDevice *device = new StackPulseAudioDevice();
@@ -410,7 +411,7 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 			device->sync_semaphore.wait();
 		}
 
-		fprintf(stderr, "stack_pulse_audio_device_create(): Using default sink, %s\n", default_sink_name);
+		stack_log("stack_pulse_audio_device_create(): Using default sink, %s\n", default_sink_name);
 	}
 
 	// Set up superclass
@@ -441,12 +442,12 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	attr.tlength = 512 * sizeof(float) * channels;
 	attr.prebuf = (uint32_t)-1;
 	attr.minreq = (uint32_t)-1;
-	fprintf(stderr, "stack_pulse_audio_device_create(): Connecting playback stream...\n");
+	stack_log("stack_pulse_audio_device_create(): Connecting playback stream...\n");
 	pa_stream_connect_playback(device->stream, name != NULL ? name : default_sink_name, &attr, (pa_stream_flags_t)(PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_INTERPOLATE_TIMING), NULL, NULL);
 
 	// Wait for connection
 	device->sync_semaphore.wait();
-	fprintf(stderr, "stack_pulse_audio_device_create(): Stream connected\n");
+	stack_log("stack_pulse_audio_device_create(): Stream connected\n");
 
 	// Get the state
 	pa_threaded_mainloop_lock(mainloop);
@@ -456,7 +457,7 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	// Exit if we're in an invalid state
 	if (stream_state != PA_STREAM_READY)
 	{
-		fprintf(stderr, "stack_pulse_audio_device_create(): Failed to connect stream\n");
+		stack_log("stack_pulse_audio_device_create(): Failed to connect stream\n");
 
 		// Tidy up:
 		stack_pulse_audio_device_destroy(STACK_AUDIO_DEVICE(device));

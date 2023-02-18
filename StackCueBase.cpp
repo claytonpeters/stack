@@ -1,5 +1,6 @@
 // Includes:
 #include "StackCue.h"
+#include "StackLog.h"
 #include <cstring>
 #include <json/json.h>
 
@@ -7,7 +8,7 @@
 // base StackCue objects.
 StackCue *stack_cue_create_base(StackCueList *cue_list)
 {
-	fprintf(stderr, "stack_cue_create_base(): Objects of type StackCue cannot be created\n");
+	stack_log("stack_cue_create_base(): Objects of type StackCue cannot be created\n");
 	return NULL;
 }
 

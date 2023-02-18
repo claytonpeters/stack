@@ -1,10 +1,11 @@
 // Includes:
 #include "StackApp.h"
+#include "StackLog.h"
 #include "StackActionCue.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
-#include <math.h>
+#include <cmath>
 #include <json/json.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -170,7 +171,7 @@ static bool stack_action_cue_play(StackCue *cue)
 	// If we don't have a valid target (unknown cue, or self) then we can't play
 	if (stack_cue_get_by_uid(STACK_ACTION_CUE(cue)->target) == NULL || STACK_ACTION_CUE(cue)->target == cue->uid)
 	{
-		fprintf(stderr, "stack_action_cue_play(): Invalid target cue: %lx\n", STACK_ACTION_CUE(cue)->target);
+		stack_log("stack_action_cue_play(): Invalid target cue: %lx\n", STACK_ACTION_CUE(cue)->target);
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
 	}
 
@@ -338,7 +339,7 @@ void stack_action_cue_from_json(StackCue *cue, const char *json_data)
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackActionCue"))
 	{
-		fprintf(stderr, "stack_action_cue_from_json(): Missing StackActionCue class\n");
+		stack_log("stack_action_cue_from_json(): Missing StackActionCue class\n");
 		return;
 	}
 

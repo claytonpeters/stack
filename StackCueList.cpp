@@ -1,9 +1,10 @@
 // Includes:
 #include "StackCue.h"
+#include "StackLog.h"
 #include <list>
 #include <map>
 #include <cstring>
-#include <math.h>
+#include <cmath>
 #include <json/json.h>
 using namespace std;
 
@@ -59,7 +60,7 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 {
 	if (cue_list == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_destroy(): Attempted to destroy NULL!\n");
+		stack_log("stack_cue_list_destroy(): Attempted to destroy NULL!\n");
 		return;
 	}
 
@@ -269,7 +270,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Track how long the cue pulses took
 	//stack_time_t cue_pulse_time = stack_get_clock_time() - clocktime;
 
-	//fprintf(stderr, "stack_cue_list_pulse(): Pulse took %lldns (of which cues: %lldns) (wrote %d blocks)\n", pulse_time, cue_pulse_time, blocks_written);
+	//stack_log("stack_cue_list_pulse(): Pulse took %lldns (of which cues: %lldns) (wrote %d blocks)\n", pulse_time, cue_pulse_time, blocks_written);
 }
 
 /// Locks a mutex for the cue list
@@ -362,7 +363,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	GFile *file = g_file_new_for_uri(uri);
 	if (file == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to open file\n");
+		stack_log("stack_cue_list_new_from_file(): Failed to open file\n");
 		return NULL;
 	}
 
@@ -370,7 +371,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 	if (stream == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file stream\n");
+		stack_log("stack_cue_list_new_from_file(): Failed to get file stream\n");
 		g_object_unref(file);
 		return NULL;
 	}
@@ -379,7 +380,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	GFileInfo* file_info = g_file_query_info(file, "standard::size", G_FILE_QUERY_INFO_NONE, NULL, NULL);
 	if (file_info == NULL)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to get file information\n");
+		stack_log("stack_cue_list_new_from_file(): Failed to get file information\n");
 		g_object_unref(stream);
 		g_object_unref(file);
 		return NULL;
@@ -399,7 +400,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	// Read the file in to the buffer
 	if (g_input_stream_read(G_INPUT_STREAM(stream), &json_buffer[0], size, NULL, NULL) != size)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Failed to read file\n");
+		stack_log("stack_cue_list_new_from_file(): Failed to read file\n");
 		g_object_unref(stream);
 		g_object_unref(file);
 		return NULL;
@@ -424,14 +425,14 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	// Validation: check we have 'channels'
 	if (!cue_list_root.isMember("channels"))
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Missing 'channels' option\n");
+		stack_log("stack_cue_list_new_from_file(): Missing 'channels' option\n");
 		return NULL;
 	}
 
 	// Validation: check we have between 1 and 64 channels
 	if (cue_list_root["channels"].asUInt() == 0 || cue_list_root["channels"].asUInt() > 64)
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Invalid number of 'channels' specified\n");
+		stack_log("stack_cue_list_new_from_file(): Invalid number of 'channels' specified\n");
 		return NULL;
 	}
 
@@ -475,7 +476,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				if (!cue_json.isMember("class"))
 				{
 					cue_json["_skip"] = 1;
-					fprintf(stderr, "stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
+					stack_log("stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
 					continue;
 				}
 
@@ -483,7 +484,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				if (!cue_json.isMember("StackCue"))
 				{
 					cue_json["_skip"] = 1;
-					fprintf(stderr, "stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
+					stack_log("stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
 					continue;
 				}
 
@@ -491,7 +492,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				if (!cue_json["StackCue"].isMember("uid"))
 				{
 					cue_json["_skip"] = 1;
-					fprintf(stderr, "stack_cue_list_from_file(): Cue missing UID, skipping\n");
+					stack_log("stack_cue_list_from_file(): Cue missing UID, skipping\n");
 					continue;
 				}
 
@@ -500,7 +501,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				StackCue *cue = stack_cue_new(class_name, cue_list);
 				if (cue == NULL)
 				{
-					fprintf(stderr, "stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
+					stack_log("stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
 					cue_json["_skip"] = 1;
 
 					// TODO: It would be nice if we have some sort of "error cue" which
@@ -556,12 +557,12 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		}
 		else
 		{
-			fprintf(stderr, "stack_cue_list_new_from_file(): 'cues' is not an array\n");
+			stack_log("stack_cue_list_new_from_file(): 'cues' is not an array\n");
 		}
 	}
 	else
 	{
-		fprintf(stderr, "stack_cue_list_new_from_file(): Missing 'cues' option\n");
+		stack_log("stack_cue_list_new_from_file(): Missing 'cues' option\n");
 	}
 
 	// Flag that the cue list hasn't changed

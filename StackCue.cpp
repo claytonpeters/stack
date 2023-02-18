@@ -1,5 +1,6 @@
 // Includes:
 #include "StackCue.h"
+#include "StackLog.h"
 #include <map>
 #include <cstring>
 #include <time.h>
@@ -67,7 +68,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	// Store the UID in our map
 	cue_uid_map[cue->uid] = cue;
 
-	fprintf(stderr, "stack_cue_init() called - initialised cue UID %016lx\n", cue->uid);
+	stack_log("stack_cue_init() called - initialised cue UID %016lx\n", cue->uid);
 }
 
 // Finds the cue by the given UID and returns it
@@ -226,47 +227,47 @@ int stack_register_cue_class(const StackCueClass *cue_class)
 	}
 
 	// Debug
-	fprintf(stderr, "Registering cue type '%s'\n", cue_class->class_name);
+	stack_log("Registering cue type '%s'\n", cue_class->class_name);
 
 	// Validate name pointer
 	if (cue_class->class_name == NULL)
 	{
-		fprintf(stderr, "stack_register_cue_class(): Class name cannot be NULL\n");
+		stack_log("stack_register_cue_class(): Class name cannot be NULL\n");
 		return STACKERR_CLASS_BADNAME;
 	}
 
 	// Ensure we don't already have a class of this type
 	if (cue_class_map.find(string(cue_class->class_name)) != cue_class_map.end())
 	{
-		fprintf(stderr, "stack_register_cue_class(): Class name already registered\n");
+		stack_log("stack_register_cue_class(): Class name already registered\n");
 		return STACKERR_CLASS_DUPLICATE;
 	}
 
 	// Only the 'StackCue' class is allowed to not have a superclass
 	if (cue_class->super_class_name == NULL && strcmp(cue_class->class_name, "StackCue") != 0)
 	{
-		fprintf(stderr, "stack_register_cue_class(): Cue classes must have a superclass\n");
+		stack_log("stack_register_cue_class(): Cue classes must have a superclass\n");
 		return STACKERR_CLASS_NOSUPER;
 	}
 
 	// Validate name length
 	if (strlen(cue_class->class_name) <= 0)
 	{
-		fprintf(stderr, "stack_register_cue_class(): Class name cannot be empty\n");
+		stack_log("stack_register_cue_class(): Class name cannot be empty\n");
 		return STACKERR_CLASS_BADNAME;
 	}
 
 	// Validate create function pointer
 	if (cue_class->create_func == NULL)
 	{
-		fprintf(stderr, "stack_register_cue_class(): Class create_func cannot be NULL. An implementation must be provided\n");
+		stack_log("stack_register_cue_class(): Class create_func cannot be NULL. An implementation must be provided\n");
 		return STACKERR_CLASS_BADCREATE;
 	}
 
 	// Validate destroy function pointer
 	if (cue_class->destroy_func == NULL)
 	{
-		fprintf(stderr, "stack_register_cue_class(): Class destroy_func cannot be NULL. An implementation must be provided\n");
+		stack_log("stack_register_cue_class(): Class destroy_func cannot be NULL. An implementation must be provided\n");
 		return STACKERR_CLASS_BADDESTROY;
 	}
 
@@ -285,7 +286,7 @@ StackCue* stack_cue_new(const char *type, StackCueList *cue_list)
 	auto iter = cue_class_map.find(string(type));
 	if (iter == cue_class_map.end())
 	{
-		fprintf(stderr, "stack_cue_new(): Unknown class\n");
+		stack_log("stack_cue_new(): Unknown class\n");
 		return NULL;
 	}
 
@@ -300,17 +301,17 @@ void stack_cue_destroy(StackCue *cue)
 {
 	if (cue == NULL)
 	{
-		fprintf(stderr, "stack_cue_destroy(): Attempted to destroy NULL!\n");
+		stack_log("stack_cue_destroy(): Attempted to destroy NULL!\n");
 		return;
 	}
 
-	fprintf(stderr, "stack_cue_destroy(0x%p): Destroying cue %lx\n", (void*)cue, cue->uid);
+	stack_log("stack_cue_destroy(0x%p): Destroying cue %lx\n", (void*)cue, cue->uid);
 
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));
 	if (iter == cue_class_map.end())
 	{
-		fprintf(stderr, "stack_cue_destroy(): Unknown class\n");
+		stack_log("stack_cue_destroy(): Unknown class\n");
 		return;
 	}
 
@@ -324,7 +325,7 @@ void stack_cue_destroy(StackCue *cue)
 	auto uid_iter = cue_uid_map.find(uid);
 	if (uid_iter == cue_uid_map.end())
 	{
-		fprintf(stderr, "stack_cue_destroy(): Assertion warning: Cue UID %lx not in map!\n", uid);
+		stack_log("stack_cue_destroy(): Assertion warning: Cue UID %lx not in map!\n", uid);
 		return;
 	}
 	else
@@ -470,12 +471,12 @@ char *stack_cue_to_json(StackCue *cue)
 			}
 			else
 			{
-				fprintf(stderr, "stack_cue_to_json(): Warning: Class '%s' has no free_json_func - skipping\n", class_name);
+				stack_log("stack_cue_to_json(): Warning: Class '%s' has no free_json_func - skipping\n", class_name);
 			}
 		}
 		else
 		{
-			fprintf(stderr, "stack_cue_to_json(): Warning: Class '%s' has no to_json_func - skipping\n", class_name);
+			stack_log("stack_cue_to_json(): Warning: Class '%s' has no to_json_func - skipping\n", class_name);
 		}
 
 		// Iterate up to superclass
@@ -497,7 +498,7 @@ void stack_cue_from_json(StackCue *cue, const char *json_data)
 {
 	if (cue == NULL)
 	{
-		fprintf(stderr, "stack_cue_from_json(): NULL cue passed\n");
+		stack_log("stack_cue_from_json(): NULL cue passed\n");
 		return;
 	}
 

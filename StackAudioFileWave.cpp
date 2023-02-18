@@ -1,5 +1,6 @@
 // Includes:
 #include "StackAudioFileWave.h"
+#include "StackLog.h"
 
 // RIFF Wave header structure
 #pragma pack(push, 2)
@@ -27,28 +28,28 @@ static bool stack_audio_file_wave_read_header(GInputStream *stream, WaveHeader *
 
     if (g_input_stream_read(stream, (void*)header, sizeof(WaveHeader), NULL, NULL) != sizeof(WaveHeader))
     {
-        fprintf(stderr, "stack_audio_file_wave_read_header(): Failed to read %lu byte header\n", sizeof(WaveHeader));
+        stack_log("stack_audio_file_wave_read_header(): Failed to read %lu byte header\n", sizeof(WaveHeader));
         return false;
     }
 
     // Check for RIFF header
     if (!(header->chunk_id[0] == 'R' && header->chunk_id[1] == 'I' && header->chunk_id[2] == 'F' && header->chunk_id[3] == 'F'))
     {
-        fprintf(stderr, "stack_audio_file_wave_read_header(): Not a Wave file: No RIFF header\n");
+        stack_log("stack_audio_file_wave_read_header(): Not a Wave file: No RIFF header\n");
         return false;
     }
 
     // Check for WAVE format
     if (!(header->format[0] == 'W' && header->format[1] == 'A' && header->format[2] == 'V' && header->format[3] == 'E'))
     {
-        fprintf(stderr, "stack_audio_file_wave_read_header(): Not a Wave file: No WAVEfmt header\n");
+        stack_log("stack_audio_file_wave_read_header(): Not a Wave file: No WAVEfmt header\n");
         return false;
     }
 
     // Check for 'fmt ' subchunk
     if (!(header->subchunk_1_id[0] == 'f' && header->subchunk_1_id[1] == 'm' && header->subchunk_1_id[2] == 't' && header->subchunk_1_id[3] == ' '))
     {
-        fprintf(stderr, "stack_audio_file_wave_read_header(): Failed to find fmt chunk\n");
+        stack_log("stack_audio_file_wave_read_header(): Failed to find fmt chunk\n");
         return false;
     }
 
@@ -99,7 +100,7 @@ static bool stack_audio_file_wave_read_header(GInputStream *stream, WaveHeader *
 
 	if (!valid_format)
     {
-        fprintf(stderr, "stack_audio_file_wave_read_header(): Non-PCM audio format (%d) is not supported\n", header->audio_format);
+        stack_log("stack_audio_file_wave_read_header(): Non-PCM audio format (%d) is not supported\n", header->audio_format);
         return false;
     }
 
@@ -155,7 +156,7 @@ static bool stack_audio_file_wave_read_header(GInputStream *stream, WaveHeader *
         }
         else
         {
-            fprintf(stderr, "stack_audio_file_wave_read_header(): Failed to read chunk ID\n");
+            stack_log("stack_audio_file_wave_read_header(): Failed to read chunk ID\n");
             return false;
         }
     }

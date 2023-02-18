@@ -2,6 +2,7 @@
 // Includes:
 #include "StackAudioFileMP3.h"
 #include "MPEGAudioFile.h"
+#include "StackLog.h"
 #include <vector>
 
 static const uint16_t DEFAULT_DECODER_DELAY = 529;
@@ -21,7 +22,7 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 
     if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames))
     {
-        fprintf(stderr, "stack_audio_file_mp3_process(): Processing failed\n");
+        stack_log("stack_audio_file_mp3_process(): Processing failed\n");
         return false;
     }
 
@@ -333,7 +334,7 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 	// Skip past however many samples we additionally decoded before our target sample
 	size_t skip_frames = start_sample - audio_file->frame_iterator->sample_position;
 
-	fprintf(stderr, "stack_audio_file_seek_mp3(): seek pos %lu (sample %lu) - seek to mpegframe at byte %lu = offset %ld frames\n", pos, start_sample, previous_frame_position, skip_frames);
+	stack_log("stack_audio_file_seek_mp3(): seek pos %lu (sample %lu) - seek to mpegframe at byte %lu = offset %ld frames\n", pos, start_sample, previous_frame_position, skip_frames);
 
 	// Decode the next two frames into our buffer
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);

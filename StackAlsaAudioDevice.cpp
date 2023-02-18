@@ -1,5 +1,6 @@
 // Includes:
 #include "StackAlsaAudioDevice.h"
+#include "StackLog.h"
 #include <cstring>
 
 // Initialises AlsaAudio
@@ -162,7 +163,7 @@ void stack_alsa_audio_device_destroy(StackAudioDevice *device)
 	StackAlsaAudioDevice *alsa_device = STACK_ALSA_AUDIO_DEVICE(device);
 
 	// Debug
-	fprintf(stderr, "stack_alsa_audio_device_destroy() called\n");
+	stack_log("stack_alsa_audio_device_destroy() called\n");
 
 	if (alsa_device->thread_running)
 	{
@@ -192,7 +193,7 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 		snd_pcm_sframes_t writable = snd_pcm_avail_update(device->stream);
 		if (writable < 0)
 		{
-			fprintf(stderr, "stack_alsa_audio_device_callback: snd_pcm_avail_update failed with %s\n", snd_strerror(writable));
+			stack_log("stack_alsa_audio_device_callback: snd_pcm_avail_update failed with %s\n", snd_strerror(writable));
 		}
 
 		while (writable >= 256)
@@ -205,7 +206,7 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 			if (read < writable)
 			{
 				total_sample_count = read * channels;
-				fprintf(stderr, "Buffer underflow: %lu < %lu!\n", read, writable);
+				stack_log("Buffer underflow: %lu < %lu!\n", read, writable);
 			}
 
 			if (device->format == SND_PCM_FORMAT_FLOAT_LE)
@@ -244,7 +245,7 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
 	// Debug
-	fprintf(stderr, "stack_alsa_audio_device_create(\"%s\", %u, %u) called\n", name, channels, sample_rate);
+	stack_log("stack_alsa_audio_device_create(\"%s\", %u, %u) called\n", name, channels, sample_rate);
 
 	// Allocate the new device
 	StackAlsaAudioDevice *device = new StackAlsaAudioDevice();
@@ -253,7 +254,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	//if (snd_pcm_open(&device->stream, name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) != 0)
 	if (snd_pcm_open(&device->stream, name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) != 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_open() failed\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_open() failed\n");
 		return NULL;
 	}
 
@@ -265,36 +266,36 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	// Choose the correct sample rate
 	if (snd_pcm_hw_params_set_rate(device->stream, hw_params, sample_rate, 0) < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_rate() failed\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_rate() failed\n");
 	}
 
 	// Set the correct number of channels
 	if (snd_pcm_hw_params_set_channels(device->stream, hw_params, channels) < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_channels() failed\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_channels() failed\n");
 	}
 
 	// Set the access type
 	if (snd_pcm_hw_params_set_access(device->stream, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_access() failed\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_access() failed\n");
 	}
 
 	// Set the buffer size
 	if (snd_pcm_hw_params_set_buffer_size(device->stream, hw_params, 2048) < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_buffer_size() failed\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_buffer_size() failed\n");
 	}
 
 	// Set the format to 32-bit floating point, which is what Stack
 	// uses internally
 	if (snd_pcm_hw_params_set_format(device->stream, hw_params, SND_PCM_FORMAT_FLOAT_LE) < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(float) failed - falling back to s16\n");
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(float) failed - falling back to s16\n");
 		device->format = SND_PCM_FORMAT_S16_LE;
 		if (snd_pcm_hw_params_set_format(device->stream, hw_params, SND_PCM_FORMAT_S16_LE) < 0)
 		{
-			fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(s16) failed\n");
+			stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(s16) failed\n");
 		}
 	}
 
@@ -302,7 +303,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	int result = snd_pcm_hw_params(device->stream, hw_params);
 	if (result < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_hw_params() failed: %d: %s\n", result, snd_strerror(result));
+		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params() failed: %d: %s\n", result, snd_strerror(result));
 	}
 
 	// Tidy up
@@ -314,19 +315,19 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	result = snd_pcm_sw_params_current(device->stream, sw_params);
 	if (result < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_sw_params_current() failed: %d: %s\n", result, snd_strerror(result));
+		stack_log("stack_alsa_audio_device_create: snd_pcm_sw_params_current() failed: %d: %s\n", result, snd_strerror(result));
 	}
 	result = snd_pcm_sw_params_set_start_threshold(device->stream, sw_params, 512);
 	if (result < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_sw_params_set_start_threshold() failed: %d: %s\n", result, snd_strerror(result));
+		stack_log("stack_alsa_audio_device_create: snd_pcm_sw_params_set_start_threshold() failed: %d: %s\n", result, snd_strerror(result));
 	}
 
 	// Apply the software parameters to the devices
 	result = snd_pcm_sw_params(device->stream, sw_params);
 	if (result < 0)
 	{
-		fprintf(stderr, "stack_alsa_audio_device_create: snd_pcm_sw_params() failed: %d: %s\n", result, snd_strerror(result));
+		stack_log("stack_alsa_audio_device_create: snd_pcm_sw_params() failed: %d: %s\n", result, snd_strerror(result));
 	}
 
 	// Tidy up

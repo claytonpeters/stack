@@ -4,6 +4,7 @@
 #if HAVE_LIBMAD == 1
 #include "StackAudioFileMP3.h"
 #endif
+#include "StackLog.h"
 
 static const float INT8_SCALAR = 7.8125e-3f;
 static const float INT16_SCALAR = 3.051757812e-5f;
@@ -27,7 +28,7 @@ StackAudioFile *stack_audio_file_create(const char *uri)
 	GFile *file = g_file_new_for_uri(uri);
 	if (file == NULL)
 	{
-		fprintf(stderr, "stack_audio_file_create(): Failed to open file\n");
+		stack_log("stack_audio_file_create(): Failed to open file\n");
 	    return NULL;
 	}
 
@@ -35,7 +36,7 @@ StackAudioFile *stack_audio_file_create(const char *uri)
 	GFileInputStream *stream = g_file_read(file, NULL, NULL);
 	if (stream == NULL)
 	{
-		fprintf(stderr, "stack_audio_file_create(): Failed to get file input stream\n");
+		stack_log("stack_audio_file_create(): Failed to get file input stream\n");
 	    g_object_unref(file);
 	    return NULL;
 	}
@@ -48,7 +49,7 @@ StackAudioFile *stack_audio_file_create(const char *uri)
 #endif
 		))
 	{
-		fprintf(stderr, "stack_audio_file_create(): Failed to load file as any format\n");
+		stack_log("stack_audio_file_create(): Failed to load file as any format\n");
 		g_object_unref(stream);
 		g_object_unref(file);
 	}
@@ -97,7 +98,7 @@ void stack_audio_file_seek(StackAudioFile *audio_file, stack_time_t pos)
 			break;
 #endif
 		default:
-			fprintf(stderr, "stack_audio_file_seek(): Unknown file format\n");
+			stack_log("stack_audio_file_seek(): Unknown file format\n");
 			break;
 	}
 }
@@ -114,7 +115,7 @@ size_t stack_audio_file_read(StackAudioFile *audio_file, float *buffer, size_t f
 			return stack_audio_file_read_mp3((StackAudioFileMP3*)audio_file, buffer, frames);
 #endif
 		default:
-			fprintf(stderr, "stack_audio_file_read(): Unknown file format\n");
+			stack_log("stack_audio_file_read(): Unknown file format\n");
 			return -1;
 	}
 }
