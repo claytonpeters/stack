@@ -45,6 +45,14 @@ static void stack_audio_preview_tidy_buffer(StackAudioPreview *preview)
 	preview->end_time = 0;
 }
 
+// Queues a redraw of the preview widget. Designed to be called from
+// gdk_threads_add_idle so as to be UI-thread-safe
+static gboolean stack_audio_preview_idle_redraw(gpointer user_data)
+{
+	gtk_widget_queue_draw(GTK_WIDGET(user_data));
+	return G_SOURCE_REMOVE;
+}
+
 static uint64_t stack_audio_preview_render_points(const StackAudioPreview *preview, const StackAudioFile *file, const float *data, uint32_t frames, uint64_t preview_start_samples, uint64_t data_start_frames, bool downsample)
 {
 	uint64_t frame = data_start_frames;
@@ -187,7 +195,7 @@ static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 			if (stack_get_clock_time() - last_redraw_time > NANOSECS_PER_SEC / 25)
 			{
 				cairo_stroke(preview->buffer_cr);
-				gtk_widget_queue_draw(GTK_WIDGET(preview));
+				gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 				last_redraw_time = stack_get_clock_time();
 			}
 		}
@@ -203,7 +211,7 @@ static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 
 	// We've finished - force a redraw
 	cairo_stroke(preview->buffer_cr);
-	gtk_widget_queue_draw(GTK_WIDGET(preview));
+	gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 
 	// Finished
 	preview->thread_running = false;
@@ -444,14 +452,14 @@ void stack_audio_preview_set_file(StackAudioPreview *preview, char *file)
 
 	// Wipe our buffers to force a redraw
 	stack_audio_preview_tidy_buffer(preview);
-	gtk_widget_queue_draw(GTK_WIDGET(preview));
+	gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 }
 
 void stack_audio_preview_set_view_range(StackAudioPreview *preview, stack_time_t start, stack_time_t end)
 {
 	preview->start_time = start;
 	preview->end_time = end;
-	gtk_widget_queue_draw(GTK_WIDGET(preview));
+	gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 }
 
 void stack_audio_preview_set_playback(StackAudioPreview *preview, stack_time_t playback_time)
@@ -471,7 +479,7 @@ void stack_audio_preview_set_playback(StackAudioPreview *preview, stack_time_t p
 		// Only redraw if it wasn't the same
 		if (last_playback_x != new_playback_x)
 		{
-			gtk_widget_queue_draw(GTK_WIDGET(preview));
+			gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 		}
 	}
 }
@@ -481,7 +489,7 @@ void stack_audio_preview_show_playback(StackAudioPreview *preview, bool show_pla
 	if (preview->show_playback_marker != show_playback)
 	{
 		preview->show_playback_marker = show_playback;
-		gtk_widget_queue_draw(GTK_WIDGET(preview));
+		gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 	}
 }
 
