@@ -475,6 +475,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 			stack_audio_preview_set_file(scue->preview_widget, scue->file);
 			stack_audio_preview_set_view_range(scue->preview_widget, 0, scue->playback_file->length);
 			stack_audio_preview_set_selection(scue->preview_widget, scue->media_start_time, scue->media_end_time);
+			stack_audio_preview_show_playback(scue->preview_widget, cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST);
 		}
 
 		// Stop it from being GC'd
