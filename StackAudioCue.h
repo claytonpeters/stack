@@ -4,6 +4,7 @@
 // Includes:
 #include "StackCue.h"
 #include "StackAudioFile.h"
+#include "StackAudioPreview.h"
 #include "StackResampler.h"
 #include <thread>
 
@@ -50,31 +51,8 @@ struct StackAudioCue
 	// The resampler to resample from file-rate to device-rate
 	StackResampler *resampler;
 
-	// Audio Preview: is thread running
-	bool preview_thread_run;
-
-	// Audio Preview: Off-screen cairo surface
-	cairo_surface_t *preview_surface;
-
-	// Audio Preview: Cairo handle for off-screen surface
-	cairo_t *preview_cr;
-
-	// Audio Preview: The start and end times of the audio visible in the preview
-	stack_time_t preview_start;
-	stack_time_t preview_end;
-
-	// Audio Preview: The size of the preview graph
-	int preview_width;
-	int preview_height;
-
-	// Audio Preview: The thread generating the preview image
-	std::thread preview_thread;
-
 	// Audio Preview: The audio preview widget
-	GtkWidget *preview_widget;
-
-	// Time of last redraw of audio preview during playback
-	stack_time_t last_preview_redraw_time;
+	StackAudioPreview *preview_widget;
 };
 
 // Functions: Audio cue functions

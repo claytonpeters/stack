@@ -256,24 +256,27 @@
           </packing>
         </child>
         <child>
-          <object class="GtkDrawingArea" id="acpPlaySectionUI">
-            <property name="height-request">120</property>
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <signal name="draw" handler="acp_play_section_draw" swapped="no"/>
-          </object>
-          <packing>
-            <property name="left-attach">1</property>
-            <property name="top-attach">2</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
           </object>
           <packing>
             <property name="left-attach">0</property>
+            <property name="top-attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox" id="acpPreviewBox">
+            <property name="height-request">120</property>
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="left-attach">1</property>
             <property name="top-attach">2</property>
           </packing>
         </child>

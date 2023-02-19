@@ -1369,24 +1369,29 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 			gpointer cue;
 			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
 
-			// Keep track of what notebook page we were on
-			gint page = gtk_notebook_get_current_page(window->notebook);
-
-			// Remove tabs from previously selected cue
-			if (window->selected_cue != NULL)
+			// Gtk fires this even if we reselect the same cue, so only change
+			// the cue if it actually changed
+			if (STACK_CUE(cue) != window->selected_cue)
 			{
-				stack_cue_unset_tabs(window->selected_cue, window->notebook);
+				// Keep track of what notebook page we were on
+				gint page = gtk_notebook_get_current_page(window->notebook);
+
+				// Remove tabs from previously selected cue
+				if (window->selected_cue != NULL)
+				{
+					stack_cue_unset_tabs(window->selected_cue, window->notebook);
+				}
+
+				// Update the window
+				window->selected_cue = STACK_CUE(cue);
+				saw_update_cue_properties(window, STACK_CUE(cue));
+
+				// Put on the correct tabs
+				stack_cue_set_tabs(window->selected_cue, window->notebook);
+
+				// Try and put us back on the same notebook page
+				gtk_notebook_set_current_page(window->notebook, page);
 			}
-
-			// Update the window
-			window->selected_cue = STACK_CUE(cue);
-			saw_update_cue_properties(window, STACK_CUE(cue));
-
-			// Put on the correct tabs
-			stack_cue_set_tabs(window->selected_cue, window->notebook);
-
-			// Try and put us back on the same notebook page
-			gtk_notebook_set_current_page(window->notebook, page);
 
 			// Tidy up
 			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
