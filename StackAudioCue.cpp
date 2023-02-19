@@ -1206,7 +1206,7 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	// two channel for now
 	if (audio_cue->playback_file->channels == 1)
 	{
-		for (size_t i = frames_to_return; i >= 1; i--)
+		for (size_t i = frames_to_return - 1; i >= 1; i--)
 		{
 			buffer[i * 2] = buffer[i];
 			buffer[i * 2 + 1] = buffer[i];
