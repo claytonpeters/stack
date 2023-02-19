@@ -266,6 +266,9 @@ bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter)
 // Callback for cue pulsing timer
 static void stack_cue_list_pulse_thread(StackCueList *cue_list)
 {
+	// Set the thread name
+	pthread_setname_np(pthread_self(), "stack-pulse");
+
 	// Loop until we're being destroyed
 	while (!cue_list->kill_thread)
 	{

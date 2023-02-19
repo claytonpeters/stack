@@ -114,6 +114,9 @@ static uint64_t stack_audio_preview_render_points(const StackAudioPreview *previ
 // Thread to generate the code preview
 static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 {
+	// Set the thread name
+	pthread_setname_np(pthread_self(), "stack-preview");
+
 	stack_log("stack_audio_preview_preview_thread(): started\n");
 
 	// Open the file
