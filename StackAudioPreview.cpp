@@ -255,10 +255,9 @@ static gboolean stack_audio_preview_draw(GtkWidget *widget, cairo_t *cr)
 
 	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
 
-    // Get details
-    GtkStyleContext *context = gtk_widget_get_style_context(widget);
-    guint width = gtk_widget_get_allocated_width(widget);
-    guint height = gtk_widget_get_allocated_height(widget);
+	// Get details
+	guint width = gtk_widget_get_allocated_width(widget);
+	guint height = gtk_widget_get_allocated_height(widget);
 
 	// Fill the background behind the text
 	cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
@@ -457,10 +456,23 @@ void stack_audio_preview_set_view_range(StackAudioPreview *preview, stack_time_t
 
 void stack_audio_preview_set_playback(StackAudioPreview *preview, stack_time_t playback_time)
 {
+	stack_time_t previous_playback_time = preview->playback_time;
 	preview->playback_time = playback_time;
+
+	// We only need to redraw if the marker is show
 	if (preview->show_playback_marker)
 	{
-		gtk_widget_queue_draw(GTK_WIDGET(preview));
+		// Determine the previous and current position of the marker on the
+		// actual widget in pixels
+		double fp_width = (float)gtk_widget_get_allocated_width(GTK_WIDGET(preview));
+		double last_playback_x = round(fp_width * (double)(previous_playback_time - preview->start_time) / (double)(preview->end_time - preview->start_time));
+		double new_playback_x = round(fp_width * (double)(preview->playback_time - preview->start_time) / (double)(preview->end_time - preview->start_time));
+
+		// Only redraw if it wasn't the same
+		if (last_playback_x != new_playback_x)
+		{
+			gtk_widget_queue_draw(GTK_WIDGET(preview));
+		}
 	}
 }
 
@@ -482,7 +494,6 @@ void stack_audio_preview_set_selection(StackAudioPreview *preview, stack_time_t 
 
 static void stack_audio_preview_finalize(GObject *obj)
 {
-	stack_log("stack_audio_preview_finalize()");
 	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(obj);
 
 	// Stop any render thread and tidy up

@@ -73,19 +73,22 @@ static void stack_audio_cue_destroy(StackCue *cue)
 	}
 
 	// Tidy up
-	if (acue->builder)
+	if (acue->builder != NULL)
 	{
-		// Remove our reference to the media tab
-		g_object_unref(acue->media_tab);
-
-		// Remove our reference to the preview widget
-		g_object_unref(acue->preview_widget);
-
 		// Destroy the top level widget in the builder
 		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(acue->builder, "window1")));
 
 		// Unref the builder
 		g_object_unref(acue->builder);
+	}
+	if (acue->media_tab != NULL)
+	{
+		// Remove our reference to the media tab
+		g_object_unref(acue->media_tab);
+	}
+	if (acue->preview_widget != NULL)
+	{
+		g_object_unref(acue->preview_widget);
 	}
 
 	// Call parent destructor
@@ -565,6 +568,7 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// Destroy the builder
 	g_object_unref(((StackAudioCue*)cue)->builder);
+	g_object_unref(((StackAudioCue*)cue)->media_tab);
 
 	// Be tidy
 	((StackAudioCue*)cue)->builder = NULL;
