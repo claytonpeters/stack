@@ -79,6 +79,11 @@ void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* user
 		// that many bytes
 		float *buffer = NULL;
 		pa_stream_begin_write(STACK_PULSE_AUDIO_DEVICE(userdata)->stream, (void**)&buffer, &writable);
+		if (buffer == NULL)
+		{
+			stack_log("stack_pulse_audio_stream_underflow_callback(): NULL pointer returned from Pulse\n");
+			return;
+		}
 
 		// Determine how many samples per channel (rather than bytes) PulseAudio
 		// wants (pa_stream_begin_write can change the value of 'writable')
@@ -311,10 +316,15 @@ size_t stack_pulse_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 
 		// Enumerate the sinks
 		pa_operation* o = pa_context_get_sink_info_list(context, (pa_sink_info_cb_t)stack_pulse_audio_sink_info_callback, &sink_data);
-		pa_operation_unref(o);
 
-		// Wait for enumeration of sinks
-		sink_data.sink_semaphore.wait();
+		if (o != NULL)
+		{
+			// Wait for enumeration of sinks
+			sink_data.sink_semaphore.wait();
+
+			// Tidy up
+			pa_operation_unref(o);
+		}
 
 		*outputs = sink_data.devices;
 		return sink_data.count;
@@ -352,8 +362,14 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 		pa_threaded_mainloop_unlock(mainloop);
 
 		// Wait for the stream to cork
-		while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) {
-			usleep(10);
+		if (o != NULL)
+		{
+			while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) {
+				usleep(10);
+			}
+
+			// Tidy up
+			pa_operation_unref(o);
 		}
 
 		// Remove the callbacks
