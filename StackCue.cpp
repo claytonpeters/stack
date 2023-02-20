@@ -184,11 +184,11 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 
 			// If triggering after pre, we need to check if pre has completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERPRE:
-				if (cue_elapsed < cue->pre_time)
+				if (cue_elapsed < cue->pre_time && !cue->post_has_run)
 				{
 					*post = 0;
 				}
-				else if (cue_elapsed < cue->pre_time + cue->post_time)
+				else if (cue_elapsed < cue->pre_time + cue->post_time && !cue->post_has_run)
 				{
 					*post = cue_elapsed - cue->pre_time;
 				}
