@@ -8,6 +8,9 @@ struct StackAudioPreview
 {
 	GtkWidget super;
 
+	// Our window
+	GdkWindow *window;
+
 	// The URI of the file
 	char *file;
 

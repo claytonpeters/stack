@@ -424,11 +424,20 @@ static gboolean stack_audio_preview_draw(GtkWidget *widget, cairo_t *cr)
 	return false;
 }
 
+static void stack_audio_preview_button(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+{
+	// TODO
+}
+
+static void stack_audio_preview_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
+{
+	// TODO
+}
+
 static void stack_audio_preview_init(StackAudioPreview *preview)
 {
-	// We don't allocate a GdkWindow of our own
-	gtk_widget_set_has_window(GTK_WIDGET(preview), false);
-
+	gtk_widget_set_has_window(GTK_WIDGET(preview), true);
+	preview->window = NULL;
 	preview->file = NULL;
 	preview->thread_running = false;
 	preview->buffer_cr = NULL;
@@ -442,6 +451,62 @@ static void stack_audio_preview_init(StackAudioPreview *preview)
 	preview->show_playback_marker = false;
 	preview->playback_time = 0;
 	preview->last_redraw_time = 0;
+
+	g_signal_connect(preview, "button-press-event", G_CALLBACK(stack_audio_preview_button), NULL);
+	g_signal_connect(preview, "scroll-event", G_CALLBACK(stack_audio_preview_scroll), NULL);
+}
+
+static void stack_audio_preview_realize(GtkWidget *widget)
+{
+	// Note that the Gtk+ docs say you should usually chain up here... but most
+	// examples I've found don't, and I've yet to make anything work when I do
+
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+
+	GdkWindowAttr attr;
+	attr.x = allocation.x;
+	attr.y = allocation.y;
+	attr.width = allocation.width;
+	attr.height = allocation.height;
+	attr.wclass = GDK_INPUT_OUTPUT;
+	attr.window_type = GDK_WINDOW_CHILD;
+	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK;
+	attr.visual = gtk_widget_get_visual(widget);
+
+	GdkWindow *parent = gtk_widget_get_parent_window(widget);
+	STACK_AUDIO_PREVIEW(widget)->window = gdk_window_new(parent, &attr, GDK_WA_WMCLASS | GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL);
+
+	// Register our window with the widget
+	gtk_widget_set_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
+	gtk_widget_register_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
+	gtk_widget_set_realized(widget, true);
+}
+
+static void stack_audio_preview_unrealize(GtkWidget *widget)
+{
+	gtk_widget_set_realized(widget, false);
+	gtk_widget_unregister_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
+	gtk_widget_set_window(widget, NULL);
+
+	gdk_window_destroy(STACK_AUDIO_PREVIEW(widget)->window);
+	STACK_AUDIO_PREVIEW(widget)->window = NULL;
+}
+
+static void stack_audio_preview_map(GtkWidget *widget)
+{
+	// Chain up
+	GTK_WIDGET_CLASS(stack_audio_preview_parent_class)->map(widget);
+
+	gdk_window_show(STACK_AUDIO_PREVIEW(widget)->window);
+}
+
+static void stack_audio_preview_unmap(GtkWidget *widget)
+{
+	gdk_window_hide(STACK_AUDIO_PREVIEW(widget)->window);
+
+	// Chain up
+	GTK_WIDGET_CLASS(stack_audio_preview_parent_class)->unmap(widget);
 }
 
 void stack_audio_preview_set_file(StackAudioPreview *preview, char *file)
@@ -515,6 +580,9 @@ static void stack_audio_preview_finalize(GObject *obj)
 	{
 		free(preview->file);
 	}
+
+	// Chain up
+	G_OBJECT_CLASS(stack_audio_preview_parent_class)->finalize(obj);
 }
 
 static void stack_audio_preview_class_init(StackAudioPreviewClass *cls)
@@ -526,4 +594,8 @@ static void stack_audio_preview_class_init(StackAudioPreviewClass *cls)
 	// Things we need to override at the widget level
 	GtkWidgetClass *widget_cls = GTK_WIDGET_CLASS(cls);
 	widget_cls->draw = stack_audio_preview_draw;
+	widget_cls->realize = stack_audio_preview_realize;
+	widget_cls->unrealize = stack_audio_preview_unrealize;
+	widget_cls->map = stack_audio_preview_map;
+	widget_cls->unmap = stack_audio_preview_unmap;
 }
