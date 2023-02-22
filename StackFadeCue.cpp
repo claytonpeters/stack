@@ -53,7 +53,7 @@ static void stack_fade_cue_destroy(StackCue *cue)
 	if (STACK_FADE_CUE(cue)->builder)
 	{
 		// Remove our reference to the fade tab
-		g_object_ref(STACK_FADE_CUE(cue)->fade_tab);
+		g_object_unref(STACK_FADE_CUE(cue)->fade_tab);
 
 		// Destroy the top level widget in the builder
 		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_FADE_CUE(cue)->builder, "window1")));
@@ -477,7 +477,7 @@ static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	g_object_unref(STACK_FADE_CUE(cue)->builder);
 
 	// Remove our reference to the fade tab
-	g_object_ref(STACK_FADE_CUE(cue)->fade_tab);
+	g_object_unref(STACK_FADE_CUE(cue)->fade_tab);
 
 	// Be tidy
 	STACK_FADE_CUE(cue)->builder = NULL;

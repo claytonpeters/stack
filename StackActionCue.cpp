@@ -47,7 +47,7 @@ static void stack_action_cue_destroy(StackCue *cue)
 	if (STACK_ACTION_CUE(cue)->builder)
 	{
 		// Remove our reference to the action tab
-		g_object_ref(STACK_ACTION_CUE(cue)->action_tab);
+		g_object_unref(STACK_ACTION_CUE(cue)->action_tab);
 
 		// Destroy the top level widget in the builder
 		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_ACTION_CUE(cue)->builder, "window1")));
@@ -298,7 +298,7 @@ static void stack_action_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	g_object_unref(STACK_ACTION_CUE(cue)->builder);
 
 	// Remove our reference to the action tab
-	g_object_ref(STACK_ACTION_CUE(cue)->action_tab);
+	g_object_unref(STACK_ACTION_CUE(cue)->action_tab);
 
 	// Be tidy
 	STACK_ACTION_CUE(cue)->builder = NULL;
