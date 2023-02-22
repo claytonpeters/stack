@@ -223,6 +223,9 @@ static void stack_level_meter_finalize(GObject *obj)
 		delete [] meter->peaks;
 	}
 	stack_level_meter_destroy_patterns(meter);
+
+	// Chain up
+	G_OBJECT_CLASS(stack_level_meter_parent_class)->finalize(obj);
 }
 
 static void stack_level_meter_class_init(StackLevelMeterClass *cls)
