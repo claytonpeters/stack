@@ -1353,13 +1353,13 @@ static void saw_cue_selected(GtkTreeSelection *selection, gpointer user_data)
 		GList *list = gtk_tree_selection_get_selected_rows(selection, &model);
 
 		// If there is a selection
-		if (list != NULL)
+		if (list != NULL && model != NULL)
 		{
 			// Choose the last element in the selection (in case we're multi-select)
-			list = g_list_last(list);
+			GList *list_last = g_list_last(list);
 
 			// Get the path to the selected row
-			GtkTreePath *path = (GtkTreePath*)(list->data);
+			GtkTreePath *path = (GtkTreePath*)(list_last->data);
 
 			// Get the data from the tree model for that row
 			GtkTreeIter iter;
@@ -1690,64 +1690,126 @@ static gboolean saw_treeview_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info, guint time, gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-
-	GtkTreePath *dest_path = NULL;
-	GtkTreeViewDropPosition pos;
-
-	// This seems to be the condition of whether a drop has actually happened...
-	if (x != 0 && y != 0)
+	if (gtk_selection_data_get_target(data) == gdk_atom_intern_static_string("GTK_TREE_MODEL_ROW"))
 	{
-		// Get the index of the drop
-		size_t new_index = 0;
 
-		// Check to see if there is a row at (x,y) where we are being dropped
-		if (gtk_tree_view_get_dest_row_at_pos(window->treeview, x, y, &dest_path, &pos))
+		GtkTreePath *dest_path = NULL;
+		GtkTreeViewDropPosition pos;
+
+		// This seems to be the condition of whether a drop has actually happened...
+		if (x != 0 && y != 0)
 		{
-			// We have a row, figure out where we're going
-			new_index = gtk_tree_path_get_indices(dest_path)[0];
-			if (pos == GTK_TREE_VIEW_DROP_AFTER)
+			// Get the index of the drop
+			size_t new_index = 0;
+
+			// Check to see if there is a row at (x,y) where we are being dropped
+			if (gtk_tree_view_get_dest_row_at_pos(window->treeview, x, y, &dest_path, &pos))
 			{
-				new_index++;
+				// We have a row, figure out where we're going
+				new_index = gtk_tree_path_get_indices(dest_path)[0];
+				if (pos == GTK_TREE_VIEW_DROP_AFTER)
+				{
+					new_index++;
+				}
+			}
+			else
+			{
+				// We have no row, assume end of list
+				new_index = stack_cue_list_count(window->cue_list);
+			}
+
+			GtkTreeModel *model;
+			GList *list;
+
+			// Get the selected cue
+			list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
+
+			// If there is a selection
+			if (list != NULL)
+			{
+				list = g_list_first(list);
+
+				// Get the path to the selected row
+				GtkTreePath *path = (GtkTreePath*)(list->data);
+
+				// Get the data from the tree model for that row
+				GtkTreeIter iter;
+				gtk_tree_model_get_iter(model, &iter, path);
+
+				// Get the cue
+				gpointer cue;
+				gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
+
+				stack_log("saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
+
+				// Remove the cue from the cue list and move it to it's new location
+				stack_cue_list_lock(window->cue_list);
+				stack_cue_list_move(window->cue_list, STACK_CUE(cue), new_index);
+				stack_cue_list_unlock(window->cue_list);
+
+				// Tidy up
+				g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 			}
 		}
-		else
+	}
+	else
+	{
+		guchar *files = gtk_selection_data_get_text(data);
+		char *file = (char*)files;
+		char *file_end = NULL;
+
+		// files is a list of URIs separated by newlines
+		do
 		{
-			// We have no row, assume end of list
-			new_index = stack_cue_list_count(window->cue_list);
-		}
+			// Find the end of the filename
+			file_end = strchr(file, '\n');
 
-		GtkTreeModel *model;
-		GList *list;
+			// If we didn't find the end of the file with a newline, assume the
+			// end of the string is at the end of its length
+			if (file_end == NULL)
+			{
+				file_end = &file[strlen(file)];
+			}
 
-		// Get the selected cue
-		list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
+			// Grab the filename
+			std::string uri = std::string(file, file_end - file);
 
-		// If there is a selection
-		if (list != NULL)
-		{
-			list = g_list_first(list);
+			// Prepare for nex
+			file = file_end + 1;
 
-			// Get the path to the selected row
-			GtkTreePath *path = (GtkTreePath*)(list->data);
-
-			// Get the data from the tree model for that row
-			GtkTreeIter iter;
-			gtk_tree_model_get_iter(model, &iter, path);
-
-			// Get the cue
-			gpointer cue;
-			gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
-
-			stack_log("saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
-
-			// Remove the cue from the cue list and move it to it's new location
+			// Lock the cue list
 			stack_cue_list_lock(window->cue_list);
-			stack_cue_list_move(window->cue_list, STACK_CUE(cue), new_index);
+
+			// Create the new cue
+			StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
+			if (new_cue != NULL)
+			{
+				// TODO: Setting the filename of a StackAudioCue here is hard,
+				// as it's not built-in, but a library/plugin loaded at run-
+				// time. We might need a generic property setter thing to work
+				// around this, which would be nice anyway, so that StackFadeCue
+				// can work on things other than just StackAudioCue
+
+				// Add the list to our cue stack
+				stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
+			}
+
+			// Unlock the cue list
 			stack_cue_list_unlock(window->cue_list);
 
-			// Tidy up
-			g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
-		}
+			// Append a row to the list store and get an iterator
+			GtkTreeIter iter;
+			gtk_list_store_append(window->store, &iter);
+
+			// Update that last row in the list store with the basics of the cue
+			saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
+
+			// Select the new cue
+			saw_select_last_cue(window);
+		} while (file_end[0] == '\n' && file[0] != '\0');
+
+		// Tell our drag source we're done
+		gtk_drag_finish(context, true, false, time);
 	}
 }
 
@@ -1868,6 +1930,10 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up signal handler for drag-drop in cue list
 	g_signal_connect(window->treeview, "drag-data-received", G_CALLBACK(saw_row_dragged), (gpointer)window);
+
+	// Set up a drop target to handle files being dropped
+	GtkTargetEntry entries[] = { {"GTK_TREE_MODEL_ROW", GTK_TARGET_SAME_WIDGET, 0}, {"text/plain", 0, 0} };
+	gtk_tree_view_enable_model_drag_dest(window->treeview, entries, 2, GDK_ACTION_MOVE);
 
 	// Set up a timer to periodically refresh the UI
 	window->timer_state = 0;
