@@ -11,6 +11,9 @@
 #include <vector>
 #include <time.h>
 
+// Global: The folder the last file-chooser dialog was in
+static gchar *last_file_chooser_folder = NULL;
+
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 {
@@ -167,15 +170,24 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 
 static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 {
+	// Handy pointers
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	GtkFileChooser *chooser = GTK_FILE_CHOOSER(widget);
 
 	// Get the filename
-	gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(widget));
-	gchar* uri = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(widget));
+	gchar* filename = gtk_file_chooser_get_filename(chooser);
+	gchar* uri = gtk_file_chooser_get_uri(chooser);
 
 	// Change the file
 	if (stack_audio_cue_set_file(cue, uri))
 	{
+		// Store the last folder
+		if (last_file_chooser_folder == NULL)
+		{
+			g_free(last_file_chooser_folder);
+		}
+		last_file_chooser_folder = gtk_file_chooser_get_current_folder(chooser);
+
 		// Display the file length
 		char time_buffer[32], text_buffer[128];
 		stack_format_time_as_string(cue->playback_file->length, time_buffer, 32);
@@ -514,6 +526,12 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Put the custom preview widget in the UI
 	gtk_widget_set_visible(GTK_WIDGET(scue->preview_widget), true);
 	gtk_box_pack_start(GTK_BOX(gtk_builder_get_object(builder, "acpPreviewBox")), GTK_WIDGET(scue->preview_widget), true, true, 0);
+
+	// Use the last selected folder as the default location for the file chooser
+	if (last_file_chooser_folder != NULL)
+	{
+		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(gtk_builder_get_object(builder, "acpFile")), last_file_chooser_folder);
+	}
 
 	// Set up callbacks
 	gtk_builder_add_callback_symbol(builder, "acp_file_changed", G_CALLBACK(acp_file_changed));
