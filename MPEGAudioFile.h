@@ -16,7 +16,7 @@ struct MP3FrameInfo
 
 // Functions:
 size_t mpeg_audio_file_skip_id3v2(GInputStream *stream);
-bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint32_t *sample_rate, uint32_t *frames, uint64_t *samples, std::vector<MP3FrameInfo> *frame_info);
+bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint32_t *sample_rate, uint32_t *frames, uint64_t *samples, std::vector<MP3FrameInfo> *frame_info, uint16_t *delay, uint16_t *padding);
 
 #endif
 

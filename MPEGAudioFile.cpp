@@ -2,6 +2,8 @@
 #include "MPEGAudioFile.h"
 #include "StackLog.h"
 
+static const uint16_t DEFAULT_DECODER_DELAY = 529;
+
 struct MP3FrameHeader
 {
 	uint16_t frame_sync;    // 11 Bits
@@ -135,7 +137,7 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 	}
 }
 
-bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint32_t *sample_rate, uint32_t *frames, uint64_t *samples, std::vector<MP3FrameInfo> *frame_info)
+bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint32_t *sample_rate, uint32_t *frames, uint64_t *samples, std::vector<MP3FrameInfo> *frame_info, uint16_t *delay, uint16_t *padding)
 {
 	size_t total_read = 0, frame_idx = 0, total_samples = 0;
 
@@ -247,25 +249,88 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		uint16_t frame_bits_per_sample = samples_per_frame / 8;
 		uint16_t frame_size = (uint16_t)((float)frame_bits_per_sample * (float)(frame_bit_rate * 1000) / (float)frame_sample_rate) + (frame_header.padding ? frame_slot_size : 0);
 
+		// If we're reading the first frame, check for a Xing/Info frame
+		bool is_info = false;
+		if (frame_idx == 0)
+		{
+			unsigned char *buffer = new unsigned char[frame_size - 4];
+			size_t bytes_in_buffer = g_input_stream_read(stream, buffer, frame_size - 4, NULL, NULL);
+
+			// Check for an info frame (should be the first frame)
+			if (bytes_in_buffer > 36)
+			{
+				unsigned char *h = &buffer[32];
+
+				// Skip past the Xing or Info frame if we have one
+				if (h[0] == 'X' && h[1] == 'i' && h[2] == 'n' && h[3] == 'g')
+				{
+					is_info = true;
+				}
+				else if (h[0] == 'I' && h[1] == 'n' && h[2] == 'f' && h[3] == 'o')
+				{
+					is_info = true;
+				}
+			}
+
+			// If we found a Xing/Info frame, check for a LAME/Lavc/Lavf header
+			if (is_info && bytes_in_buffer > 0x9f)
+			{
+				bool get_delay = false;
+				unsigned char *h = &buffer[0x98];
+				if (h[0] == 'L' && ((h[1] == 'A' && h[2] == 'M' && h[3] == 'E') || (h[1] == 'a' && h[2] == 'v' && (h[3] == 'c' || h[3] == 'f'))))
+				{
+					get_delay = true;
+				}
+
+				if (get_delay && bytes_in_buffer > 0xb4)
+				{
+					unsigned char *d = &buffer[0xad];
+
+					// Grab the first 12 bits at 'd' for the delay
+					if (delay != NULL)
+					{
+						*delay = (((uint16_t)d[0] << 4) | ((uint16_t)d[1] & 0xf0) >> 4) + DEFAULT_DECODER_DELAY;
+					}
+
+					// Grab the next 12 bits for the padding
+					if (padding != NULL)
+					{
+						*padding = ((((uint16_t)d[1] & 0x0f) << 8) | (uint16_t)d[2]) - DEFAULT_DECODER_DELAY;
+					}
+				}
+			}
+
+			// Tidy up
+			delete [] buffer;
+		}
+
 		// Store the sample rate
 		*sample_rate = frame_sample_rate;
 		*channels = mpeg_channels[frame_header.channel_mode];
 
 		// Store the frame details
-		frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame });
+		if (!is_info)
+		{
+			frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame });
+			total_samples += samples_per_frame;
+		}
+
+		// Because we read the whole of the first frame, we don't need to
+		// skip if we're on the first frame
+		if (frame_idx != 0)
+		{
+			// Seek to the next frame (note the -4 to account for the frame
+			// header that we've already read)
+			if (!g_seekable_seek(G_SEEKABLE(stream), frame_size - 4, G_SEEK_CUR, NULL, NULL))
+			{
+				stack_log("mpeg_audio_file_find_frames(): Seek failed\n");
+				return false;
+			}
+		}
 
 		// Move on to the next frame
-		total_samples += samples_per_frame;
 		total_read += frame_size;
 		frame_idx++;
-
-		// Seek to the next frame (note the -4 to account for the frame
-		// header that we've already read)
-		if (!g_seekable_seek(G_SEEKABLE(stream), frame_size - 4, G_SEEK_CUR, NULL, NULL))
-		{
-			stack_log("mpeg_audio_file_find_frames(): Seek failed\n");
-			return false;
-		}
 	}
 
 	if (lost_sync)

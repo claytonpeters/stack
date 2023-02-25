@@ -5,8 +5,6 @@
 #include "StackLog.h"
 #include <vector>
 
-static const uint16_t DEFAULT_DECODER_DELAY = 529;
-
 struct MP3Info
 {
 	uint32_t sample_rate;
@@ -15,12 +13,12 @@ struct MP3Info
 	std::vector<MP3FrameInfo> frames;
 };
 
-static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info)
+static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info, uint16_t *delay, uint16_t *padding)
 {
     uint32_t frames = 0;
 	mp3_info->num_samples_per_channel = 0;
 
-    if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames))
+    if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames, delay, padding))
     {
         stack_log("stack_audio_file_mp3_process(): Processing failed\n");
         return false;
@@ -50,7 +48,8 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 {
 	MP3Info mp3_info;
-	bool is_mp3_file = stack_audio_file_mp3_process(G_INPUT_STREAM(stream), &mp3_info);
+	uint16_t delay = 0, padding = 0;
+	bool is_mp3_file = stack_audio_file_mp3_process(G_INPUT_STREAM(stream), &mp3_info, &delay, &padding);
 	if (!is_mp3_file)
 	{
 		return NULL;
@@ -63,8 +62,8 @@ StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 	result->super.format = STACK_AUDIO_FILE_FORMAT_MP3;
 	result->super.channels = mp3_info.num_channels;
 	result->super.sample_rate = mp3_info.sample_rate;
-	result->super.frames = mp3_info.num_samples_per_channel;
-	result->super.length = (stack_time_t)(double(mp3_info.num_samples_per_channel) / double(mp3_info.sample_rate) * NANOSECS_PER_SEC_F);
+	result->super.frames = mp3_info.num_samples_per_channel - delay - padding;
+	result->super.length = (stack_time_t)(double(mp3_info.num_samples_per_channel - delay - padding) / double(mp3_info.sample_rate) * NANOSECS_PER_SEC_F);
 	std::swap(result->frames, mp3_info.frames);
 	result->frames_buffer = NULL;
 
@@ -74,8 +73,8 @@ StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 	mad_synth_init(&result->mp3_synth);
 	mad_stream_options(&result->mp3_stream, 0);
 	result->frame_iterator = result->frames.begin();
-	result->delay = 0;
-	result->padding = 0;
+	result->delay = delay;
+	result->padding = padding;
 
 	// Create the ring buffer capable of handling two MP3 frames of 1152 audio frames
 	// of two channels
@@ -105,13 +104,15 @@ void stack_audio_file_destroy_mp3(StackAudioFileMP3 *audio_file)
 static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *audio_file)
 {
 	size_t bytes_in_buffer = 0;
-	bool skip_decode = false, current_is_last_frame = false;
+	bool current_is_last_frame = false, current_is_first_frame = false;
+
+	MP3FrameInfoVector::iterator current_frame = audio_file->frame_iterator;
+	current_is_first_frame = (current_frame == audio_file->frames.begin());
 
 	// If we don't have a previous frame, we need to read two
 	if (audio_file->frames_buffer == NULL)
 	{
 		// Get some handy iterators
-		MP3FrameInfoVector::iterator current_frame = audio_file->frame_iterator;
 		MP3FrameInfoVector::iterator next_frame = audio_file->frame_iterator;
 		next_frame++;
 
@@ -123,49 +124,10 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 
 		// Read the two frames
 		bytes_in_buffer = g_input_stream_read(G_INPUT_STREAM(audio_file->super.stream), audio_file->frames_buffer, bytes_to_read, NULL, NULL);
-
-		// Check for an info frame (should be the first frame)
-		if (bytes_in_buffer > 40)
-		{
-			unsigned char *h = &audio_file->frames_buffer[36];
-
-			// Skip past the Xing or Info frame if we have one
-			if (h[0] == 'X' && h[1] == 'i' && h[2] == 'n' && h[3] == 'g')
-			{
-				skip_decode = true;
-			}
-			else if (h[0] == 'I' && h[1] == 'n' && h[2] == 'f' && h[3] == 'o')
-			{
-				skip_decode = true;
-			}
-		}
-
-		// If we found a Xing/Info frame, check for a LAME or LAVC header
-		if (skip_decode && bytes_in_buffer > 0x9f)
-		{
-			bool get_delay = false;
-			unsigned char *h = &audio_file->frames_buffer[0x9c];
-			if (h[0] == 'L' && h[1] == 'A' && ((h[2] == 'M' && h[3] == 'E') || (h[2] == 'V' && h[3] == 'E')))
-			{
-				get_delay = true;
-			}
-
-			if (get_delay && bytes_in_buffer > 0xb4)
-			{
-				unsigned char *d = &audio_file->frames_buffer[0xb1];
-
-				// Grab the first 12 bits at 'd' for the delay
-				audio_file->delay = (((uint16_t)d[0] << 4) | ((uint16_t)d[1] & 0xf0) >> 4) + DEFAULT_DECODER_DELAY;
-
-				// Grab the next 12 bits for the padding
-				audio_file->padding = ((((uint16_t)d[1] & 0x0f) << 8) | (uint16_t)d[2]) - DEFAULT_DECODER_DELAY;
-			}
-		}
 	}
 	else
 	{
 		// Get some handy iterators
-		MP3FrameInfoVector::iterator current_frame = audio_file->frame_iterator;
 		MP3FrameInfoVector::iterator previous_frame = audio_file->frame_iterator;
 		previous_frame--;
 		MP3FrameInfoVector::iterator next_frame = audio_file->frame_iterator;
@@ -216,12 +178,6 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 	// Increment our iterator to move on to the next MPEG frame
 	audio_file->frame_iterator++;
 
-	// If we had an info frame, skip decoding
-	if (skip_decode)
-	{
-		return 0;
-	}
-
 	// Perform the decode
 	mad_stream_buffer(&audio_file->mp3_stream, audio_file->frames_buffer, bytes_in_buffer);
 	mad_frame_decode(&audio_file->mp3_frame, &audio_file->mp3_stream);
@@ -232,22 +188,23 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 
 	// Perform the scaling from 24-bit int to float
 	size_t frames_to_add = audio_file->mp3_synth.pcm.length;
+	size_t start_idx = current_is_first_frame ? audio_file->delay : 0;
 	if (frames_to_add > 0)
 	{
 		if (audio_file->mp3_synth.pcm.channels == 1)
 		{
 			const mad_fixed_t *pcm_samples = audio_file->mp3_synth.pcm.samples[0];
-			for (size_t i = audio_file->delay; i < frames_to_add; i++)
+			for (size_t i = start_idx; i < frames_to_add; i++)
 			{
 				scale_buffer[i] = (float)mad_f_todouble(pcm_samples[i]);
 			}
 		}
 		else if (audio_file->mp3_synth.pcm.channels == 2)
 		{
-			float *obp = &scale_buffer[audio_file->delay * 2];
+			float *obp = &scale_buffer[start_idx * 2];
 			const mad_fixed_t *l_pcm_samples = audio_file->mp3_synth.pcm.samples[0];
 			const mad_fixed_t *r_pcm_samples = audio_file->mp3_synth.pcm.samples[1];
-			for (size_t i = audio_file->delay; i < frames_to_add; i++)
+			for (size_t i = start_idx; i < frames_to_add; i++)
 			{
 				*obp++ = (float)mad_f_todouble(l_pcm_samples[i]);
 				*obp++ = (float)mad_f_todouble(r_pcm_samples[i]);
@@ -256,7 +213,10 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 
 		// If we've got a delay, which could be true in the first audio frame,
 		// then we need to skip it, so we need to add fewer samples
-		frames_to_add -= audio_file->delay;
+		if (current_is_first_frame)
+		{
+			frames_to_add -= audio_file->delay;
+		}
 
 		// If we're in the last frame, then don't add any padding samples we've
 		// discovered
@@ -266,10 +226,7 @@ static size_t stack_audio_file_mp3_decode_next_mpeg_frame(StackAudioFileMP3 *aud
 		}
 
 		// Write multiplexed data to the ring buffer
-		stack_ring_buffer_write(audio_file->decoded_buffer, &scale_buffer[audio_file->delay * audio_file->mp3_synth.pcm.channels], frames_to_add * audio_file->mp3_synth.pcm.channels, 1);
-
-		// Once we've used the delay, reset it to zero
-		audio_file->delay = 0;
+		stack_ring_buffer_write(audio_file->decoded_buffer, &scale_buffer[start_idx * audio_file->mp3_synth.pcm.channels], frames_to_add * audio_file->mp3_synth.pcm.channels, 1);
 	}
 
 	// Return how many samples we decoded
@@ -340,8 +297,7 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 
-	// TODO: This offset probably needs to account for encoder delay
-	stack_ring_buffer_skip(audio_file->decoded_buffer, skip_frames);
+	stack_ring_buffer_skip(audio_file->decoded_buffer, (skip_frames + audio_file->delay) * audio_file->super.channels);
 }
 
 size_t stack_audio_file_read_mp3(StackAudioFileMP3 *audio_file, float *buffer, size_t frames)
