@@ -504,6 +504,9 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 			stack_audio_preview_show_playback(scue->preview_widget, cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST);
 		}
 
+		// Connect signal
+		g_signal_connect(scue->preview_widget, "selection-changed", G_CALLBACK(acp_trim_preview_changed), scue);
+
 		// Stop it from being GC'd
 		g_object_ref(scue->preview_widget);
 	}
@@ -526,7 +529,6 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);
-	g_signal_connect(scue->preview_widget, "selection-changed", G_CALLBACK(acp_trim_preview_changed), scue);
 
 	// Add an extra reference to the media tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
@@ -581,8 +583,10 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 // Removes the properties tabs for an audio cue
 static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
+	StackAudioCue *scue = STACK_AUDIO_CUE(cue);
+
 	// Find our media page
-	gint page = gtk_notebook_page_num(notebook, ((StackAudioCue*)cue)->media_tab);
+	gint page = gtk_notebook_page_num(notebook, scue->media_tab);
 
 	// If we've found the page, remove it
 	if (page >= 0)
@@ -590,17 +594,22 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 		gtk_notebook_remove_page(notebook, page);
 	}
 
+	// Remove the preview from the UI as we re-use it, and if we don't remove
+	// it seems to get stuck parented to a non-existent object and thus never
+	// works again
+	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(scue->builder, "acpPreviewBox")), GTK_WIDGET(scue->preview_widget));
+
 	// We don't need the top level window, so destroy it (GtkBuilder doesn't
 	// destroy top-level windows itself)
-	gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(((StackAudioCue*)cue)->builder, "window1")));
+	gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(scue->builder, "window1")));
 
 	// Destroy the builder
-	g_object_unref(((StackAudioCue*)cue)->builder);
-	g_object_unref(((StackAudioCue*)cue)->media_tab);
+	g_object_unref(scue->builder);
+	g_object_unref(scue->media_tab);
 
 	// Be tidy
-	((StackAudioCue*)cue)->builder = NULL;
-	((StackAudioCue*)cue)->media_tab = NULL;
+	scue->builder = NULL;
+	scue->media_tab = NULL;
 }
 
 static char *stack_audio_cue_to_json(StackCue *cue)
