@@ -10,15 +10,17 @@ struct MP3Info
 	uint32_t sample_rate;
 	uint16_t num_channels;
 	uint64_t num_samples_per_channel;
+	uint16_t delay;
+	uint16_t padding;
 	std::vector<MP3FrameInfo> frames;
 };
 
-static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info, uint16_t *delay, uint16_t *padding)
+static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info)
 {
     uint32_t frames = 0;
 	mp3_info->num_samples_per_channel = 0;
 
-    if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames, delay, padding))
+    if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames, &mp3_info->delay, &mp3_info->padding))
     {
         stack_log("stack_audio_file_mp3_process(): Processing failed\n");
         return false;
@@ -48,8 +50,7 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 {
 	MP3Info mp3_info;
-	uint16_t delay = 0, padding = 0;
-	bool is_mp3_file = stack_audio_file_mp3_process(G_INPUT_STREAM(stream), &mp3_info, &delay, &padding);
+	bool is_mp3_file = stack_audio_file_mp3_process(G_INPUT_STREAM(stream), &mp3_info);
 	if (!is_mp3_file)
 	{
 		return NULL;
@@ -62,8 +63,8 @@ StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 	result->super.format = STACK_AUDIO_FILE_FORMAT_MP3;
 	result->super.channels = mp3_info.num_channels;
 	result->super.sample_rate = mp3_info.sample_rate;
-	result->super.frames = mp3_info.num_samples_per_channel - delay - padding;
-	result->super.length = (stack_time_t)(double(mp3_info.num_samples_per_channel - delay - padding) / double(mp3_info.sample_rate) * NANOSECS_PER_SEC_F);
+	result->super.frames = mp3_info.num_samples_per_channel - mp3_info.delay - mp3_info.padding;
+	result->super.length = (stack_time_t)(double(mp3_info.num_samples_per_channel - mp3_info.delay - mp3_info.padding) / double(mp3_info.sample_rate) * NANOSECS_PER_SEC_F);
 	std::swap(result->frames, mp3_info.frames);
 	result->frames_buffer = NULL;
 
@@ -73,8 +74,8 @@ StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 	mad_synth_init(&result->mp3_synth);
 	mad_stream_options(&result->mp3_stream, 0);
 	result->frame_iterator = result->frames.begin();
-	result->delay = delay;
-	result->padding = padding;
+	result->delay = mp3_info.delay;
+	result->padding = mp3_info.padding;
 
 	// Create the ring buffer capable of handling two MP3 frames of 1152 audio frames
 	// of two channels
