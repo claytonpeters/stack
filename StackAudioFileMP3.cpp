@@ -297,7 +297,7 @@ void stack_audio_file_seek_mp3(StackAudioFileMP3 *audio_file, stack_time_t pos)
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 	stack_audio_file_mp3_decode_next_mpeg_frame(audio_file);
 
-	stack_ring_buffer_skip(audio_file->decoded_buffer, (skip_frames + audio_file->delay) * audio_file->super.channels);
+	stack_ring_buffer_skip(audio_file->decoded_buffer, skip_frames * audio_file->super.channels);
 }
 
 size_t stack_audio_file_read_mp3(StackAudioFileMP3 *audio_file, float *buffer, size_t frames)

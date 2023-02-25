@@ -313,8 +313,16 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		// Store the frame details
 		if (!is_info)
 		{
-			frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame });
-			total_samples += samples_per_frame;
+			if (frame_idx == 1)
+			{
+				frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame - *delay });
+				total_samples += samples_per_frame - *delay;
+			}
+			else
+			{
+				frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame });
+				total_samples += samples_per_frame;
+			}
 		}
 
 		// Because we read the whole of the first frame, we don't need to
