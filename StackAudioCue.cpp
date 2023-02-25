@@ -272,6 +272,32 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	return false;
 }
 
+static void acp_trim_preview_changed(StackAudioPreview *preview, guint64 start, guint64 end, gpointer user_data)
+{
+	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+
+	// Set the time
+	cue->media_start_time = start;
+	cue->media_end_time = end;
+
+	// Update the action time
+	stack_audio_cue_update_action_time(cue);
+
+	// Update the UI
+	char buffer[32];
+	stack_format_time_as_string(cue->media_start_time, buffer, 32);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), buffer);
+	stack_format_time_as_string(cue->media_end_time, buffer, 32);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), buffer);
+
+	// Fire an updated-selected-cue signal to signal the UI to change
+	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(preview));
+	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+}
+
 static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
@@ -500,6 +526,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// Connect the signals
 	gtk_builder_connect_signals(builder, (gpointer)cue);
+	g_signal_connect(scue->preview_widget, "selection-changed", G_CALLBACK(acp_trim_preview_changed), scue);
 
 	// Add an extra reference to the media tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected

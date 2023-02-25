@@ -4,6 +4,13 @@
 // Includes:
 #include <gtk/gtk.h>
 
+enum StackAudioPreviewDrag
+{
+	STACK_AUDIO_PREVIEW_DRAG_NONE,
+	STACK_AUDIO_PREVIEW_DRAG_START,
+	STACK_AUDIO_PREVIEW_DRAG_END,
+};
+
 struct StackAudioPreview
 {
 	GtkWidget super;
@@ -17,6 +24,9 @@ struct StackAudioPreview
 	// Is the thread for drawing to the off-screen surface running?
 	bool thread_running;
 
+	// Whether we need to force a regeneration of the buffer on the next redraw
+	bool force_regenerate;
+
 	// Cairo handle for off-screen surface
 	cairo_t *buffer_cr;
 
@@ -26,6 +36,9 @@ struct StackAudioPreview
 	// The size of the current off-screen surface
 	int surface_width;
 	int surface_height;
+
+	// The known length of the file
+	stack_time_t file_length_time;
 
 	// The start and end times of the audio visible in the preview
 	stack_time_t start_time;
@@ -46,6 +59,9 @@ struct StackAudioPreview
 
 	// Time of last redraw of audio preview during playback
 	stack_time_t last_redraw_time;
+
+	// Whether we're currently dragging a selection
+	StackAudioPreviewDrag dragging;
 };
 
 struct StackAudioPreviewClass

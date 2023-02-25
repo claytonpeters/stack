@@ -7,6 +7,8 @@
 // Provides an implementation of stack_audio_preview_get_type
 G_DEFINE_TYPE(StackAudioPreview, stack_audio_preview, GTK_TYPE_WIDGET)
 
+static guint signal_selection_changed = 0;
+
 GtkWidget *stack_audio_preview_new()
 {
 	// Create the new object
@@ -110,14 +112,11 @@ static uint64_t stack_audio_preview_render_points(const StackAudioPreview *previ
 	return frame;
 }
 
-
 // Thread to generate the code preview
 static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 {
 	// Set the thread name
 	pthread_setname_np(pthread_self(), "stack-preview");
-
-	stack_log("stack_audio_preview_preview_thread(): started\n");
 
 	// Open the file
 	StackAudioFile *file = stack_audio_file_create(preview->file);
@@ -129,6 +128,9 @@ static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 
 	// Flag that the thread is running
 	preview->thread_running = true;
+
+	// Store the length as soon as we have it
+	preview->file_length_time = file->length;
 
 	// Initialise drawing: fill the background
 	cairo_set_source_rgb(preview->buffer_cr, 0.1, 0.1, 0.1);
@@ -147,9 +149,10 @@ static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 	// Convert out start and end times from seconds to samples
 	uint64_t preview_start_samples = stack_time_to_samples(preview->start_time, file->sample_rate);
 	uint64_t preview_end_samples = stack_time_to_samples(preview->end_time, file->sample_rate);
+	uint64_t preview_length_samples = preview_end_samples - preview_start_samples;
 
 	// Calculate how many audio frames fit in to one pixel on the preview
-	size_t frames_per_pixel = file->frames / preview->surface_width;
+	size_t frames_per_pixel = preview_length_samples / preview->surface_width;
 
 	// Default to not downsampling (render every frame)
 	bool downsample = false;
@@ -232,6 +235,9 @@ static void stack_audio_preview_generate(StackAudioPreview *preview, stack_time_
 {
 	stack_audio_preview_tidy_buffer(preview);
 
+	// Don't keep regenerating
+	preview->force_regenerate = false;
+
 	// Store details
 	preview->start_time = start;
 	preview->end_time = end;
@@ -286,11 +292,11 @@ static gboolean stack_audio_preview_draw(GtkWidget *widget, cairo_t *cr)
 	guint graph_height = height - top_bar_height;
 	guint half_graph_height = graph_height / 2;
 
-	if (preview->file != NULL)
+	if (preview->file != NULL || preview->force_regenerate)
 	{
 		// Decide if we need to (re)generate a preview
 		bool generate_preview = false;
-		if (preview->buffer_cr == NULL || preview->buffer_surface == NULL)
+		if (preview->buffer_cr == NULL || preview->buffer_surface == NULL || preview->force_regenerate)
 		{
 			generate_preview = true;
 		}
@@ -329,8 +335,8 @@ static gboolean stack_audio_preview_draw(GtkWidget *widget, cairo_t *cr)
 	// Calculate where the playback section appears on the graph
 	double fp_width = (double)width;
 	double preview_length = preview->end_time - preview->start_time;
-	double section_left = fp_width * (double)preview->sel_start_time / preview_length;
-	double section_right = fp_width * (double)preview->sel_end_time / preview_length;
+	double section_left = (fp_width * (double)(preview->sel_start_time - preview->start_time) / preview_length);
+	double section_right = (fp_width * (double)(preview->sel_end_time - preview->start_time) / preview_length);
 	double section_width = section_right - section_left;
 
 	// Draw the selected section
@@ -424,14 +430,203 @@ static gboolean stack_audio_preview_draw(GtkWidget *widget, cairo_t *cr)
 	return false;
 }
 
+static void stack_audio_preview_motion(GtkWidget *widget, GdkEventMotion *event, gpointer user_data)
+{
+	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
+
+	// Can't do anything without a file
+	if (preview->file == NULL)
+	{
+		return;
+	}
+
+	// Calculate the position of the start and end markers
+	double fp_width = (double)preview->surface_width;
+	double preview_length = preview->end_time - preview->start_time;
+	double section_left = fp_width * (double)(preview->sel_start_time - preview->start_time) / preview_length;
+	double section_right = fp_width * (double)(preview->sel_end_time - preview->start_time) / preview_length;
+
+	// Get the display to set the cursor for
+	GdkDisplay *display = gdk_window_get_display(event->window);
+
+	if (preview->dragging == STACK_AUDIO_PREVIEW_DRAG_NONE)
+	{
+		if ((event->x >= section_left - 4 && event->x <= section_left + 4) ||
+			(event->x >= section_right - 4 && event->x <= section_right + 4))
+		{
+			GdkCursor *cursor = gdk_cursor_new_from_name(display, "col-resize");
+			gdk_window_set_device_cursor(preview->window, event->device, cursor);
+			g_object_unref(cursor);
+		}
+		else
+		{
+			GdkCursor *cursor = gdk_cursor_new_from_name(display, "default");
+			gdk_window_set_device_cursor(preview->window, event->device, cursor);
+			g_object_unref(cursor);
+		}
+	}
+	else
+	{
+		stack_time_t new_time = preview->start_time + (stack_time_t)(preview_length * event->x / fp_width);
+		if (preview->dragging == STACK_AUDIO_PREVIEW_DRAG_START)
+		{
+			stack_audio_preview_set_selection(preview, new_time, preview->sel_end_time);
+		}
+		else if (preview->dragging == STACK_AUDIO_PREVIEW_DRAG_END)
+		{
+			stack_audio_preview_set_selection(preview, preview->sel_start_time, new_time);
+		}
+	}
+}
+
 static void stack_audio_preview_button(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
 {
-	// TODO
+	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
+
+	// Can't do anything without a file
+	if (preview->file == NULL)
+	{
+		return;
+	}
+
+	// Calculate the position of the start and end markers
+	double fp_width = (double)preview->surface_width;
+	double preview_length = preview->end_time - preview->start_time;
+	double section_left = fp_width * (double)(preview->sel_start_time - preview->start_time) / preview_length;
+	double section_right = fp_width * (double)(preview->sel_end_time - preview->start_time) / preview_length;
+
+	// Get the display to set the cursor for
+	GdkDisplay *display = gdk_window_get_display(event->window);
+	GdkSeat *seat = gdk_display_get_default_seat(display);
+
+	if (event->type == GDK_BUTTON_PRESS)
+	{
+		if (event->x >= section_left - 4 && event->x <= section_left + 4)
+		{
+			preview->dragging = STACK_AUDIO_PREVIEW_DRAG_START;
+		}
+		else if	(event->x >= section_right - 4 && event->x <= section_right + 4)
+		{
+			preview->dragging = STACK_AUDIO_PREVIEW_DRAG_END;
+		}
+
+		// If we started dragging, grab the pointing devices
+		if (preview->dragging != STACK_AUDIO_PREVIEW_DRAG_NONE)
+		{
+			gdk_seat_grab(seat, preview->window, GDK_SEAT_CAPABILITY_ALL_POINTING, false, NULL, (GdkEvent*)event, NULL, NULL);
+		}
+	}
+	else if (event->type == GDK_BUTTON_RELEASE)
+	{
+		// If we were dragging, release
+		if (preview->dragging != STACK_AUDIO_PREVIEW_DRAG_NONE)
+		{
+			preview->dragging = STACK_AUDIO_PREVIEW_DRAG_NONE;
+			gdk_seat_ungrab(seat);
+		}
+	}
+
 }
 
 static void stack_audio_preview_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
 {
-	// TODO
+	double scale = 1.0, offset = 1.0;
+	bool zoom = false, scroll = false;
+	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
+
+	// Can't do anything without a file
+	if (preview->file == NULL)
+	{
+		return;
+	}
+
+	if (event->direction == GDK_SCROLL_UP && !event->state & GDK_SHIFT_MASK)
+	{
+		scale = 1.0/1.2;
+		zoom = true;
+	}
+	else if (event->direction == GDK_SCROLL_DOWN && !event->state & GDK_SHIFT_MASK)
+	{
+		scale = 1.2;
+		zoom = true;
+	}
+	else if (event->direction == GDK_SCROLL_LEFT || (event->direction == GDK_SCROLL_UP && (event->state & GDK_SHIFT_MASK)))
+	{
+		offset = -0.1;
+		scroll = true;
+	}
+	else if (event->direction == GDK_SCROLL_RIGHT || (event->direction == GDK_SCROLL_DOWN && (event->state & GDK_SHIFT_MASK)))
+	{
+		offset = 0.1;
+		scroll = true;
+	}
+
+	// Current range of time shown
+	stack_time_t current_time_range = preview->end_time - preview->start_time;
+
+	// Variables that will become our new times
+	stack_time_t new_start_time = preview->start_time;
+	stack_time_t new_end_time = preview->end_time;
+
+	if (zoom)
+	{
+
+		// The time at the center of the view
+		stack_time_t center_x_time = preview->start_time + (current_time_range / 2);
+
+		// The time at the cursor position
+		stack_time_t cursor_x_time = preview->start_time + (stack_time_t)(((double)event->x / (double)preview->surface_width) * (double)current_time_range);
+
+		// Distance of the cursor from the center of the view in time, scaled
+		// by how much we're zooming. This allows us to zoom in on the cursor
+		// time, rather than always zooming in around the center of the view
+		stack_time_t offset_x_time = center_x_time + (double)(cursor_x_time - center_x_time) * (1.0 - scale);
+
+		// Calculate the range of the new time
+		stack_time_t new_time_range = (double)current_time_range * scale;
+
+		// Don't zoom in/out too far
+		if (new_time_range > preview->file_length_time)
+		{
+			new_time_range = preview->file_length_time;
+		}
+		else if (new_time_range < 20 * NANOSECS_PER_MILLISEC)
+		{
+			new_time_range = 20 * NANOSECS_PER_MILLISEC;
+		}
+
+		// If we're already at max/min zoom, don't do anything
+		if (new_time_range == current_time_range)
+		{
+			return;
+		}
+
+		// Determine our new start and end times
+		new_start_time = offset_x_time - new_time_range / 2;
+		new_end_time = offset_x_time + new_time_range / 2;
+	}
+
+
+	if (scroll)
+	{
+		new_start_time += offset * (double)current_time_range;
+		new_end_time += offset * (double)current_time_range;
+	}
+
+	// Keep us in bounds of the file
+	if (new_end_time > preview->file_length_time)
+	{
+		new_start_time -= (new_end_time - preview->file_length_time);
+		new_end_time = preview->file_length_time;
+	}
+	if (new_start_time < 0)
+	{
+		new_end_time -= new_start_time;
+		new_start_time = 0;
+	}
+
+	// Update the view
+	stack_audio_preview_set_view_range(preview, new_start_time, new_end_time);
 }
 
 static void stack_audio_preview_init(StackAudioPreview *preview)
@@ -440,19 +635,24 @@ static void stack_audio_preview_init(StackAudioPreview *preview)
 	preview->window = NULL;
 	preview->file = NULL;
 	preview->thread_running = false;
+	preview->force_regenerate = false;
 	preview->buffer_cr = NULL;
 	preview->buffer_surface = NULL;
 	preview->surface_width = 0;
 	preview->surface_height = 0;
 	preview->start_time = 0;
 	preview->end_time = 0;
+	preview->file_length_time = 0;
 	preview->sel_start_time = 0;
 	preview->sel_end_time = 0;
 	preview->show_playback_marker = false;
 	preview->playback_time = 0;
 	preview->last_redraw_time = 0;
+	preview->dragging = STACK_AUDIO_PREVIEW_DRAG_NONE;
 
 	g_signal_connect(preview, "button-press-event", G_CALLBACK(stack_audio_preview_button), NULL);
+	g_signal_connect(preview, "button-release-event", G_CALLBACK(stack_audio_preview_button), NULL);
+	g_signal_connect(preview, "motion-notify-event", G_CALLBACK(stack_audio_preview_motion), NULL);
 	g_signal_connect(preview, "scroll-event", G_CALLBACK(stack_audio_preview_scroll), NULL);
 }
 
@@ -471,7 +671,7 @@ static void stack_audio_preview_realize(GtkWidget *widget)
 	attr.height = allocation.height;
 	attr.wclass = GDK_INPUT_OUTPUT;
 	attr.window_type = GDK_WINDOW_CHILD;
-	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK;
+	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK;
 	attr.visual = gtk_widget_get_visual(widget);
 
 	GdkWindow *parent = gtk_widget_get_parent_window(widget);
@@ -525,8 +725,16 @@ void stack_audio_preview_set_file(StackAudioPreview *preview, char *file)
 
 void stack_audio_preview_set_view_range(StackAudioPreview *preview, stack_time_t start, stack_time_t end)
 {
-	preview->start_time = start;
-	preview->end_time = end;
+	preview->start_time = (start > 0 ? start : 0);
+	if (preview->file != NULL && preview->file_length_time != 0)
+	{
+		preview->end_time = (end <= preview->file_length_time ? end : preview->file_length_time);
+	}
+	else
+	{
+		preview->end_time = end;
+	}
+	preview->force_regenerate = true;
 	gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
 }
 
@@ -563,8 +771,16 @@ void stack_audio_preview_show_playback(StackAudioPreview *preview, bool show_pla
 
 void stack_audio_preview_set_selection(StackAudioPreview *preview, stack_time_t start, stack_time_t end)
 {
-	preview->sel_start_time = start;
-	preview->sel_end_time = end;
+	preview->sel_start_time = (start > 0 ? start : 0);
+	if (preview->file != NULL && preview->file_length_time != 0)
+	{
+		preview->sel_end_time = (end <= preview->file_length_time ? end : preview->file_length_time);
+	}
+	else
+	{
+		preview->sel_end_time = end;
+	}
+	g_signal_emit(preview, signal_selection_changed, 0, preview->sel_start_time, preview->sel_end_time);
 	gtk_widget_queue_draw(GTK_WIDGET(preview));
 }
 
@@ -598,4 +814,6 @@ static void stack_audio_preview_class_init(StackAudioPreviewClass *cls)
 	widget_cls->unrealize = stack_audio_preview_unrealize;
 	widget_cls->map = stack_audio_preview_map;
 	widget_cls->unmap = stack_audio_preview_unmap;
+
+	signal_selection_changed = g_signal_new("selection-changed", stack_audio_preview_get_type(), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_INT64, G_TYPE_INT64);
 }
