@@ -249,17 +249,23 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		uint16_t frame_bits_per_sample = samples_per_frame / 8;
 		uint16_t frame_size = (uint16_t)((float)frame_bits_per_sample * (float)(frame_bit_rate * 1000) / (float)frame_sample_rate) + (frame_header.padding ? frame_slot_size : 0);
 
+		// Store the sample rate
+		*sample_rate = frame_sample_rate;
+		*channels = mpeg_channels[frame_header.channel_mode];
+
 		// If we're reading the first frame, check for a Xing/Info frame
 		bool is_info = false;
 		if (frame_idx == 0)
 		{
+			stack_log("mpeg_audio_file_find_frames(): First frame is %d bytes\n", frame_size);
+
 			unsigned char *buffer = new unsigned char[frame_size - 4];
 			size_t bytes_in_buffer = g_input_stream_read(stream, buffer, frame_size - 4, NULL, NULL);
 
 			// Check for an info frame (should be the first frame)
 			if (bytes_in_buffer > 36)
 			{
-				unsigned char *h = &buffer[32];
+				unsigned char *h = &buffer[*channels == 2 ? 32 : 17];
 
 				// Skip past the Xing or Info frame if we have one
 				if (h[0] == 'X' && h[1] == 'i' && h[2] == 'n' && h[3] == 'g')
@@ -276,7 +282,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			if (is_info && bytes_in_buffer > 0x9f)
 			{
 				bool get_delay = false;
-				unsigned char *h = &buffer[0x98];
+				unsigned char *h = &buffer[*channels == 2 ? 0x98 : 0x89];
 				if (h[0] == 'L' && ((h[1] == 'A' && h[2] == 'M' && h[3] == 'E') || (h[1] == 'a' && h[2] == 'v' && (h[3] == 'c' || h[3] == 'f'))))
 				{
 					get_delay = true;
@@ -284,7 +290,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 
 				if (get_delay && bytes_in_buffer > 0xb4)
 				{
-					unsigned char *d = &buffer[0xad];
+					unsigned char *d = &buffer[*channels == 2 ? 0xad : 0x9e];
 
 					// Grab the first 12 bits at 'd' for the delay
 					if (delay != NULL)
@@ -303,10 +309,6 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			// Tidy up
 			delete [] buffer;
 		}
-
-		// Store the sample rate
-		*sample_rate = frame_sample_rate;
-		*channels = mpeg_channels[frame_header.channel_mode];
 
 		// Store the frame details
 		if (!is_info)
