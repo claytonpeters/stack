@@ -661,6 +661,8 @@ static void stack_audio_preview_realize(GtkWidget *widget)
 	// Note that the Gtk+ docs say you should usually chain up here... but most
 	// examples I've found don't, and I've yet to make anything work when I do
 
+	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
+
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 
@@ -675,22 +677,24 @@ static void stack_audio_preview_realize(GtkWidget *widget)
 	attr.visual = gtk_widget_get_visual(widget);
 
 	GdkWindow *parent = gtk_widget_get_parent_window(widget);
-	STACK_AUDIO_PREVIEW(widget)->window = gdk_window_new(parent, &attr, GDK_WA_WMCLASS | GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL);
+	preview->window = gdk_window_new(parent, &attr, GDK_WA_WMCLASS | GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL);
 
 	// Register our window with the widget
-	gtk_widget_set_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
-	gtk_widget_register_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
+	gtk_widget_set_window(widget, preview->window);
+	gtk_widget_register_window(widget, preview->window);
 	gtk_widget_set_realized(widget, true);
 }
 
 static void stack_audio_preview_unrealize(GtkWidget *widget)
 {
+	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
+
 	gtk_widget_set_realized(widget, false);
-	gtk_widget_unregister_window(widget, STACK_AUDIO_PREVIEW(widget)->window);
+	gtk_widget_unregister_window(widget, preview->window);
 	gtk_widget_set_window(widget, NULL);
 
-	gdk_window_destroy(STACK_AUDIO_PREVIEW(widget)->window);
-	STACK_AUDIO_PREVIEW(widget)->window = NULL;
+	gdk_window_destroy(preview->window);
+	preview->window = NULL;
 }
 
 static void stack_audio_preview_map(GtkWidget *widget)
