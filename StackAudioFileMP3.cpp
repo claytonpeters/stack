@@ -17,17 +17,22 @@ struct MP3Info
 
 static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info)
 {
-    uint32_t frames = 0;
+	// Initialise the structure
+	mp3_info->sample_rate = 0;
+	mp3_info->num_channels = 2;
 	mp3_info->num_samples_per_channel = 0;
+	mp3_info->delay = 0;
+	mp3_info->padding = 0;
+	uint32_t frames = 0;
 
-    if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames, &mp3_info->delay, &mp3_info->padding))
-    {
-        stack_log("stack_audio_file_mp3_process(): Processing failed\n");
-        return false;
-    }
+	if (!mpeg_audio_file_find_frames(stream, &mp3_info->num_channels, &mp3_info->sample_rate, &frames, &mp3_info->num_samples_per_channel, &mp3_info->frames, &mp3_info->delay, &mp3_info->padding))
+	{
+		stack_log("stack_audio_file_mp3_process(): Processing failed\n");
+		return false;
+	}
 
-    // Return whether we succesfully parsed the header
-    return true;
+	// Return whether we succesfully parsed the header
+	return true;
 }
 
 /*static inline float scale_sample(mad_fixed_t sample)
