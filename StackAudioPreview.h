@@ -77,7 +77,7 @@ struct StackAudioPreviewClass
 // Additional functions:
 GType stack_audio_preview_get_type();
 GtkWidget *stack_audio_preview_new();
-void stack_audio_preview_set_file(StackAudioPreview *preview, char *file);
+void stack_audio_preview_set_file(StackAudioPreview *preview, const char *file);
 void stack_audio_preview_set_view_range(StackAudioPreview *preview, stack_time_t start, stack_time_t end);
 void stack_audio_preview_set_playback(StackAudioPreview *preview, stack_time_t playback_time);
 void stack_audio_preview_show_playback(StackAudioPreview *preview, bool show_playback);

@@ -10,6 +10,107 @@
 #include <cmath>
 #include <json/json.h>
 
+static const cue_uid_t STACK_FADE_CUE_DEFAULT_TARGET = STACK_CUE_UID_NONE;
+static const double STACK_FADE_CUE_DEFAULT_TARGET_VOLUME = -INFINITY;
+static const StackFadeProfile STACK_FADE_CUE_DEFAULT_PROFILE = STACK_FADE_PROFILE_EXP;
+static const bool STACK_FADE_CUE_DEFAULT_STOP_TARGET = true;
+
+static void stack_fade_cue_ccb_common(StackProperty *proeprty, StackPropertyVersion version, StackFadeCue *cue)
+{
+	// Notify cue list that we've changed
+	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+	// Notify UI to update (name might have changed as a result)
+	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
+	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+}
+
+static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+
+	if (cue->fade_tab != NULL && version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		// Get the new UID
+		cue_uid_t new_target_uid = STACK_FADE_CUE_DEFAULT_TARGET;
+		stack_property_get_uint64(property, version, &new_target_uid);
+
+		// Get the cue for the new UID
+		StackCue *new_target = stack_cue_get_by_uid(new_target_uid);
+
+		// Get the Select Cue button
+		GtkButton *button = GTK_BUTTON(gtk_builder_get_object(cue->builder, "fcpCue"));
+
+		// Store the cue in the target and update the state
+		if (new_target == NULL)
+		{
+			// Update the UI
+			gtk_button_set_label(button, "Select Cue...");
+		}
+		else
+		{
+			// Build cue number
+			char cue_number[32];
+			stack_cue_id_to_string(new_target->id, cue_number, 32);
+
+			// Build the string
+			std::string button_text;
+			button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(new_target));
+
+			// Update the UI
+			gtk_button_set_label(button, button_text.c_str());
+		}
+	}
+
+	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
+}
+
+static void stack_fade_cue_ccb_target_volume(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+
+	if (cue->fade_tab != NULL && version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+		stack_property_get_double(property, version, &target_volume);
+
+		// Build a string of the volume
+		char buffer[32];
+		if (target_volume < -49.99)
+		{
+			snprintf(buffer, 32, "-Inf dB");
+		}
+		else
+		{
+			snprintf(buffer, 32, "%.2f dB", target_volume);
+		}
+
+		// Get the volume label and update it's value
+		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "fcpVolumeValueLabel")), buffer);
+	}
+
+	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
+}
+
+static void stack_fade_cue_ccb_stop_target(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
+}
+
+static void stack_fade_cue_ccb_profile(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
+}
+
+// Pause or resumes change callbacks on variables
+static void stack_fade_cue_pause_change_callbacks(StackCue *cue, bool pause)
+{
+    stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
+    stack_property_pause_change_callback(stack_cue_get_property(cue, "target_volume"), pause);
+    stack_property_pause_change_callback(stack_cue_get_property(cue, "stop_target"), pause);
+    stack_property_pause_change_callback(stack_cue_get_property(cue, "profile"), pause);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CREATION AND DESTRUCTION
 
@@ -32,13 +133,31 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	stack_cue_set_action_time(STACK_CUE(cue), 5 * NANOSECS_PER_SEC);
 
 	// Initialise our variables
-	cue->target = STACK_CUE_UID_NONE;
-	cue->target_volume = -INFINITY;
-	cue->stop_target = true;
-	cue->profile = STACK_FADE_PROFILE_EXP;
 	cue->builder = NULL;
 	cue->fade_tab = NULL;
 	cue->target_cue_id_string[0] = '\0';
+	cue->playback_start_target_volume = 0.0;
+
+	// Add our properties
+	StackProperty *target = stack_property_create("target", STACK_PROPERTY_TYPE_UINT64);
+	stack_cue_add_property(STACK_CUE(cue), target);
+	stack_property_set_uint64(target, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_TARGET);
+	stack_property_set_changed_callback(target, stack_fade_cue_ccb_target, (void*)cue);
+
+	StackProperty *target_volume = stack_property_create("target_volume", STACK_PROPERTY_TYPE_DOUBLE);
+	stack_cue_add_property(STACK_CUE(cue), target_volume);
+	stack_property_set_double(target_volume, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_TARGET_VOLUME);
+	stack_property_set_changed_callback(target_volume, stack_fade_cue_ccb_target_volume, (void*)cue);
+
+	StackProperty *stop_target = stack_property_create("stop_target", STACK_PROPERTY_TYPE_BOOL);
+	stack_cue_add_property(STACK_CUE(cue), stop_target);
+	stack_property_set_bool(stop_target, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_STOP_TARGET);
+	stack_property_set_changed_callback(stop_target, stack_fade_cue_ccb_stop_target, (void*)cue);
+
+	StackProperty *profile = stack_property_create("profile", STACK_PROPERTY_TYPE_INT32);
+	stack_cue_add_property(STACK_CUE(cue), profile);
+	stack_property_set_int32(profile, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_PROFILE);
+	stack_property_set_changed_callback(profile, stack_fade_cue_ccb_profile, (void*)cue);
 
 	// Initialise superclass variables
 	stack_cue_set_name(STACK_CUE(cue), "${action} cue ${target}");
@@ -72,61 +191,43 @@ static void stack_fade_cue_destroy(StackCue *cue)
 // Sets the target cue of a fade cue
 void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 {
+	cue_uid_t target_uid;
+
 	if (target == NULL)
 	{
-		cue->target = STACK_CUE_UID_NONE;
+		target_uid = STACK_CUE_UID_NONE;
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 	}
 	else
 	{
-		cue->target = target->uid;
+		target_uid = target->uid;
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
 	}
 
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-
-	// Notify UI to update (name might have changed as a result)
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+	stack_property_set_uint64(stack_cue_get_property(STACK_CUE(cue), "target"), STACK_PROPERTY_VERSION_DEFINED, target_uid);
 }
 
 /// Sets the change in volume of the target cue
-void stack_fade_cue_set_target_volume(StackFadeCue *cue, double volume)
+void stack_fade_cue_set_target_volume(StackFadeCue *cue, double target_volume)
 {
-	if (volume < -49.99)
+	if (target_volume < -49.99)
 	{
-		cue->target_volume = -INFINITY;
-	}
-	else
-	{
-		cue->target_volume = volume;
+		target_volume = -INFINITY;
 	}
 
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	stack_property_set_double(stack_cue_get_property(STACK_CUE(cue), "target_volume"), STACK_PROPERTY_VERSION_DEFINED, target_volume);
 }
 
 /// Sets whether the Stop Target flag is enabled
 void stack_fade_cue_set_stop_target(StackFadeCue *cue, bool stop_target)
 {
-	cue->stop_target = stop_target;
-
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-
-	// Notify UI to update (name might have changed as a result)
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+	stack_property_set_bool(stack_cue_get_property(STACK_CUE(cue), "stop_target"), STACK_PROPERTY_VERSION_DEFINED, stop_target);
 }
 
 /// Sets the fade profile
 void stack_fade_cue_set_profile(StackFadeCue *cue, StackFadeProfile profile)
 {
-	cue->profile = profile;
-
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	stack_property_set_int32(stack_cue_get_property(STACK_CUE(cue), "profile"), STACK_PROPERTY_VERSION_DEFINED, profile);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,34 +243,14 @@ static void fcp_cue_changed(GtkButton *widget, gpointer user_data)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
 
 	// Call the dialog and get the new target
-	StackCue *new_target = stack_select_cue_dialog(window, stack_cue_get_by_uid(cue->target), STACK_CUE(cue));
+	cue_uid_t current_target_uid = STACK_FADE_CUE_DEFAULT_TARGET;
+	stack_property_get_uint64(stack_cue_get_property(STACK_CUE(cue), "target"), STACK_PROPERTY_VERSION_DEFINED, &current_target_uid);
+	StackCue *current_target = stack_cue_get_by_uid(current_target_uid);
+
+	StackCue *new_target = stack_select_cue_dialog(window, current_target, STACK_CUE(cue));
 
 	// Update the cue
 	stack_fade_cue_set_target(cue, new_target);
-
-	// Store the cue in the target and update the state
-	if (new_target == NULL)
-	{
-		// Update the UI
-		gtk_button_set_label(widget, "Select Cue...");
-	}
-	else
-	{
-		// Build cue number
-		char cue_number[32];
-		stack_cue_id_to_string(new_target->id, cue_number, 32);
-
-		// Build the string
-		std::string button_text;
-		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(new_target));
-
-		// Update the UI
-		gtk_button_set_label(widget, button_text.c_str());
-	}
-
-	// Fire an updated-selected-cue signal to signal the UI to change (we might
-	// have changed state)
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 /// Called when the volume slider changes
@@ -180,20 +261,6 @@ static void fcp_volume_changed(GtkRange *range, gpointer user_data)
 	// Get the volume and store it
 	double vol_db = gtk_range_get_value(range);
 	stack_fade_cue_set_target_volume(cue, vol_db);
-
-	// Build a string of the volume
-	char buffer[32];
-	if (cue->target_volume < -49.99)
-	{
-		snprintf(buffer, 32, "-Inf dB");
-	}
-	else
-	{
-		snprintf(buffer, 32, "%.2f dB", cue->target_volume);
-	}
-
-	// Get the volume label and update it's value
-	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "fcpVolumeValueLabel")), buffer);
 }
 
 /// Called when the fade time edit box loses focus
@@ -206,11 +273,10 @@ static gboolean fcp_fade_time_changed(GtkWidget *widget, GdkEvent *event, gpoint
 
 	// Update the UI
 	char buffer[32];
-	stack_format_time_as_string(STACK_CUE(cue)->action_time, buffer, 32);
+	stack_time_t cue_action_time = 0;
+	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "action_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_action_time);
+	stack_format_time_as_string(cue_action_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
-
-	// Fire an updated-selected-cue signal to signal the UI to change
-	g_signal_emit_by_name((gpointer)gtk_widget_get_toplevel(widget), "update-selected-cue");
 
 	return false;
 }
@@ -254,14 +320,22 @@ static bool stack_fade_cue_play(StackCue *cue)
 		return false;
 	}
 
-	// Get the target cue
-	StackCue *target = stack_cue_get_by_uid(STACK_FADE_CUE(cue)->target);
+	// Get the target
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
 
 	// If we've found the target and it's a StackAudioCue...
 	if (target != NULL && strcmp(target->_class_name, "StackAudioCue") == 0)
 	{
-		// ...take note of the current cue volume
-		STACK_FADE_CUE(cue)->playback_start_target_volume = STACK_AUDIO_CUE(target)->playback_live_volume;
+		// Store the current volume of the target
+		stack_property_get_double(stack_cue_get_property(target, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_target_volume));
+
+		// ...copy the current values
+		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target"));
+		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target_volume"));
+		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "profile"));
+		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "stop_target"));
 	}
 
 	return true;
@@ -277,20 +351,28 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_cue_pulse_base(cue, clocktime);
 
 	// Get the target
-	StackCue *target = stack_cue_get_by_uid(STACK_FADE_CUE(cue)->target);
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
+
+	// Get our values
+	bool stop_target = false;
+	stack_property_get_bool(stack_cue_get_property(cue, "stop_target"), STACK_PROPERTY_VERSION_LIVE, &stop_target);
 
 	// If the target is valid
 	if (target != NULL)
 	{
+		double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+
 		// If the cue state has changed to stopped on this pulse, and we're
 		// supposed to stop our target, then do so
 		if (pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 		{
 			// Jump to end volume (handles zero-second, non-stopping fades)
-			STACK_AUDIO_CUE(target)->playback_live_volume = STACK_FADE_CUE(cue)->target_volume;
+			stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
 
 			// If we're supposed to stop our target, do so
-			if (STACK_FADE_CUE(cue)->stop_target)
+			if (stop_target)
 			{
 				// Stop the target
 				stack_cue_stop(target);
@@ -298,26 +380,36 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		}
 		else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
 		{
+			stack_time_t cue_action_time = 0;
+			stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
 			// This if statement is to avoid divide by zero errors
-			if (cue->action_time > 0.0)
+			if (cue_action_time > 0.0)
 			{
 				// Get the current fade cue action times
 				stack_time_t run_action_time;
 				stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
 
+				// Determine the volume we're working towards
+				double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+				stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &target_volume);
+
 				// Calculate a ratio of how far through the queue we are
-				double time_scaler = (double)run_action_time / (double)cue->action_time;
+				double time_scaler = (double)run_action_time / (double)cue_action_time;
 
 				// Convert start and end volumes from dB to linear scalars
 				double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
-				double vend = stack_db_to_scalar(STACK_FADE_CUE(cue)->target_volume);
+				double vend = stack_db_to_scalar(target_volume);
 				double vrange = vstart - vend;
 
-				switch (STACK_FADE_CUE(cue)->profile)
+				// Get the fade profile
+				StackFadeProfile profile = STACK_FADE_CUE_DEFAULT_PROFILE;
+				stack_property_get_int32(stack_cue_get_property(cue, "profile"), STACK_PROPERTY_VERSION_LIVE, (int32_t*)&profile);
+
+				switch (profile)
 				{
 					case STACK_FADE_PROFILE_LINEAR:
 						// time_scaler goes 0.0 -> 1.0
-						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * time_scaler);
+						new_volume = stack_scalar_to_db(vstart - vrange * time_scaler);
 						break;
 
 					case STACK_FADE_PROFILE_QUAD:
@@ -333,27 +425,29 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 						}
 
 						// Scale between vstart and vend based on vol_scaler and convert back to dB
-						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * vol_scaler);
+						new_volume = stack_scalar_to_db(vstart - vrange * vol_scaler);
 						break;
 
 					case STACK_FADE_PROFILE_EXP:
-						//STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - (vstart - vend) * (1.0 - (((4.0 / pow(time_scaler + 1.0, 2.0)) - 1.0) / 3.0)));
-						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * (1.0 - pow(1.0 - time_scaler, 2.0)));
+						new_volume = stack_scalar_to_db(vstart - vrange * (1.0 - pow(1.0 - time_scaler, 2.0)));
 
 						break;
 
 					case STACK_FADE_PROFILE_INVEXP:
-						//STACK_AUDIO_CUE(target)->playback_live_volume =
-						STACK_AUDIO_CUE(target)->playback_live_volume = stack_scalar_to_db(vstart - vrange * pow(time_scaler, 2.0));
+						new_volume = stack_scalar_to_db(vstart - vrange * pow(time_scaler, 2.0));
 						break;
 				}
 			}
 			else
 			{
 				// Immediately jump to target volume
-				STACK_AUDIO_CUE(target)->playback_live_volume = STACK_FADE_CUE(cue)->target_volume;
+				stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
 			}
 		}
+
+		// Set the new volume
+		// TODO: Once StackAudioCue uses properties, change this
+		stack_property_set_double(stack_cue_get_property(STACK_CUE(target), "play_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
 	}
 }
 
@@ -369,6 +463,9 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	GtkBuilder *builder = gtk_builder_new_from_file("StackFadeCue.ui");
 	fcue->builder = builder;
 	fcue->fade_tab = GTK_WIDGET(gtk_builder_get_object(builder, "fcpGrid"));
+
+	// Pause change callbacks on the properties
+	stack_fade_cue_pause_change_callbacks(cue, true);
 
 	// Set up callbacks
 	gtk_builder_add_callback_symbol(builder, "fcp_cue_changed", G_CALLBACK(fcp_cue_changed));
@@ -395,7 +492,9 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_widget_show(fcue->fade_tab);
 
 	// Set the values: cue
-	StackCue *target_cue = stack_cue_get_by_uid(fcue->target);
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+	StackCue *target_cue = stack_cue_get_by_uid(target_uid);
 	if (target_cue)
 	{
 		char cue_number[32];
@@ -411,11 +510,15 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 	// Set the values: fade time
 	char buffer[32];	// Warning: used multiple times!
-	stack_format_time_as_string(STACK_CUE(fcue)->action_time, buffer, 32);
+	stack_time_t cue_action_time = 0;
+	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_action_time);
+	stack_format_time_as_string(cue_action_time, buffer, 32);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "fcpFadeTime")), buffer);
 
 	// Set the values: stop target
-	if (fcue->stop_target)
+	bool stop_target = STACK_FADE_CUE_DEFAULT_STOP_TARGET;
+	stack_property_get_bool(stack_cue_get_property(cue, "stop_target"), STACK_PROPERTY_VERSION_DEFINED, &stop_target);
+	if (stop_target)
 	{
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpStopTarget")), true);
 	}
@@ -425,7 +528,9 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 
 	// Update fade type option
-	switch (fcue->profile)
+	StackFadeProfile profile = STACK_FADE_CUE_DEFAULT_PROFILE;
+	stack_property_get_int32(stack_cue_get_property(cue, "profile"), STACK_PROPERTY_VERSION_DEFINED, (int32_t*)&profile);
+	switch (profile)
 	{
 		case STACK_FADE_PROFILE_LINEAR:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpFadeTypeLinear")), true);
@@ -445,16 +550,21 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 
 	// Set the values: volume
-	if (fcue->target_volume < -49.99)
+	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_DEFINED, &target_volume);
+	if (target_volume < -49.99)
 	{
 		snprintf(buffer, 32, "-Inf dB");
 	}
 	else
 	{
-		snprintf(buffer, 32, "%.2f dB", fcue->target_volume);
+		snprintf(buffer, 32, "%.2f dB", target_volume);
 	}
-	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(builder, "fcpVolume")), fcue->target_volume);
+	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(builder, "fcpVolume")), target_volume);
 	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "fcpVolumeValueLabel")), buffer);
+
+	// Resume change callbacks on the properties
+	stack_fade_cue_pause_change_callbacks(cue, false);
 }
 
 /// Removes the properties tabs for a fade cue
@@ -491,17 +601,19 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 
 	// Build JSON
 	Json::Value cue_root;
-	cue_root["target"] = (Json::UInt64)fcue->target;
-	if (std::isfinite(fcue->target_volume))
+	stack_property_write_json(stack_cue_get_property(cue, "target"), &cue_root);
+	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_DEFINED, &target_volume);
+	if (std::isfinite(target_volume))
 	{
-		cue_root["target_volume"] = fcue->target_volume;
+		cue_root["target_volume"] = target_volume;
 	}
 	else
 	{
 		cue_root["target_volume"] = "-Infinite";
 	}
-	cue_root["stop_target"] = fcue->stop_target;
-	cue_root["profile"] = fcue->profile;
+	stack_property_write_json(stack_cue_get_property(cue, "stop_target"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "profile"), &cue_root);
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
@@ -550,7 +662,10 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 /// Gets the error message for the cue
 void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 {
-	if (STACK_FADE_CUE(cue)->target == STACK_CUE_UID_NONE)
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
+
+	if (target_uid == STACK_CUE_UID_NONE)
 	{
 		snprintf(message, size, "No target cue chosen");
 	}
@@ -564,7 +679,10 @@ const char *stack_fade_cue_get_field(StackCue *cue, const char *field)
 {
 	if (strcmp(field, "action") == 0)
 	{
-		if (STACK_FADE_CUE(cue)->stop_target)
+		bool stop_target = STACK_FADE_CUE_DEFAULT_STOP_TARGET;
+		stack_property_get_bool(stack_cue_get_property(cue, "stop_target"), STACK_PROPERTY_VERSION_DEFINED, &stop_target);
+
+		if (stop_target)
 		{
 			return "Fade and stop";
 		}
@@ -575,12 +693,15 @@ const char *stack_fade_cue_get_field(StackCue *cue, const char *field)
 	}
 	if (strcmp(field, "target") == 0)
 	{
-		if (STACK_FADE_CUE(cue)->target == STACK_CUE_UID_NONE)
+		cue_uid_t target_uid = STACK_CUE_UID_NONE;
+		stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+
+		if (target_uid == STACK_CUE_UID_NONE)
 		{
 			return "<no target>";
 		}
 
-		StackCue *target_cue = stack_cue_list_get_cue_by_uid(cue->parent, STACK_FADE_CUE(cue)->target);
+		StackCue *target_cue = stack_cue_get_by_uid(target_uid);
 		if (target_cue == NULL)
 		{
 			return "<invalid target>";

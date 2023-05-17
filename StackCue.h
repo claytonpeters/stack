@@ -5,6 +5,7 @@
 #include "StackError.h"
 #include "StackAudioDevice.h"
 #include "StackRingBuffer.h"
+#include "StackProperty.h"
 #include <gtk/gtk.h>
 #include <cstdint>
 #include <cstdlib>
@@ -136,34 +137,11 @@ struct StackCue
 	// Cue UID - unique id - this should be used to reference a cue
 	cue_uid_t uid;
 
-	// Cue name - can include variables
-	char *name;
-
 	// Cue name as displayed
 	char *rendered_name;
 
-	// Notes - displayed to the user when waiting to start the cue
-	char *notes;
-
-	// Cue pre-wait time. Action will be performed this much time after cue is started
-	stack_time_t pre_time;
-
-	// Cue in-action time. Amount of time the cue actually spends doing
-	// something
-	stack_time_t action_time;
-
-	// Cure post-wait time. Auto follows will be performed after this much
-	// time after the cue action finished
-	stack_time_t post_time;
-
 	// The current state of the cue
 	StackCueState state;
-
-	// The color of the cue
-	uint8_t r, g, b;
-
-	// The postwait trigger
-	StackCueWaitTrigger post_trigger;
 
 	// Runtime data: The 'clock' time of when the cue was started
 	stack_time_t start_time;
@@ -180,6 +158,10 @@ struct StackCue
 
 	// Runtime data: Determines if the post-wait trigger has run or not
 	bool post_has_run;
+
+	// The properties for the cue (this is a std::map internally). Any
+	// properties stored in here will automatically be written to JSON
+	void *properties;
 };
 
 struct StackGroupCue
@@ -251,6 +233,9 @@ void stack_cue_destroy(StackCue *cue);
 void stack_cue_initsystem();
 StackCue *stack_cue_get_by_uid(cue_uid_t uid);
 void stack_cue_init(StackCue *cue, StackCueList *cue_list);
+void stack_cue_add_property(StackCue *cue, StackProperty *property);
+void stack_cue_remove_property(StackCue *cue, const char *property);
+StackProperty *stack_cue_get_property(StackCue *cue, const char *property);
 void stack_cue_set_id(StackCue *cue, cue_id_t id);
 void stack_cue_set_name(StackCue *cue, const char *name);
 void stack_cue_set_notes(StackCue *cue, const char *notes);

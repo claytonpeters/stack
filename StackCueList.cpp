@@ -609,6 +609,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	}
 
 	// Flag that the cue list hasn't changed
+	stack_log("stack_cue_list_new_from_file(): Marking cue list as unchanged\n");
 	cue_list->changed = false;
 
 	// Store the URI of the file we opened
@@ -636,6 +637,7 @@ cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 /// @param cue The cue that caused the change (currently unused)
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue)
 {
+	stack_log("stack_cue_list_changed(): Called by cue UID %016lx\n", cue->uid);
 	cue_list->changed = true;
 }
 

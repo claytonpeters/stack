@@ -18,12 +18,6 @@ struct StackActionCue
 	// Superclass
 	StackCue super;
 
-	// The target cue
-	cue_uid_t target;
-
-	// What to do to the target
-	StackActionCueAction action;
-
 	// The GtkBuilder instance
 	GtkBuilder *builder;
 

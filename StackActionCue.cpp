@@ -8,6 +8,55 @@
 #include <cmath>
 #include <json/json.h>
 
+static void stack_action_cue_ccb_target(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackActionCue* cue = STACK_ACTION_CUE(user_data);
+
+		// Notify cue list that we've changed
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+		// Fire an updated-selected-cue signal to signal the UI to change (we might
+		// have changed state)
+		if (cue->action_tab)
+		{
+			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
+			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+		}
+	}
+}
+
+static void stack_action_cue_ccb_action(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackActionCue* cue = STACK_ACTION_CUE(user_data);
+
+		// Notify cue list that we've changed
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+
+		// Fire an updated-selected-cue signal to signal the UI to change (we might
+		// have changed state)
+		if (cue->action_tab)
+		{
+			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
+			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+		}
+	}
+}
+
+/// Pause or resumes change callbacks on variables
+static void stack_audio_cue_pause_change_callbacks(StackCue *cue, bool pause)
+{
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "action"), pause);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CREATION AND DESTRUCTION
 
@@ -27,12 +76,21 @@ static StackCue* stack_action_cue_create(StackCueList *cue_list)
 	stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 
 	// Initialise our variables
-	cue->target = STACK_CUE_UID_NONE;
-	cue->action = STACK_ACTION_CUE_STOP;
 	cue->builder = NULL;
 	cue->action_tab = NULL;
 	stack_cue_set_action_time(STACK_CUE(cue), 1);
 	cue->target_cue_id_string[0] = '\0';
+
+	// Add our properties
+	StackProperty *target = stack_property_create("target", STACK_PROPERTY_TYPE_UINT64);
+	stack_cue_add_property(STACK_CUE(cue), target);
+	stack_property_set_uint64(target, STACK_PROPERTY_VERSION_DEFINED, STACK_CUE_UID_NONE);
+	stack_property_set_changed_callback(target, stack_action_cue_ccb_target, (void*)cue);
+
+	StackProperty *action = stack_property_create("action", STACK_PROPERTY_TYPE_INT32);
+	stack_cue_add_property(STACK_CUE(cue), action);
+	stack_property_set_int32(action, STACK_PROPERTY_VERSION_DEFINED, STACK_ACTION_CUE_STOP);
+	stack_property_set_changed_callback(action, stack_action_cue_ccb_action, (void*)cue);
 
 	// Initialise superclass variables
 	stack_cue_set_name(STACK_CUE(cue), "${action} cue ${target}");
@@ -66,25 +124,26 @@ static void stack_action_cue_destroy(StackCue *cue)
 // Sets the target cue of an action cue
 void stack_action_cue_set_target(StackActionCue *cue, StackCue *target)
 {
+	cue_uid_t new_target = STACK_CUE_UID_NONE;
+
 	if (target == NULL)
 	{
-		cue->target = STACK_CUE_UID_NONE;
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 	}
 	else
 	{
-		cue->target = target->uid;
+		new_target = target->uid;
 		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_STOPPED);
 	}
 
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	// Update the property
+	stack_property_set_uint64(stack_cue_get_property(STACK_CUE(cue), "target"), STACK_PROPERTY_VERSION_DEFINED, new_target);
 }
 
 // Sets the performed action of an action cue
 void stack_action_cue_set_action(StackActionCue *cue, StackActionCueAction action)
 {
-	cue->action = action;
+	stack_property_set_int32(stack_cue_get_property(STACK_CUE(cue), "action"), STACK_PROPERTY_VERSION_DEFINED, action);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +159,9 @@ static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
 
 	// Call the dialog and get the new target
-	StackCue *new_target = stack_select_cue_dialog(window, stack_cue_get_by_uid(cue->target), STACK_CUE(cue));
+	cue_uid_t current_target = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(STACK_CUE(cue), "target"), STACK_PROPERTY_VERSION_DEFINED, &current_target);
+	StackCue *new_target = stack_select_cue_dialog(window, stack_cue_get_by_uid(current_target), STACK_CUE(cue));
 
 	// Update the cue
 	stack_action_cue_set_target(cue, new_target);
@@ -124,13 +185,6 @@ static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 		// Update the UI
 		gtk_button_set_label(widget, button_text.c_str());
 	}
-
-	// Notify the cue list that the cue has changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-
-	// Fire an updated-selected-cue signal to signal the UI to change (we might
-	// have changed state)
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 /// Called when the action changes
@@ -147,13 +201,6 @@ static void acp_action_changed(GtkToggleButton *widget, gpointer user_data)
 	if (widget == r1 && gtk_toggle_button_get_active(r1)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_PLAY); }
 	if (widget == r2 && gtk_toggle_button_get_active(r2)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_PAUSE); }
 	if (widget == r3 && gtk_toggle_button_get_active(r3)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_STOP); }
-
-	// Notify the cue list that the cue has changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-
-	// Notify UI to update (name might have changed as a result)
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -168,12 +215,21 @@ static bool stack_action_cue_play(StackCue *cue)
 		return false;
 	}
 
+	// Get the target cue UID
+	cue_uid_t target = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target);
+
 	// If we don't have a valid target (unknown cue, or self) then we can't play
-	if (stack_cue_get_by_uid(STACK_ACTION_CUE(cue)->target) == NULL || STACK_ACTION_CUE(cue)->target == cue->uid)
+	if (stack_cue_get_by_uid(target) == NULL || target == cue->uid)
 	{
-		stack_log("stack_action_cue_play(): Invalid target cue: %lx\n", STACK_ACTION_CUE(cue)->target);
+		stack_log("stack_action_cue_play(): Invalid target cue: %lx\n", target);
 		stack_cue_set_state(cue, STACK_CUE_STATE_ERROR);
+		return false;
 	}
+
+	// Copy the variables to live
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "action"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target"));
 
 	return true;
 }
@@ -187,8 +243,16 @@ static void stack_action_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	// Call superclass
 	stack_cue_pulse_base(cue, clocktime);
 
+	// Get the target cue UID
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
+
+	// Get the target cue UID
+	int32_t action = STACK_ACTION_CUE_STOP;
+	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_LIVE, &action);
+
 	// Get the target
-	StackCue *target = stack_cue_get_by_uid(STACK_ACTION_CUE(cue)->target);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
 
 	// If the target is valid
 	if (target != NULL)
@@ -197,7 +261,7 @@ static void stack_action_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		if ((pre_pulse_state == STACK_CUE_STATE_PLAYING_PRE && cue->state != STACK_CUE_STATE_PLAYING_PRE) ||
 			(pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION))
 		{
-			switch (STACK_ACTION_CUE(cue)->action)
+			switch (action)
 			{
 				case STACK_ACTION_CUE_PLAY:
 					stack_cue_play(target);
@@ -228,6 +292,9 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	acue->builder = builder;
 	acue->action_tab = GTK_WIDGET(gtk_builder_get_object(builder, "acpGrid"));
 
+	// Pause change callbacks on the properties
+	stack_audio_cue_pause_change_callbacks(cue, true);
+
 	// Set up callbacks
 	gtk_builder_add_callback_symbol(builder, "acp_cue_changed", G_CALLBACK(acp_cue_changed));
 	gtk_builder_add_callback_symbol(builder, "acp_action_changed", G_CALLBACK(acp_action_changed));
@@ -247,7 +314,9 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_widget_show(acue->action_tab);
 
 	// Set the values: cue
-	StackCue *target_cue = stack_cue_get_by_uid(acue->target);
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+	StackCue *target_cue = stack_cue_get_by_uid(target_uid);
 	if (target_cue)
 	{
 		char cue_number[32];
@@ -262,7 +331,9 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 
 	// Update action option
-	switch (acue->action)
+	int32_t action = STACK_ACTION_CUE_STOP;
+	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
+	switch (action)
 	{
 		case STACK_ACTION_CUE_PLAY:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "acpActionTypePlay")), true);
@@ -276,6 +347,9 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "acpActionTypeStop")), true);
 			break;
 	}
+
+	// Resume change callbacks on the properties
+	stack_audio_cue_pause_change_callbacks(cue, false);
 }
 
 /// Removes the properties tabs for a action cue
@@ -312,8 +386,10 @@ static char *stack_action_cue_to_json(StackCue *cue)
 
 	// Build JSON
 	Json::Value cue_root;
-	cue_root["target"] = (Json::UInt64)acue->target;
-	cue_root["action"] = acue->action;
+
+	// We do nothing here as we only have properties
+	stack_property_write_json(stack_cue_get_property(cue, "target"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "action"), &cue_root);
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
@@ -353,7 +429,11 @@ void stack_action_cue_from_json(StackCue *cue, const char *json_data)
 /// Gets the error message for the cue
 void stack_action_cue_get_error(StackCue *cue, char *message, size_t size)
 {
-	if (STACK_ACTION_CUE(cue)->target == STACK_CUE_UID_NONE)
+	// Get the target
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+
+	if (target_uid == STACK_CUE_UID_NONE)
 	{
 		snprintf(message, size, "No target cue chosen");
 	}
@@ -367,7 +447,10 @@ const char *stack_action_cue_get_field(StackCue *cue, const char *field)
 {
 	if (strcmp(field, "action") == 0)
 	{
-		switch (STACK_ACTION_CUE(cue)->action)
+		int32_t action = STACK_ACTION_CUE_STOP;
+		stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
+
+		switch (action)
 		{
 			case STACK_ACTION_CUE_PLAY:
 				return "Play";
@@ -379,12 +462,15 @@ const char *stack_action_cue_get_field(StackCue *cue, const char *field)
 	}
 	else if (strcmp(field, "target") == 0)
 	{
-		if (STACK_ACTION_CUE(cue)->target == STACK_CUE_UID_NONE)
+		cue_uid_t target_uid = STACK_CUE_UID_NONE;
+		stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+
+		if (target_uid == STACK_CUE_UID_NONE)
 		{
 			return "<no target>";
 		}
 
-		StackCue *target_cue = stack_cue_list_get_cue_by_uid(cue->parent, STACK_ACTION_CUE(cue)->target);
+		StackCue *target_cue = stack_cue_list_get_cue_by_uid(cue->parent, target_uid);
 		if (target_cue == NULL)
 		{
 			return "<invalid target>";

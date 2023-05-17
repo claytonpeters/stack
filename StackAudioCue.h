@@ -14,36 +14,14 @@ struct StackAudioCue
 	// Superclass
 	StackCue super;
 
-	// The file to playback
-	char *file;
+	// The short (i.e. not fully qualified) file to playback
 	gchar *short_filename;
-
-	// Media start time (e.g. this much time is skipped at the start of the
-	// media file)
-	stack_time_t media_start_time;
-
-	// Media end time (e.g. from this time forward is ignored at the end of the
-	// media file)
-	stack_time_t media_end_time;
-
-	// The number of times to play the cue on a single activation. Zero or less
-	// is infinite
-	int32_t loops;
-
-	// Post-fade-in, pre-fade-out volume, in dB
-	double play_volume;
 
 	// The GtkBuilder instance
 	GtkBuilder *builder;
 
 	// The media tab
 	GtkWidget *media_tab;
-
-	// The current volume of the cue
-	double playback_live_volume;
-
-	// The current number of playback loops
-	int32_t playback_loops;
 
 	// The currently open file
 	StackAudioFile *playback_file;
@@ -53,6 +31,9 @@ struct StackAudioCue
 
 	// Audio Preview: The audio preview widget
 	StackAudioPreview *preview_widget;
+
+	// The current loop count
+	int32_t playback_loops;
 };
 
 // Functions: Audio cue functions

@@ -117,43 +117,58 @@ static void saw_update_list_store_from_cue(GtkListStore *store, GtkTreeIter *ite
 {
 	char pre_buffer[32], action_buffer[32], post_buffer[32], col_buffer[8];
 	double pre_pct = 0.0, action_pct = 0.0, post_pct = 0.0;
+	stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
 
 	// Format time strings
 	if (cue->state == STACK_CUE_STATE_ERROR || cue->state == STACK_CUE_STATE_PREPARED || cue->state == STACK_CUE_STATE_STOPPED)
 	{
+		// Get the _defined_ version of these properties
+		stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_pre_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_action_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_time);
+
 		// If cue is stopped, display their total times
-		stack_format_time_as_string(cue->pre_time, pre_buffer, 32);
-		stack_format_time_as_string(cue->action_time, action_buffer, 32);
-		stack_format_time_as_string(cue->post_time, post_buffer, 32);
+		stack_format_time_as_string(cue_pre_time, pre_buffer, 32);
+		stack_format_time_as_string(cue_action_time, action_buffer, 32);
+		stack_format_time_as_string(cue_post_time, post_buffer, 32);
 	}
 	else
 	{
+		// Get the _live_ version of these properties
+		stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, &cue_post_time);
+
 		// If cue is running or paused, display the time left
 		stack_time_t rpre, raction, rpost;
 		stack_cue_get_running_times(cue, stack_get_clock_time(), &rpre, &raction, &rpost, NULL, NULL, NULL);
 
 		// Format the times
-		stack_format_time_as_string(cue->pre_time - rpre, pre_buffer, 32);
-		stack_format_time_as_string(cue->action_time - raction, action_buffer, 32);
-		stack_format_time_as_string(cue->post_time - rpost, post_buffer, 32);
+		stack_format_time_as_string(cue_pre_time - rpre, pre_buffer, 32);
+		stack_format_time_as_string(cue_action_time - raction, action_buffer, 32);
+		stack_format_time_as_string(cue_post_time - rpost, post_buffer, 32);
 
 		// Calculate fractions
-		if (cue->pre_time != 0)
+		if (cue_pre_time != 0)
 		{
-			pre_pct = 100.0 * double(rpre) / double(cue->pre_time);
+			pre_pct = 100.0 * double(rpre) / double(cue_pre_time);
 		}
-		if (cue->action_time != 0)
+		if (cue_action_time != 0)
 		{
-			action_pct = 100.0 * double(raction) / double(cue->action_time);
+			action_pct = 100.0 * double(raction) / double(cue_action_time);
 		}
-		if (cue->post_time != 0)
+		if (cue_post_time != 0)
 		{
-			post_pct = 100.0 * double(rpost) / double(cue->post_time);
+			post_pct = 100.0 * double(rpost) / double(cue_post_time);
 		}
 	}
 
 	// Format color
-	snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
+	uint8_t r = 0, g = 0, b = 0;
+	stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
+	stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
+	stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
+	snprintf(col_buffer, 8, "#%02x%02x%02x", r, g, b);
 
 	// Decide on icon depending on state
 	const char* icon = "";
@@ -356,7 +371,8 @@ static void saw_cue_state_changed(StackCueList *cue_list, StackCue *cue, void *u
 static void saw_ucp_wait(StackAppWindow *window, StackCue *cue, bool pre)
 {
 	char waitTime[64];
-	stack_time_t ctime = pre ? cue->pre_time : cue->post_time;
+	stack_time_t ctime = 0;
+	stack_property_get_int64(stack_cue_get_property(cue, pre ? "pre_time" : "post_time"), STACK_PROPERTY_VERSION_DEFINED, &ctime);
 
 	// Update cue post-wait time (rounding nanoseconds to seconds with three decimal places)
 	stack_format_time_as_string(ctime, waitTime, 64);
@@ -369,29 +385,49 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// Pause change callbacks on the properties
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "r"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "g"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "b"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "name"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "notes"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "pre_time"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_time"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_trigger"), true);
+
 	// Update cue number
 	char cue_number[32];
 	stack_cue_id_to_string(cue->id, cue_number, 32);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueNumber")), cue_number);
 
 	// Update cue color
-	GdkRGBA cueColor = {(double)cue->r / 255.0, (double)cue->g / 255.0, (double)cue->b / 255.0, 1.0};
+	uint8_t r = 0, g = 0, b = 0;
+	stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
+	stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
+	stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
+	GdkRGBA cueColor = {(double)r / 255.0, (double)g / 255.0, (double)b / 255.0, 1.0};
 	gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(gtk_builder_get_object(window->builder, "sawCueColor")), &cueColor);
 
 	// Update cue name
-	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueName")), cue->name);
+	char *cue_name = NULL;
+	stack_property_get_string(stack_cue_get_property(cue, "name"), STACK_PROPERTY_VERSION_DEFINED, &cue_name);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueName")), cue_name);
 
 	// Update cue notes
+	char *cue_notes = NULL;
+	stack_property_get_string(stack_cue_get_property(cue, "notes"), STACK_PROPERTY_VERSION_DEFINED, &cue_notes);
 	GtkTextView *textview = GTK_TEXT_VIEW(gtk_builder_get_object(window->builder, "sawCueNotes"));
 	GtkTextBuffer* buffer = gtk_text_view_get_buffer(textview);
-	gtk_text_buffer_set_text(buffer, cue->notes, -1);
+	gtk_text_buffer_set_text(buffer, cue_notes, -1);
 
 	// Update cue pre-wait and post-wait times
 	saw_ucp_wait(window, cue, true);
 	saw_ucp_wait(window, cue, false);
 
 	// Update post-wait trigger option (and enable/disable post-wait time as necessary)
-	switch (cue->post_trigger)
+	int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+	stack_property_get_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_trigger);
+	switch (cue_post_trigger)
 	{
 		case STACK_CUE_WAIT_TRIGGER_NONE:
 			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger1")), true);
@@ -413,6 +449,17 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 			gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(window->builder, "sawPostWait")), true);
 			break;
 	}
+
+	// Resume change callbacks on the properties
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "r"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "g"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "b"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "name"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "notes"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "pre_time"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_time"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_trigger"), false);
+
 }
 
 // Selects the first cue on the list
@@ -490,8 +537,10 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 				bool reached_end = false;
 				while (searching)
 				{
+					int32_t old_cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+					stack_property_get_int32(stack_cue_get_property(old_cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, &old_cue_post_trigger);
 					// If the cue we are moving from from would trigger the next cue
-					if (old_cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE)
+					if (old_cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE)
 					{
 						// We need to keep searching forward. Get the "next" cue, so
 						// the loop can check to see if we need to skip again on the
@@ -606,6 +655,11 @@ static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 		stack_cue_list_lock(STACK_APP_WINDOW(user_data)->cue_list);
 		stack_cue_list_save(STACK_APP_WINDOW(user_data)->cue_list, uri);
 		stack_cue_list_unlock(STACK_APP_WINDOW(user_data)->cue_list);
+
+		// Update the title bar
+		char title_buffer[512];
+		snprintf(title_buffer, 512, "%s - Stack", uri);
+		gtk_window_set_title(GTK_WINDOW(user_data), title_buffer);
 
 		// Tidy up
 		g_free(uri);
@@ -1260,18 +1314,18 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	{
 		strncat(time_text, "Pre: ", 63);
 		first_time = rpre;
-		second_time = cue->pre_time;
+		stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &second_time);
 	}
 	else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
 	{
 		first_time = raction;
-		second_time = cue->action_time;
+		stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &second_time);
 	}
 	else if (cue->state == STACK_CUE_STATE_PLAYING_POST)
 	{
 		strncat(time_text, "Post: ", 63);
 		first_time = rpost;
-		second_time = cue->post_time;
+		stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, &second_time);
 	}
 	stack_format_time_as_string(first_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 	strncat(time_text, " / ", 63);
@@ -1784,11 +1838,8 @@ void saw_row_dragged(GtkWidget *widget, GdkDragContext *context, gint x, gint y,
 			StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
 			if (new_cue != NULL)
 			{
-				// TODO: Setting the filename of a StackAudioCue here is hard,
-				// as it's not built-in, but a library/plugin loaded at run-
-				// time. We might need a generic property setter thing to work
-				// around this, which would be nice anyway, so that StackFadeCue
-				// can work on things other than just StackAudioCue
+				// Set the file on the cue
+				stack_property_set_string(stack_cue_get_property(new_cue, "file"), STACK_PROPERTY_VERSION_DEFINED, uri.c_str());
 
 				// Add the list to our cue stack
 				stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
@@ -1990,8 +2041,12 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 			stack_cue_id_to_string(cue->id, cue_number, 32);
 
 			// Format color
+			uint8_t r = 0, g = 0, b = 0;
+			stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
+			stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
+			stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
 			char col_buffer[8];
-			snprintf(col_buffer, 8, "#%02x%02x%02x", cue->r, cue->g, cue->b);
+			snprintf(col_buffer, 8, "#%02x%02x%02x", r, g, b);
 
 			// Update iterator
 			gtk_list_store_set(store, &iter,

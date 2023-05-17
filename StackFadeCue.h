@@ -18,18 +18,6 @@ struct StackFadeCue
 	// Superclass
 	StackCue super;
 
-	// The target cue
-	cue_uid_t target;
-
-	// Post-fade-out volume, in dB (relative to target cue)
-	double target_volume;
-
-	// Fade profile
-	StackFadeProfile profile;
-
-	// Whether to stop the target cue after the fade
-	bool stop_target;
-
 	// The GtkBuilder instance
 	GtkBuilder *builder;
 
@@ -37,7 +25,7 @@ struct StackFadeCue
 	GtkWidget *fade_tab;
 
 	// The volume of the target when the cue started
-	float playback_start_target_volume;
+	double playback_start_target_volume;
 
 	// A string of the target cue ID
 	char target_cue_id_string[32];

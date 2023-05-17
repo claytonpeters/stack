@@ -8,6 +8,10 @@
 #include <json/json.h>
 using namespace std;
 
+// Typedef Map of properties
+typedef map<string, StackProperty*> cue_properties_map;
+#define STACK_CUE_PROPERTIES(c) ((cue_properties_map*)(((StackCue*)c)->properties))
+
 // Map of classes
 static map<string, const StackCueClass*> cue_class_map;
 
@@ -41,6 +45,16 @@ static cue_uid_t stack_cue_generate_uid()
 	return uid;
 }
 
+static void stack_cue_ccb(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		stack_log("stack_cue_ccb(): Called\n");
+		StackCue *cue = STACK_CUE(user_data);
+		stack_cue_list_changed(cue->parent, cue);
+	}
+}
+
 // Initialises a base cue object
 // @param cue The cue to initialise
 void stack_cue_init(StackCue *cue, StackCueList *cue_list)
@@ -50,25 +64,81 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->can_have_children = false;
 	cue->id = stack_cue_list_get_next_cue_number(cue_list);
 	cue->uid = stack_cue_generate_uid();
-	cue->name = strdup("");
 	cue->rendered_name = strdup("");
-	cue->notes = strdup("");
-	cue->pre_time = 0;
-	cue->action_time = 0;
-	cue->post_time = 0;
 	cue->state = STACK_CUE_STATE_STOPPED;
-	cue->r = 210;
-	cue->g = 210;
-	cue->b = 210;
 	cue->start_time = 0;
 	cue->pause_time = 0;
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
+	cue->properties = (void*)new cue_properties_map;
 
 	// Store the UID in our map
 	cue_uid_map[cue->uid] = cue;
 
+	// Add our properties
+	StackProperty *name = stack_property_create("name", STACK_PROPERTY_TYPE_STRING);
+	stack_cue_add_property(cue, name);
+	stack_property_set_changed_callback(name, stack_cue_ccb, cue);
+
+	StackProperty *notes = stack_property_create("notes", STACK_PROPERTY_TYPE_STRING);
+	stack_cue_add_property(cue, notes);
+	stack_property_set_changed_callback(notes, stack_cue_ccb, cue);
+
+	StackProperty *r = stack_property_create("r", STACK_PROPERTY_TYPE_UINT8);
+	stack_cue_add_property(cue, r);
+	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_changed_callback(r, stack_cue_ccb, cue);
+
+	StackProperty *g = stack_property_create("g", STACK_PROPERTY_TYPE_UINT8);
+	stack_cue_add_property(cue, g);
+	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_changed_callback(g, stack_cue_ccb, cue);
+
+	StackProperty *b = stack_property_create("b", STACK_PROPERTY_TYPE_UINT8);
+	stack_cue_add_property(cue, b);
+	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_changed_callback(b, stack_cue_ccb, cue);
+
+	StackProperty *pre_time = stack_property_create("pre_time", STACK_PROPERTY_TYPE_INT64);
+	stack_cue_add_property(cue, pre_time);
+	stack_property_set_changed_callback(pre_time, stack_cue_ccb, cue);
+
+	StackProperty *action_time = stack_property_create("action_time", STACK_PROPERTY_TYPE_INT64);
+	stack_cue_add_property(cue, action_time);
+	stack_property_set_changed_callback(action_time, stack_cue_ccb, cue);
+
+	StackProperty *post_time = stack_property_create("post_time", STACK_PROPERTY_TYPE_INT64);
+	stack_cue_add_property(cue, post_time);
+	stack_property_set_changed_callback(post_time, stack_cue_ccb, cue);
+
+	StackProperty *post_trigger = stack_property_create("post_trigger", STACK_PROPERTY_TYPE_INT32);
+	stack_cue_add_property(cue, post_trigger);
+	stack_property_set_changed_callback(post_trigger, stack_cue_ccb, cue);
+
 	stack_log("stack_cue_init() called - initialised cue UID %016lx\n", cue->uid);
+}
+
+void stack_cue_add_property(StackCue *cue, StackProperty *property)
+{
+	(*STACK_CUE_PROPERTIES(cue))[string(property->name)] = property;
+}
+
+void stack_cue_remove_property(StackCue *cue, const char *property)
+{
+	STACK_CUE_PROPERTIES(cue)->erase(string(property));
+}
+
+StackProperty *stack_cue_get_property(StackCue *cue, const char *property)
+{
+	// Find the property
+	auto property_iter = STACK_CUE_PROPERTIES(cue)->find(property);
+	if (property_iter == STACK_CUE_PROPERTIES(cue)->end())
+	{
+		return NULL;
+	}
+
+	// Get a pointer to the base property
+	return property_iter->second;
 }
 
 // Finds the cue by the given UID and returns it
@@ -88,6 +158,12 @@ StackCue *stack_cue_get_by_uid(cue_uid_t uid)
 // Calculates how long a cue has been running
 void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_time_t *pre, stack_time_t *action, stack_time_t *post, stack_time_t *paused, stack_time_t *real, stack_time_t *total)
 {
+	// Get the _live_ version of these properties
+	stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
+	stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
+	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+	stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, &cue_post_time);
+
 	// If we're paused, re-calculate the paused time
 	if (cue->state == STACK_CUE_STATE_PAUSED)
 	{
@@ -127,14 +203,14 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 	if (pre != NULL)
 	{
 		// If less than the pre-wait time has elapsed
-		if (cue_elapsed < cue->pre_time)
+		if (cue_elapsed < cue_pre_time)
 		{
 			// The pre-wait time is as simple as how long the cue has been running
 			*pre = cue_elapsed;
 		}
 		else
 		{
-			*pre = cue->pre_time;
+			*pre = cue_pre_time;
 		}
 	}
 
@@ -142,28 +218,31 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 	if (action != NULL)
 	{
 		// If we've not got passed the pre-wait time yet, then action time is 0
-		if (cue_elapsed < cue->pre_time)
+		if (cue_elapsed < cue_pre_time)
 		{
 			*action = 0;
 		}
-		else if (cue_elapsed < cue->pre_time + cue->action_time)
+		else if (cue_elapsed < cue_pre_time + cue_action_time)
 		{
 			// Calculate the action time. This is how long the cue has been runnng
 			// less the time we were in pre-wait
-			*action = cue_elapsed - cue->pre_time;
+			*action = cue_elapsed - cue_pre_time;
 		}
 		else
 		{
 			// The action time has elapsed
-			*action = cue->action_time;
+			*action = cue_action_time;
 		}
 	}
 
 	// Return post-wait time if we want it
 	if (post != NULL)
 	{
+		int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+		stack_property_get_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_LIVE, &cue_post_trigger);
+
 		// Post wait time depends on the post-wait trigger
-		switch (cue->post_trigger)
+		switch (cue_post_trigger)
 		{
 			// No post-wait trigger
 			case STACK_CUE_WAIT_TRIGGER_NONE:
@@ -172,45 +251,45 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 
 			// If triggering immediately, it's the same as pre-time
 			case STACK_CUE_WAIT_TRIGGER_IMMEDIATE:
-				if (cue_elapsed < cue->post_time)
+				if (cue_elapsed < cue_post_time)
 				{
 					*post = cue_elapsed;
 				}
 				else
 				{
-					*post = cue->post_time;
+					*post = cue_post_time;
 				}
 				break;
 
 			// If triggering after pre, we need to check if pre has completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERPRE:
-				if (cue_elapsed < cue->pre_time && !cue->post_has_run)
+				if (cue_elapsed < cue_pre_time && !cue->post_has_run)
 				{
 					*post = 0;
 				}
-				else if (cue_elapsed < cue->pre_time + cue->post_time && !cue->post_has_run)
+				else if (cue_elapsed < cue_pre_time + cue_post_time && !cue->post_has_run)
 				{
-					*post = cue_elapsed - cue->pre_time;
+					*post = cue_elapsed - cue_pre_time;
 				}
 				else
 				{
-					*post = cue->post_time;
+					*post = cue_post_time;
 				}
 				break;
 
 			// If triggering after the action, we need to check if action is completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERACTION:
-				if (cue_elapsed < cue->pre_time + cue->action_time)
+				if (cue_elapsed < cue_pre_time + cue_action_time)
 				{
 					*post = 0;
 				}
-				else if (cue_elapsed < cue->pre_time + cue->action_time + cue->post_time)
+				else if (cue_elapsed < cue_pre_time + cue_action_time + cue_post_time)
 				{
-					*post = cue_elapsed - cue->pre_time - cue->action_time;
+					*post = cue_elapsed - cue_pre_time - cue_action_time;
 				}
 				else
 				{
-					*post = cue->post_time;
+					*post = cue_post_time;
 				}
 				break;
 		}
@@ -332,6 +411,13 @@ void stack_cue_destroy(StackCue *cue)
 	{
 		cue_uid_map.erase(uid_iter);
 	}
+
+	// Tidy up properties
+	for (auto iter = STACK_CUE_PROPERTIES(cue)->begin(); iter != STACK_CUE_PROPERTIES(cue)->end(); iter++)
+	{
+		stack_property_destroy(iter->second);
+	}
+	delete STACK_CUE_PROPERTIES(cue);
 }
 
 // Starts cue playback
@@ -539,7 +625,9 @@ size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
 const char *stack_cue_get_rendered_name(StackCue *cue)
 {
 	std::string result;
-	const size_t name_len = strlen(cue->name);
+	char *name = NULL;
+	stack_property_get_string(stack_cue_get_property(cue, "name"), STACK_PROPERTY_VERSION_DEFINED, &name);
+	const size_t name_len = strlen(name);
 	size_t search_start = 0;
 	size_t search_end = 0;
 	bool in_var = false;
@@ -549,30 +637,30 @@ const char *stack_cue_get_rendered_name(StackCue *cue)
 		// If we hit the end of the string, just copy what we had left and
 		// stop iterating, regardless of whether we're parsing a variable name
 		// or not
-		if (cue->name[search_end] == '\0')
+		if (name[search_end] == '\0')
 		{
-			result = result + std::string(&cue->name[search_start], search_end - search_start);
+			result = result + std::string(&name[search_start], search_end - search_start);
 			break;
 		}
 
 		if (!in_var)
 		{
 			// If we hit a dollar sign, we might have hit a variable
-			if (cue->name[search_end] == '$')
+			if (name[search_end] == '$')
 			{
 				// If we're at the end of the string though, just copy the
 				// dollar and stop iterating
 				if (search_end == name_len - 1)
 				{
-					result = result + std::string(&cue->name[search_start], search_end - search_start + 1);
+					result = result + std::string(&name[search_start], search_end - search_start + 1);
 					break;
 				}
 
 				// If the next char is a brace, then copy what we found so far,
 				// and mark that we're in a variable
-				if (cue->name[search_end + 1] == '{')
+				if (name[search_end + 1] == '{')
 				{
-					result = result + std::string(&cue->name[search_start], search_end - search_start);
+					result = result + std::string(&name[search_start], search_end - search_start);
 					in_var = true;
 					search_start = search_end;
 					search_end++;
@@ -582,9 +670,9 @@ const char *stack_cue_get_rendered_name(StackCue *cue)
 		// If we're currently parsing a variable name
 		else
 		{
-			if (cue->name[search_end] == '}')
+			if (name[search_end] == '}')
 			{
-				std::string variable_name = std::string(&cue->name[search_start + 2], search_end - search_start - 2);
+				std::string variable_name = std::string(&name[search_start + 2], search_end - search_start - 2);
 				result = result + std::string(stack_cue_get_field(cue, variable_name.c_str()));
 
 				// We're no longer in a variable

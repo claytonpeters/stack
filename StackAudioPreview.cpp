@@ -713,7 +713,7 @@ static void stack_audio_preview_unmap(GtkWidget *widget)
 	GTK_WIDGET_CLASS(stack_audio_preview_parent_class)->unmap(widget);
 }
 
-void stack_audio_preview_set_file(StackAudioPreview *preview, char *file)
+void stack_audio_preview_set_file(StackAudioPreview *preview, const char *file)
 {
 	// Store the filename
 	if (preview->file)

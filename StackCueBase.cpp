@@ -3,6 +3,12 @@
 #include "StackLog.h"
 #include <cstring>
 #include <json/json.h>
+#include <map>
+#include <string>
+
+// Typedefs:
+typedef std::map<std::string, StackProperty*> cue_properties_map;
+#define STACK_CUE_PROPERTIES(c) ((cue_properties_map*)(((StackCue*)c)->properties))
 
 // The base StackCue create function. This always returns NULL as we disallow the creation of
 // base StackCue objects.
@@ -16,9 +22,7 @@ StackCue *stack_cue_create_base(StackCueList *cue_list)
 void stack_cue_destroy_base(StackCue *cue)
 {
 	// Free the super class stuff
-	free(cue->name);
 	free(cue->rendered_name);
-	free(cue->notes);
 
 	// Delete ourselves
 	delete cue;
@@ -39,6 +43,12 @@ bool stack_cue_play_base(StackCue *cue)
 
 	if (cue->state == STACK_CUE_STATE_PAUSED)
 	{
+		// Get the _live_ version of these properties
+		stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
+		stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, &cue_post_time);
+
 		// Calculate how long we've been paused on this instance of us being
 		// paused
 		stack_time_t this_pause_time = clocktime - cue->pause_time;
@@ -53,11 +63,11 @@ bool stack_cue_play_base(StackCue *cue)
 		stack_time_t cue_elapsed = clock_elapsed - cue->paused_time;
 
 		// Put us in the right playing state depending on where we are
-		if (cue_elapsed < cue->pre_time)
+		if (cue_elapsed < cue_pre_time)
 		{
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_PRE);
 		}
-		else if (cue_elapsed < cue->pre_time + cue->action_time)
+		else if (cue_elapsed < cue_pre_time + cue_action_time)
 		{
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 		}
@@ -68,13 +78,27 @@ bool stack_cue_play_base(StackCue *cue)
 	}
 	else
 	{
+		// Get the _defined_ version of these properties
+		int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+		stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
+		stack_property_get_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_trigger);
+		stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_pre_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_action_time);
+		stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_time);
+
+		// Copy htem to the _live_ version of these properties
+		stack_property_set_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_LIVE, cue_post_trigger);
+		stack_property_set_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, cue_pre_time);
+		stack_property_set_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, cue_action_time);
+		stack_property_set_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, cue_post_time);
+
 		// Cue is stopped (and possibly prepared), start the cue
 		cue->start_time = clocktime;
 
 		// Mark the post as having not run
 		cue->post_has_run = false;
 
-		if (cue->pre_time > 0)
+		if (cue_pre_time > 0)
 		{
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_PRE);
 		}
@@ -121,19 +145,27 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		return;
 	}
 
+	// Get the _live_ version of these properties
+	int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;	
+	stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
+	stack_property_get_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_LIVE, &cue_post_trigger);
+	stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
+	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+	stack_property_get_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_LIVE, &cue_post_time);
+
 	// Get the current cue action times
 	stack_time_t run_pre_time, run_action_time, run_post_time;
 	stack_cue_get_running_times(cue, clocktime, &run_pre_time, &run_action_time, &run_post_time, NULL, NULL, NULL);
 
 	// If we have a post-wait trigger, which hasn't executed
-	if (cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && !cue->post_has_run)
+	if (cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && !cue->post_has_run)
 	{
 		// If we've reached the end of our post-wait time, and our trigger
 		// condition has been met
-		if ((cue->post_time == run_post_time) &&
-		     ((cue->post_trigger == STACK_CUE_WAIT_TRIGGER_IMMEDIATE) ||
-		      (cue->post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERPRE && cue->pre_time == run_pre_time) ||
-		      (cue->post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERACTION && cue->action_time == run_action_time)))
+		if ((cue_post_time == run_post_time) &&
+		     ((cue_post_trigger == STACK_CUE_WAIT_TRIGGER_IMMEDIATE) ||
+		      (cue_post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERPRE && cue_pre_time == run_pre_time) ||
+		      (cue_post_trigger == STACK_CUE_WAIT_TRIGGER_AFTERACTION && cue_action_time == run_action_time)))
 		{
 			// Mark it as having run
 			cue->post_has_run = true;
@@ -149,17 +181,17 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	}
 
 	// If pre hasn't finished, return
-	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time < cue->pre_time)
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time < cue_pre_time)
 	{
 		// Do nothing;
 		return;
 	}
 
 	// If we're in pre, but pre has finished
-	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time == cue->pre_time)
+	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time == cue_pre_time)
 	{
 		// If we're still in action time
-		if (run_action_time < cue->action_time)
+		if (run_action_time < cue_action_time)
 		{
 			// Change us to the action state
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
@@ -167,12 +199,12 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		}
 
 		// See if we have a post-wait
-		if (cue->post_time > 0)
+		if (cue_post_time > 0)
 		{
 			// Is that post running
 			if (run_post_time > 0)
 			{
-				if (run_post_time < cue->post_time)
+				if (run_post_time < cue_post_time)
 				{
 					// Change us to the post state
 					stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
@@ -197,10 +229,10 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	}
 
 	// If we're in action, but action time has finished
-	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue->action_time)
+	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue_action_time)
 	{
 		// Check if we're still in post time
-		if (cue->post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && run_post_time < cue->post_time)
+		if (cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && run_post_time < cue_post_time)
 		{
 			// Change us to the post state
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_POST);
@@ -216,7 +248,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	}
 
 	// If we're in post, but post time has finished
-	if (cue->state == STACK_CUE_STATE_PLAYING_POST && run_post_time == cue->post_time)
+	if (cue->state == STACK_CUE_STATE_PLAYING_POST && run_post_time == cue_post_time)
 	{
 		// Stop the cue
 		stack_cue_stop(cue);
@@ -243,17 +275,20 @@ char *stack_cue_to_json_base(StackCue *cue)
 {
 	Json::Value cue_root;
 
-	cue_root["r"] = cue->r;
-	cue_root["g"] = cue->g;
-	cue_root["b"] = cue->b;
+	// Write out all the properties
+	stack_property_write_json(stack_cue_get_property(cue, "name"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "notes"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "pre_time"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "action_time"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "post_time"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "post_trigger"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "r"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "g"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "b"), &cue_root);
+
+	// Write out everything else that isn't a property
 	cue_root["id"] = cue->id;
 	cue_root["uid"] = (Json::UInt64)cue->uid;
-	cue_root["name"] = cue->name;
-	cue_root["notes"] = cue->notes;
-	cue_root["pre_time"] = (Json::Int64)cue->pre_time;
-	cue_root["post_time"] = (Json::Int64)cue->post_time;
-	cue_root["action_time"] = (Json::Int64)cue->action_time;
-	cue_root["post_trigger"] = cue->post_trigger;
 
 	// Write out the JSON string and return it (to be free'd by
 	// stack_cue_free_json_base)
@@ -295,8 +330,11 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 // @param id The new cue number
 void stack_cue_set_id(StackCue *cue, cue_id_t id)
 {
-	cue->id = id;
-	stack_cue_list_changed(cue->parent, cue);
+	if (cue->id != id)
+	{
+		cue->id = id;
+		stack_cue_list_changed(cue->parent, cue);
+	}
 }
 
 // Sets the cue name
@@ -304,9 +342,7 @@ void stack_cue_set_id(StackCue *cue, cue_id_t id)
 // @param name The new cue name
 void stack_cue_set_name(StackCue *cue, const char *name)
 {
-	free(cue->name);
-	cue->name = strdup(name);
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_string(stack_cue_get_property(cue, "name"), STACK_PROPERTY_VERSION_DEFINED, name);
 }
 
 // Sets the cue notes
@@ -314,9 +350,7 @@ void stack_cue_set_name(StackCue *cue, const char *name)
 // @param notes The new cue notes
 void stack_cue_set_notes(StackCue *cue, const char *notes)
 {
-	free(cue->notes);
-	cue->notes = strdup(notes);
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_string(stack_cue_get_property(cue, "notes"), STACK_PROPERTY_VERSION_DEFINED, notes);
 }
 
 // Sets the cue pre-wait time
@@ -324,8 +358,7 @@ void stack_cue_set_notes(StackCue *cue, const char *notes)
 // @param pre_time The new cue pre-wait time
 void stack_cue_set_pre_time(StackCue *cue, stack_time_t pre_time)
 {
-	cue->pre_time = pre_time;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_DEFINED, pre_time);
 }
 
 // Sets the cue action time
@@ -333,8 +366,7 @@ void stack_cue_set_pre_time(StackCue *cue, stack_time_t pre_time)
 // @param action_time The new cue action time
 void stack_cue_set_action_time(StackCue *cue, stack_time_t action_time)
 {
-	cue->action_time = action_time;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_DEFINED, action_time);
 }
 
 // Sets the cue post-wait time
@@ -342,8 +374,7 @@ void stack_cue_set_action_time(StackCue *cue, stack_time_t action_time)
 // @param post_time The new cue post-wait time
 void stack_cue_set_post_time(StackCue *cue, stack_time_t post_time)
 {
-	cue->post_time = post_time;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_int64(stack_cue_get_property(cue, "post_time"), STACK_PROPERTY_VERSION_DEFINED, post_time);
 }
 
 // Sets the cue state
@@ -362,10 +393,9 @@ void stack_cue_set_state(StackCue *cue, StackCueState state)
 // @param b The blue component of the color
 void stack_cue_set_color(StackCue *cue, uint8_t r, uint8_t g, uint8_t b)
 {
-	cue->r = r;
-	cue->g = g;
-	cue->b = b;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, r);
+	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, g);
+	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, b);
 }
 
 // Sets the cue post-wait trigger
@@ -373,8 +403,7 @@ void stack_cue_set_color(StackCue *cue, uint8_t r, uint8_t g, uint8_t b)
 // @param post_trigger The new cue post-wait trigger
 void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 {
-	cue->post_trigger = post_trigger;
-	stack_cue_list_changed(cue->parent, cue);
+	stack_property_set_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, post_trigger);
 }
 
 /// Gets the error message for the cue
