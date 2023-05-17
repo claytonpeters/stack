@@ -15,7 +15,7 @@ static const double STACK_FADE_CUE_DEFAULT_TARGET_VOLUME = -INFINITY;
 static const StackFadeProfile STACK_FADE_CUE_DEFAULT_PROFILE = STACK_FADE_PROFILE_EXP;
 static const bool STACK_FADE_CUE_DEFAULT_STOP_TARGET = true;
 
-static void stack_fade_cue_ccb_common(StackProperty *proeprty, StackPropertyVersion version, StackFadeCue *cue)
+static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
 {
 	// Notify cue list that we've changed
 	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
