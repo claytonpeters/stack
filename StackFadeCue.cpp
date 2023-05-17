@@ -17,12 +17,18 @@ static const bool STACK_FADE_CUE_DEFAULT_STOP_TARGET = true;
 
 static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
 {
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		// Notify cue list that we've changed
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 
-	// Notify UI to update (name might have changed as a result)
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+		// Notify UI to update (name might have changed as a result)
+		if (cue->fade_tab != NULL)
+		{
+			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
+			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+		}
+	}
 }
 
 static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVersion version, void *user_data)
