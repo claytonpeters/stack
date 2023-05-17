@@ -237,7 +237,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 			if (lost_sync)
 			{
 				stack_log("mpeg_audio_file_find_frames(): Re-sync'd MP3 frame at offset %lu\n", frame_start);
-				lost_sync = true;
+				lost_sync = false;
 			}
 		}
 
@@ -248,6 +248,13 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		uint8_t frame_slot_size = mpeg_slot_size[frame_header.layer];
 		uint16_t frame_bits_per_sample = samples_per_frame / 8;
 		uint16_t frame_size = (uint16_t)((float)frame_bits_per_sample * (float)(frame_bit_rate * 1000) / (float)frame_sample_rate) + (frame_header.padding ? frame_slot_size : 0);
+
+		// Ensure we have a valid frame size
+		if (frame_size < 4)
+		{
+			stack_log("mpeg_audio_file_find_frames(): Invalid frame size: %d bytes\n", frame_size);
+			return false;
+		}
 
 		// Store the sample rate
 		*sample_rate = frame_sample_rate;
