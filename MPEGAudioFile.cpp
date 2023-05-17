@@ -322,8 +322,9 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		{
 			if (frame_idx == 1)
 			{
-				frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, samples_per_frame - *delay });
-				total_samples += samples_per_frame - *delay;
+				uint16_t real_frame_samples = samples_per_frame - *delay;
+				frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, real_frame_samples });
+				total_samples += real_frame_samples;
 			}
 			else
 			{
