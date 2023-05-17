@@ -108,6 +108,13 @@ static void stack_fade_cue_ccb_profile(StackProperty *property, StackPropertyVer
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+// The existence of this function is currently a bodge to update the action time
+// on the UI. This should ideally be done by StackCueBase
+static void stack_fade_cue_ccb_action_time(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
+}
+
 // Pause or resumes change callbacks on variables
 static void stack_fade_cue_pause_change_callbacks(StackCue *cue, bool pause)
 {
@@ -164,6 +171,9 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	stack_cue_add_property(STACK_CUE(cue), profile);
 	stack_property_set_int32(profile, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_PROFILE);
 	stack_property_set_changed_callback(profile, stack_fade_cue_ccb_profile, (void*)cue);
+
+	// Override the behaviour of action time change
+	stack_property_set_changed_callback(stack_cue_get_property(STACK_CUE(cue), "action_time"), stack_fade_cue_ccb_action_time, cue);
 
 	// Initialise superclass variables
 	stack_cue_set_name(STACK_CUE(cue), "${action} cue ${target}");
