@@ -635,9 +635,10 @@ cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 /// (but not their state!)
 /// @param cue_list The cue list
 /// @param cue The cue that caused the change (currently unused)
-void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue)
+/// @param property The property that caused the change (could be NULL)
+void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue, StackProperty *property)
 {
-	stack_log("stack_cue_list_changed(): Called by cue UID %016lx\n", cue->uid);
+	stack_log("stack_cue_list_changed(): Called by cue UID %016lx, property: %s\n", cue->uid, property != NULL ? property->name : "None");
 	cue_list->changed = true;
 }
 
@@ -681,7 +682,7 @@ void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
 			SCL_GET_LIST(cue_list)->erase(iter);
 
 			// Note that the cue list has been modified
-			stack_cue_list_changed(cue_list, cue);
+			stack_cue_list_changed(cue_list, cue, NULL);
 
 			// Stop searching
 			return;

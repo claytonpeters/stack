@@ -20,7 +20,7 @@ static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVers
 	if (version == STACK_PROPERTY_VERSION_DEFINED)
 	{
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// Notify UI to update (name might have changed as a result)
 		if (cue->fade_tab != NULL)

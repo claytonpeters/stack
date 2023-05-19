@@ -91,9 +91,6 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			stack_audio_preview_set_selection(cue->preview_widget, 0, new_file_length);
 		}
 
-		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
-
 		// Fire an updated-selected-cue signal to signal the UI to change
 		if (cue->media_tab)
 		{
@@ -112,7 +109,7 @@ static void stack_audio_cue_ccb_media_time(StackProperty *property, StackPropert
 		StackAudioCue* cue = STACK_AUDIO_CUE(user_data);
 
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// The action time needs recalculating
 		stack_audio_cue_update_action_time(cue);
@@ -120,6 +117,22 @@ static void stack_audio_cue_ccb_media_time(StackProperty *property, StackPropert
 		// Fire an updated-selected-cue signal to signal the UI to change
 		if (cue->media_tab)
 		{
+			// Get the updated times
+			stack_time_t media_start_time = 0, media_end_time = 0;
+			stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
+			stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
+
+			// Update the audio preview selection
+			stack_audio_preview_set_selection(cue->preview_widget, media_start_time, media_end_time);
+
+			// Update the entry boxes
+			char buffer[32];
+			stack_format_time_as_string(media_start_time, buffer, 32);
+			gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), buffer);
+			stack_format_time_as_string(media_end_time, buffer, 32);
+			gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), buffer);
+
+			// Update the UI
 			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->media_tab));
 			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 		}
@@ -135,11 +148,18 @@ static void stack_audio_cue_ccb_loops(StackProperty *property, StackPropertyVers
 		StackAudioCue* cue = STACK_AUDIO_CUE(user_data);
 
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// Fire an updated-selected-cue signal to signal the UI to change
 		if (cue->media_tab)
 		{
+			// Update the UI to reformat
+			int32_t loops = 1;
+			stack_property_get_int32(stack_cue_get_property(STACK_CUE(cue), "loops"), STACK_PROPERTY_VERSION_DEFINED, &loops);
+			char buffer[32];
+			snprintf(buffer, 32, "%d", loops);
+			gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpLoops")), buffer);
+
 			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->media_tab));
 			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 		}
@@ -155,7 +175,7 @@ static void stack_audio_cue_ccb_volume(StackProperty *property, StackPropertyVer
 		StackAudioCue* cue = STACK_AUDIO_CUE(user_data);
 
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// Fire an updated-selected-cue signal to signal the UI to change
 		if (cue->media_tab)
@@ -397,22 +417,7 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 
 	// Set the time (this will do the bounds checking in the validator)
 	stack_time_t media_start_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
-	stack_time_t media_end_time = 0;
 	stack_property_set_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, media_start_time);
-	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
-
-	// Update the UI
-	char buffer[32];
-	stack_format_time_as_string(media_start_time, buffer, 32);
-	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
-	stack_audio_preview_set_selection(cue->preview_widget, media_start_time, media_end_time);
-
-	// Fire an updated-selected-cue signal to signal the UI to change
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
-
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 
 	return false;
 }
@@ -422,23 +427,8 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
 
 	// Set the time (this will do the bounds checking in the validator)
-	stack_time_t media_start_time = 0;
 	stack_time_t media_end_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
-	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
 	stack_property_set_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, media_end_time);
-
-	// Update the UI
-	char buffer[32];
-	stack_format_time_as_string(media_end_time, buffer, 32);
-	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
-	stack_audio_preview_set_selection(cue->preview_widget, media_start_time, media_end_time);
-
-	// Fire an updated-selected-cue signal to signal the UI to change
-	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(widget);
-	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
-
-	// Notify cue list that we've changed
-	stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
 
 	return false;
 }
@@ -450,16 +440,6 @@ static void acp_trim_preview_changed(StackAudioPreview *preview, guint64 start, 
 	// Set the time
 	stack_property_set_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, start);
 	stack_property_set_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, end);
-
-	// Update the action time
-	stack_audio_cue_update_action_time(cue);
-
-	// Update the UI
-	char buffer[32];
-	stack_format_time_as_string(start, buffer, 32);
-	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimStart")), buffer);
-	stack_format_time_as_string(end, buffer, 32);
-	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(cue->builder, "acpTrimEnd")), buffer);
 }
 
 static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
@@ -469,11 +449,6 @@ static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer u
 	// Set the loops
 	int32_t loops = atoi(gtk_entry_get_text(GTK_ENTRY(widget)));
 	stack_property_set_int32(stack_cue_get_property(STACK_CUE(cue), "loops"), STACK_PROPERTY_VERSION_DEFINED, loops);
-
-	// Update the UI to reformat
-	char buffer[32];
-	snprintf(buffer, 32, "%d", loops);
-	gtk_entry_set_text(GTK_ENTRY(widget), buffer);
 
 	return false;
 }

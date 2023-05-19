@@ -49,9 +49,8 @@ static void stack_cue_ccb(StackProperty *property, StackPropertyVersion version,
 {
 	if (version == STACK_PROPERTY_VERSION_DEFINED)
 	{
-		stack_log("stack_cue_ccb(): Called\n");
 		StackCue *cue = STACK_CUE(user_data);
-		stack_cue_list_changed(cue->parent, cue);
+		stack_cue_list_changed(cue->parent, cue, property);
 	}
 }
 

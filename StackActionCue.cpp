@@ -17,7 +17,7 @@ static void stack_action_cue_ccb_target(StackProperty *property, StackPropertyVe
 		StackActionCue* cue = STACK_ACTION_CUE(user_data);
 
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// Fire an updated-selected-cue signal to signal the UI to change (we might
 		// have changed state)
@@ -38,7 +38,7 @@ static void stack_action_cue_ccb_action(StackProperty *property, StackPropertyVe
 		StackActionCue* cue = STACK_ACTION_CUE(user_data);
 
 		// Notify cue list that we've changed
-		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue));
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
 
 		// Fire an updated-selected-cue signal to signal the UI to change (we might
 		// have changed state)

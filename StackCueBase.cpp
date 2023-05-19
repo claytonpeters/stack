@@ -333,7 +333,7 @@ void stack_cue_set_id(StackCue *cue, cue_id_t id)
 	if (cue->id != id)
 	{
 		cue->id = id;
-		stack_cue_list_changed(cue->parent, cue);
+		stack_cue_list_changed(cue->parent, cue, NULL);
 	}
 }
 
