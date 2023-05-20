@@ -113,6 +113,7 @@ struct StackCueList
 
 	// Audio RMS data (this a std::map internally)
 	void *rms_data;
+	StackChannelRMSData *master_rms_data;
 
 	// Cache
 	bool *active_channels_cache;

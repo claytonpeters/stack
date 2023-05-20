@@ -56,6 +56,15 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	// Initialise a map for storing RMS data
 	cue_list->rms_data = (void*)new rms_map_t();
 
+	// Initialise master RMS data
+	cue_list->master_rms_data = new StackChannelRMSData[channels];
+	for (size_t i = 0; i < channels; i++)
+	{
+		cue_list->master_rms_data[i].current_level = -INFINITY;
+		cue_list->master_rms_data[i].peak_level = -INFINITY;
+		cue_list->master_rms_data[i].peak_time = 0;
+	}
+
 	// Start the cue list pulsing thread
 	cue_list->kill_thread = false;
 	cue_list->pulse_thread = std::thread(stack_cue_list_pulse_thread, cue_list);
@@ -150,6 +159,7 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	// Tidy up caches
 	delete [] cue_list->active_channels_cache;
 	delete [] cue_list->rms_cache;
+	delete [] cue_list->master_rms_data;
 
 	// Unlock the cue list
 	stack_cue_list_unlock(cue_list);
@@ -932,6 +942,22 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	// Write the new data into the ring buffers
 	for (size_t channel = 0; channel < cue_list->channels; channel++)
 	{
+		// Calculate RMS
+		StackChannelRMSData *mc_rms_data = &cue_list->master_rms_data[channel];
+		float channel_rms = 0.0;
+		float *channel_data = &new_data[channel * request_samples];
+		// Calculate master RMS
+		for (size_t i = 0; i < request_samples; i++)
+		{
+			channel_rms += channel_data[i] * channel_data[i];
+		}
+		mc_rms_data->current_level = stack_scalar_to_db(sqrtf(channel_rms / (float)request_samples));
+		if (mc_rms_data->current_level >= mc_rms_data->peak_level)
+		{
+			mc_rms_data->peak_level = mc_rms_data->current_level;
+			mc_rms_data->peak_time = stack_get_clock_time();
+		}
+
 		stack_ring_buffer_write(cue_list->buffers[channel], &new_data[channel * request_samples], request_samples, 1);
 	}
 

@@ -1094,7 +1094,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20230225-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20230520-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1383,6 +1383,21 @@ static gboolean saw_ui_timer(gpointer user_data)
 
 	// Remove any inactive cues
 	saw_remove_inactive_cue_widgets(window);
+
+	stack_time_t current_time = stack_get_clock_time();
+
+	// Update the master RMS data
+	for (size_t i = 0; i < window->cue_list->channels; i++)
+	{
+		stack_level_meter_set_level_and_peak(window->master_out_meter, i, window->cue_list->master_rms_data[i].current_level, window->cue_list->master_rms_data[i].peak_level);
+
+		const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
+		// TODO: This should probably be in StackCueList instead
+		if (current_time - window->cue_list->master_rms_data[i].peak_time > peak_hold_time)
+		{
+			window->cue_list->master_rms_data[i].peak_level -= 1.0;
+		}
+	}
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
@@ -1950,6 +1965,19 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Get the StackAppWindow's child
 	GObject* contents = gtk_builder_get_object(window->builder, "StackAppWindowContents");
+
+	// Master Out Meter: Get the UI item to add the cue to
+	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
+
+	// Master Out Meter: Create
+	window->master_out_meter = STACK_LEVEL_METER(stack_level_meter_new(2, -90.0, 0.0));
+	gtk_widget_set_visible(GTK_WIDGET(window->master_out_meter), true);
+	GValue height_request = G_VALUE_INIT;
+	g_value_init(&height_request, G_TYPE_INT);
+	g_value_set_int(&height_request, 20);
+	g_object_set_property(G_OBJECT(window->master_out_meter), "height-request", &height_request);
+	gtk_box_pack_start(active_cues, GTK_WIDGET(window->master_out_meter), false, false, 4);
+	gtk_box_reorder_child(active_cues, GTK_WIDGET(window->master_out_meter), 1);
 
 	// Reparent so that this StackAppWindow instance has the
 	gtk_container_remove(GTK_CONTAINER(wintpl), GTK_WIDGET(contents));

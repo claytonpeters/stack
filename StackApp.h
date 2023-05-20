@@ -58,6 +58,9 @@ struct StackAppWindow
 	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
 	int timer_state;
 
+	// Master out widget
+	StackLevelMeter *master_out_meter;
+
 	// Map for active cue widgets
 	stack_cue_widget_map_t active_cue_widgets;
 };
