@@ -7,6 +7,7 @@
 #include <string>
 #include "StackCue.h"
 #include "StackLevelMeter.h"
+#include "StackCueListWidget.h"
 
 struct StackApp
 {
@@ -37,6 +38,9 @@ struct StackAppWindow
 
 	// Our cue list
 	StackCueList *cue_list;
+
+	// Our cue list widget
+	StackCueListWidget *sclw;
 
 	// Our builder that contains our controls
 	GtkBuilder *builder;

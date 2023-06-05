@@ -1,5 +1,6 @@
 // Includes:
 #include "StackCue.h"
+#include "StackGroupCue.h"
 #include "StackLog.h"
 #include <map>
 #include <cstring>
@@ -60,6 +61,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 {
 	cue->_class_name = "StackCue";
 	cue->parent = cue_list;
+	cue->parent_cue = NULL;
 	cue->can_have_children = false;
 	cue->id = stack_cue_list_get_next_cue_number(cue_list);
 	cue->uid = stack_cue_generate_uid();
@@ -727,5 +729,8 @@ void stack_cue_initsystem()
 	// Register base cue type
 	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base };
 	stack_register_cue_class(stack_cue_class);
+
+	// Group cues are built-in, not plugins
+	stack_group_cue_register();
 }
 

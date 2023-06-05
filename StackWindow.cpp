@@ -814,6 +814,7 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 
 	// Initialise a new cue list, defaulting to two channels
 	window->cue_list = stack_cue_list_new(2);
+	window->sclw->cue_list = window->cue_list;
 	window->cue_list->state_change_func = saw_cue_state_changed;
 	window->cue_list->state_change_func_data = (void*)window;
 
@@ -911,7 +912,36 @@ static void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 // Menu callback
 static void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 {
-	stack_log("Cue -> Add Group clicked\n");
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Lock the cue list
+	stack_cue_list_lock(window->cue_list);
+
+	// Create the new cue
+	StackCue* new_cue = STACK_CUE(stack_cue_new("StackGroupCue", window->cue_list));
+	if (new_cue == NULL)
+	{
+		stack_cue_list_unlock(window->cue_list);
+		return;
+	}
+
+	// Add the list to our cue stack
+	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
+
+	// Unlock the cue list
+	stack_cue_list_unlock(window->cue_list);
+
+	// Append a row to the list store and get an iterator
+	GtkTreeIter iter;
+	gtk_list_store_append(window->store, &iter);
+
+	// Update that last row in the list store with the basics of the cue
+	saw_update_list_store_from_cue(window->store, &iter, STACK_CUE(new_cue));
+
+	// Select the new cue
+	saw_select_last_cue(window);
+
 }
 
 // Menu callback
@@ -1966,6 +1996,12 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Get the StackAppWindow's child
 	GObject* contents = gtk_builder_get_object(window->builder, "StackAppWindowContents");
 
+	// Setup custom list view
+	window->sclw = STACK_CUE_LIST_WIDGET(stack_cue_list_widget_new());
+	window->sclw->cue_list = window->cue_list;
+	gtk_container_add(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueScrollWindow")), GTK_WIDGET(window->sclw));
+	gtk_widget_set_visible(GTK_WIDGET(window->sclw), true);
+
 	// Master Out Meter: Get the UI item to add the cue to
 	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
 
@@ -2255,6 +2291,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 		// Store the new cue list
 		window->cue_list = sld.new_cue_list;
+		window->sclw->cue_list = window->cue_list;
 
 		// Refresh the cue list
 		saw_refresh_list_store_from_list(window);

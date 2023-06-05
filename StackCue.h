@@ -129,6 +129,9 @@ struct StackCue
 	// Parent cue list
 	StackCueList *parent;
 
+	// Parent cue
+	StackCue *parent_cue;
+
 	// Determines if the cue can have child cues
 	bool can_have_children;
 
@@ -163,15 +166,6 @@ struct StackCue
 	// The properties for the cue (this is a std::map internally). Any
 	// properties stored in here will automatically be written to JSON
 	void *properties;
-};
-
-struct StackGroupCue
-{
-	// Super class
-	StackCue super;
-
-	// The array of cues (this is a std::list internally)
-	void *cues;
 };
 
 // Typedefs for create/delete functions
@@ -314,8 +308,6 @@ const char* stack_cue_get_field(StackCue *cue, const char *field);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))
-#define STACK_GROUP_CUE(_c) ((StackGroupCue*)(_c))
 #define STACK_CUE_LIST(_c) ((StackCueList*)(_c))
 
 #endif
-
