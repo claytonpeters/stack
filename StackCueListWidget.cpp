@@ -4,6 +4,8 @@
 #include "StackLog.h"
 #include <cmath>
 
+#define RGBf(r, g, b) (float)(r) / 255.0f, (float)(g) / 255.0f, (float)(b) / 255.0f
+
 // Provides an implementation of stack_cue_list_widget_get_type
 G_DEFINE_TYPE(StackCueListWidget, stack_cue_list_widget, GTK_TYPE_WIDGET)
 
@@ -13,7 +15,7 @@ GtkWidget *stack_cue_list_widget_new()
 	GtkWidget *widget = GTK_WIDGET(g_object_new(stack_cue_list_widget_get_type(), NULL, NULL));
 	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
 
-	sclw->row_height = 26;
+	sclw->row_height = 28;
 	sclw->cue_width = 60;
 	sclw->pre_width = 85;
 	sclw->action_width = 85;
@@ -54,36 +56,35 @@ static gboolean stack_cue_list_widget_idle_redraw(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, bool align_center)
+static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, bool align_center, bool bold)
 {
-	// Get text size
-	cairo_text_extents_t text_size;
-	cairo_text_extents(cr, text, &text_size);
+	PangoContext *pc = gtk_widget_get_pango_context(GTK_WIDGET(sclw));
+	PangoFontDescription *fd = pango_context_get_font_description(pc);
+	pango_font_description_set_weight(fd, bold ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
+	PangoLayout *pl = gtk_widget_create_pango_layout(GTK_WIDGET(sclw), text);
+	pango_layout_set_width(pl, pango_units_from_double(width));
+	pango_layout_set_alignment(pl, align_center ? PANGO_ALIGN_CENTER : PANGO_ALIGN_LEFT);
+	pango_layout_set_ellipsize(pl, PANGO_ELLIPSIZE_END);
 
-	// Figure out the X location
-	double text_x;
-	if (align_center)
-	{
-		text_x = x + (width - text_size.width) / 2;
-	}
-	else
-	{
-		// Introduce a bit of padding
-		text_x = x + 4;
-	}
+	// Get the height of the text so we can vertically center
+	int height;
+	pango_layout_get_size(pl, NULL, &height);
 
 	// Render text
-	cairo_move_to(cr, text_x, y + (sclw->row_height - text_size.y_bearing) / 2);
-	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
-	cairo_show_text(cr, text);
+	cairo_set_source_rgb(cr, RGBf(0xdd, 0xdd, 0xdd));
+	cairo_move_to(cr, x, y + (sclw->row_height - pango_units_to_double(height)) / 2);
+	pango_cairo_show_layout(cr, pl);
+
+	// Tidy up
+	g_object_unref(pl);
 }
 
 static void stack_cue_list_widget_render_header(StackCueListWidget *sclw, cairo_t *cr, double x, double width, const char *text, bool align_center)
 {
 	// Set up pattern for time background
 	cairo_pattern_t *back = cairo_pattern_create_linear(0, 0, 0, sclw->row_height);
-	cairo_pattern_add_color_stop_rgb(back, 0.0, 0.21875, 0.21875, 0.28125);
-	cairo_pattern_add_color_stop_rgb(back, 1.0, 0.1875, 0.1875, 0.25);
+	cairo_pattern_add_color_stop_rgb(back, 0.0, RGBf(0x40, 0x40, 0x50));
+	cairo_pattern_add_color_stop_rgb(back, 1.0, RGBf(0x38, 0x38, 0x48));
 
 	// Draw background
 	cairo_set_source(cr, back);
@@ -91,14 +92,20 @@ static void stack_cue_list_widget_render_header(StackCueListWidget *sclw, cairo_
 	cairo_fill_preserve(cr);
 
 	// Draw edge
-	cairo_set_source_rgb(cr, 0.1875, 0.1875, 0.25);
+	cairo_set_source_rgb(cr, RGBf(0x30, 0x30, 0x40));
+	cairo_stroke(cr);
+
+	// Draw top
+	cairo_set_source_rgb(cr, RGBf(0x70, 0x70, 0x80));
+	cairo_move_to(cr, x, 0);
+	cairo_line_to(cr, x + width, 0);
 	cairo_stroke(cr);
 
 	// Tidy up
 	cairo_pattern_destroy(back);
 
 	// Render text
-	stack_cue_list_widget_render_text(sclw, cr, x, 0, width, text, align_center);
+	stack_cue_list_widget_render_text(sclw, cr, x, 0, width, text, align_center, true);
 }
 
 static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, double pct)
@@ -124,7 +131,7 @@ static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t 
 	}
 
 	// Render text on top
-	stack_cue_list_widget_render_text(sclw, cr, x, y, width, text, true);
+	stack_cue_list_widget_render_text(sclw, cr, x, y, width, text, true, false);
 }
 
 //static void draw_text
@@ -154,6 +161,7 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 	double name_width = pre_x - name_x;
 
 	// Render header
+	stack_cue_list_widget_render_header(sclw, cr, 0, cue_x, "", false);
 	stack_cue_list_widget_render_header(sclw, cr, cue_x, sclw->cue_width, "Cue", true);
 	stack_cue_list_widget_render_header(sclw, cr, name_x, name_width, "Name", false);
 	stack_cue_list_widget_render_header(sclw, cr, pre_x, sclw->pre_width, "Pre-wait", true);
@@ -184,10 +192,10 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 
 		// Render the cue number
 		stack_cue_id_to_string(cue->id, buffer, 32);
-		stack_cue_list_widget_render_text(sclw, cr, cue_x, row_y, sclw->cue_width, buffer, true);
+		stack_cue_list_widget_render_text(sclw, cr, cue_x, row_y, sclw->cue_width, buffer, true, false);
 
 		// Render the cue name
-		stack_cue_list_widget_render_text(sclw, cr, name_x, row_y, name_width, stack_cue_get_rendered_name(cue), false);
+		stack_cue_list_widget_render_text(sclw, cr, name_x, row_y, name_width, stack_cue_get_rendered_name(cue), false, false);
 
 		// Render the cue times
 		char pre_buffer[32], action_buffer[32], post_buffer[32], col_buffer[8];
