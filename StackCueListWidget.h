@@ -28,6 +28,7 @@ struct StackCueListWidget
 
 	// The size of our columns (note that name fills whatever is left)
 	int32_t row_height;
+	int32_t header_height;
 	int32_t cue_width;
 	int32_t pre_width;
 	int32_t action_width;
@@ -46,7 +47,29 @@ struct StackCueListWidget
 	cue_uid_t top_cue;
 
 	// Some additional data about the cue
-	SCLWCueFlagsMap* cue_flags;
+	SCLWCueFlagsMap cue_flags;
+
+	// Cache some icons
+	GdkPixbuf *icon_play;
+	GdkPixbuf *icon_pause;
+	GdkPixbuf *icon_error;
+
+	// Cairo objects for cached items
+	cairo_t *header_cr;
+	cairo_surface_t *header_surface;
+	cairo_t *list_cr;
+	cairo_surface_t *list_surface;
+	int32_t header_cache_width;
+	int32_t list_cache_width;
+	int32_t list_cache_height;
+
+	// Drag/drop
+	int32_t dragging;
+	cue_uid_t dragged_cue;
+	int32_t drag_index;
+	int32_t drop_index;
+	double drag_start_x;
+	double drag_start_y;
 };
 
 struct StackCueListWidgetClass
@@ -65,9 +88,11 @@ GtkWidget *stack_cue_list_widget_new();
 
 // Functions:
 void stack_cue_list_widget_set_cue_list(StackCueListWidget *sclw, StackCueList *cue_list);
-void stack_cue_list_widget_select_single(StackCueListWidget *sclw, StackCue *cue);
+//ovoid stack_cue_list_widget_select_single(StackCueListWidget *sclw, StackCue *cue);
+void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_uid_t new_uid);
 StackCue *stack_cue_list_widget_cue_from_position(StackCueListWidget *sclw, int32_t x, int32_t y);
-void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, StackCue *cue, int32_t fields);
+void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue, int32_t fields);
+void stack_cue_list_widget_list_modified(StackCueListWidget *sclw);
 bool stack_cue_list_widget_expand_cue(StackCueListWidget *sclw, StackCue *cue, bool expand);
 
 // Internal only:

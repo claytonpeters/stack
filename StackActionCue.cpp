@@ -51,7 +51,7 @@ static void stack_action_cue_ccb_action(StackProperty *property, StackPropertyVe
 }
 
 /// Pause or resumes change callbacks on variables
-static void stack_audio_cue_pause_change_callbacks(StackCue *cue, bool pause)
+static void stack_action_cue_pause_change_callbacks(StackCue *cue, bool pause)
 {
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "action"), pause);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
@@ -293,7 +293,7 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	acue->action_tab = GTK_WIDGET(gtk_builder_get_object(builder, "acpGrid"));
 
 	// Pause change callbacks on the properties
-	stack_audio_cue_pause_change_callbacks(cue, true);
+	stack_action_cue_pause_change_callbacks(cue, true);
 
 	// Set up callbacks
 	gtk_builder_add_callback_symbol(builder, "acp_cue_changed", G_CALLBACK(acp_cue_changed));
@@ -349,7 +349,7 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 
 	// Resume change callbacks on the properties
-	stack_audio_cue_pause_change_callbacks(cue, false);
+	stack_action_cue_pause_change_callbacks(cue, false);
 }
 
 /// Removes the properties tabs for a action cue

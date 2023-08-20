@@ -22,6 +22,13 @@ static map<cue_uid_t, StackCue*> cue_uid_map;
 // Generates a UID
 static cue_uid_t stack_cue_generate_uid()
 {
+	static bool seeded = false;
+	if (!seeded)
+	{
+		seeded = true;
+		srand(time(NULL));
+	}
+
 	cue_uid_t uid = STACK_CUE_UID_NONE;
 
 	// Repeatedly generate UUIDs until we find a free one
@@ -87,17 +94,17 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 
 	StackProperty *r = stack_property_create("r", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, r);
-	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(r, stack_cue_ccb, cue);
 
 	StackProperty *g = stack_property_create("g", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, g);
-	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(g, stack_cue_ccb, cue);
 
 	StackProperty *b = stack_property_create("b", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, b);
-	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(b, stack_cue_ccb, cue);
 
 	StackProperty *pre_time = stack_property_create("pre_time", STACK_PROPERTY_TYPE_INT64);

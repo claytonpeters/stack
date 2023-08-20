@@ -46,8 +46,6 @@ struct StackAppWindow
 	GtkBuilder *builder;
 
 	// Easy access to some of our controls
-	GtkTreeView *treeview;
-	GtkListStore *store;
 	GtkNotebook *notebook;
 
 	// The currently selected cue
@@ -55,9 +53,6 @@ struct StackAppWindow
 
 	// Whether to use our custom style
 	bool use_custom_style;
-
-	// Don't update selections for now (mostly to work round Gtk+ oddities)
-	bool freeze_list_selections;
 
 	// Timer state (0 = not started, 1 = running, 2 = stopping, 3 = stopped)
 	int timer_state;

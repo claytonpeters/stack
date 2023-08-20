@@ -31,8 +31,9 @@ bool src_show_dialog(StackAppWindow *window)
 		cue_id_t start = stack_cue_string_to_id(gtk_entry_get_text(start_entry));
 		cue_id_t increment = stack_cue_string_to_id(gtk_entry_get_text(increment_entry));
 
+		// TODO: Reimplement once multiselection is working
 		// Get the list of selected items
-		GtkTreeModel *model = gtk_tree_view_get_model(window->treeview);
+		/*GtkTreeModel *model = gtk_tree_view_get_model(window->treeview);
 		GList *selected = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), NULL);
 
 		// Iterate over the selected items
@@ -57,7 +58,7 @@ bool src_show_dialog(StackAppWindow *window)
 		}
 
 		// Free the selection list
-		g_list_free_full(selected, (GDestroyNotify)gtk_tree_path_free);
+		g_list_free_full(selected, (GDestroyNotify)gtk_tree_path_free);*/
 	}
 
 	// Destroy the dialog

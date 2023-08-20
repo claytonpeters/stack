@@ -244,11 +244,52 @@ void *stack_cue_list_iter_front(StackCueList *cue_list)
 	return result;
 }
 
+/// Returns an iterator to the cue list that is positioned on a certain cue, or
+/// at the end if the cue does not exist
+/// @param cue_list The cue list
+/// @param cue_uid The cue ID to jump to
+/// @param index A pointer to receive the index of the cue in the list. Can be NULL;
+/// @returns An iterator
+void *stack_cue_list_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *index)
+{
+	size_t local_index = 0;
+
+	stackcue_list_iterator_t* result = new stackcue_list_iterator_t;
+	*result	= (SCL_GET_LIST(cue_list)->begin());
+	while (*result != SCL_GET_LIST(cue_list)->end() && (**result)->uid != cue_uid)
+	{
+		local_index++;
+		(*result)++;
+	}
+
+	// Return the index
+	if (index != NULL)
+	{
+		if (*result == SCL_GET_LIST(cue_list)->end())
+		{
+			*index = -1;
+		}
+		else
+		{
+			*index = local_index;
+		}
+	}
+
+	return result;
+}
+
 /// Increments an iterator to the next cue
 /// @param iter A cue list iterator as returned by stack_cue_list_iter_front for example
 void *stack_cue_list_iter_next(void *iter)
 {
 	return (void*)&(++(*(stackcue_list_iterator_t*)(iter)));
+}
+
+/// Derements an iterator to the next cue
+/// @param iter A cue list iterator as returned by stack_cue_list_iter_front for example
+void *stack_cue_list_iter_prev(void *iter)
+{
+	return (void*)&(--(*(stackcue_list_iterator_t*)(iter)));
 }
 
 /// Gets the cue at the current location of the iterator
@@ -735,6 +776,22 @@ StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
 	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
 	{
 		if ((*iter)->uid == uid)
+		{
+			return *iter;
+		}
+	}
+
+	return NULL;
+}
+
+StackCue *stack_cue_list_get_cue_by_index(StackCueList *cue_list, size_t index)
+{
+	size_t count = 0;
+
+	// Iterate over all the cues
+	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter, ++count)
+	{
+		if (count == index)
 		{
 			return *iter;
 		}

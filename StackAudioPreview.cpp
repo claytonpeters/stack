@@ -7,6 +7,7 @@
 // Provides an implementation of stack_audio_preview_get_type
 G_DEFINE_TYPE(StackAudioPreview, stack_audio_preview, GTK_TYPE_WIDGET)
 
+// Custom signals
 static guint signal_selection_changed = 0;
 
 GtkWidget *stack_audio_preview_new()
