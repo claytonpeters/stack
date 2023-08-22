@@ -52,34 +52,8 @@ bool src_show_dialog(StackAppWindow *window)
 			stack_cue_list_iter_next(iter);
 		}
 
-		// TODO: Reimplement once multiselection is working
-		// Get the list of selected items
-		/*GtkTreeModel *model = gtk_tree_view_get_model(window->treeview);
-		GList *selected = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), NULL);
-
-		// Iterate over the selected items
-		GList *ptr = selected;
-		cue_id_t new_cue_id = start;
-		while (ptr != NULL)
-		{
-			// Get the value of the cue pointer for the selected cue
-			GtkTreeIter iter;
-			GValue value = G_VALUE_INIT;
-			GtkTreePath *path = (GtkTreePath*)ptr->data;
-			gtk_tree_model_get_iter(model, &iter, path);
-			gtk_tree_model_get_value(model, &iter, STACK_MODEL_CUE_POINTER, &value);
-
-			// Set the new cue ID
-			StackCue *cue = STACK_CUE(g_value_get_pointer(&value));
-			stack_cue_set_id(cue, new_cue_id);
-
-			// Iterate to next item in list
-			ptr = ptr->next;
-			new_cue_id += increment;
-		}
-
-		// Free the selection list
-		g_list_free_full(selected, (GDestroyNotify)gtk_tree_path_free);*/
+		// Tidy up
+		stack_cue_list_iter_free(iter);
 	}
 
 	// Destroy the dialog
