@@ -250,7 +250,7 @@ static void saw_select_first_cue(StackAppWindow *window)
 {
 	void *iter = stack_cue_list_iter_front(window->cue_list);
 	StackCue *cue = stack_cue_list_iter_get(iter);
-	stack_cue_list_widget_set_primary_selection(window->sclw, cue->uid);
+	stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
 	stack_cue_list_iter_free(iter);
 }
 
@@ -268,7 +268,7 @@ static void saw_select_last_cue(StackAppWindow *window)
 
 	if (cue != NULL)
 	{
-		stack_cue_list_widget_set_primary_selection(window->sclw, cue->uid);
+		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
 	}
 
 	stack_cue_list_iter_free(iter);
@@ -337,12 +337,12 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 				}
 				else
 				{
-					stack_cue_list_widget_set_primary_selection(window->sclw, stack_cue_list_iter_get(iter)->uid);
+					stack_cue_list_widget_select_single_cue(window->sclw, stack_cue_list_iter_get(iter)->uid);
 				}
 			}
 			else
 			{
-				stack_cue_list_widget_set_primary_selection(window->sclw, stack_cue_list_iter_get(iter)->uid);
+				stack_cue_list_widget_select_single_cue(window->sclw, stack_cue_list_iter_get(iter)->uid);
 			}
 		}
 
@@ -653,7 +653,7 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 		// Select the new cue (must be done after unset_tabs has been called)
 		// otherwise we'll cue up a selection change that'll attempt to unset
 		// the tabs again
-		stack_cue_list_widget_set_primary_selection(window->sclw, new_selection);
+		stack_cue_list_widget_select_single_cue(window->sclw, new_selection);
 	}
 }
 

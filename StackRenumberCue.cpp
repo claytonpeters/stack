@@ -31,6 +31,27 @@ bool src_show_dialog(StackAppWindow *window)
 		cue_id_t start = stack_cue_string_to_id(gtk_entry_get_text(start_entry));
 		cue_id_t increment = stack_cue_string_to_id(gtk_entry_get_text(increment_entry));
 
+		// Start renumbering by iterating over the list
+		cue_id_t new_cue_id = start;
+		void *iter = stack_cue_list_iter_front(window->cue_list);
+		while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+		{
+			// Get the cue
+			StackCue *cue = stack_cue_list_iter_get(iter);
+
+			// If the cue is selected
+			if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+			{
+				// Set the new cue ID
+				stack_cue_set_id(cue, new_cue_id);
+				new_cue_id += increment;
+			}
+
+
+			// Iterate to next cue
+			stack_cue_list_iter_next(iter);
+		}
+
 		// TODO: Reimplement once multiselection is working
 		// Get the list of selected items
 		/*GtkTreeModel *model = gtk_tree_view_get_model(window->treeview);

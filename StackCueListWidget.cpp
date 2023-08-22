@@ -758,7 +758,7 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 	return false;
 }
 
-void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
+static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 {
 	// Clear all flags, except for the primary
 	for (auto iter : sclw->cue_flags)
@@ -773,6 +773,12 @@ void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 			stack_cue_list_widget_update_cue(sclw, iter.first, 0);
 		}
 	}
+}
+
+void stack_cue_list_widget_select_single_cue(StackCueListWidget *sclw, cue_uid_t new_uid)
+{
+	stack_cue_list_widget_set_primary_selection(sclw, new_uid);
+	stack_cue_list_widget_reset_selection(sclw);
 }
 
 void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_uid_t new_uid)
@@ -820,6 +826,18 @@ void stack_cue_list_widget_add_to_selection(StackCueListWidget *sclw, cue_uid_t 
 	{
 		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
 	}
+}
+
+bool stack_cue_list_widget_is_cue_selected(StackCueListWidget *sclw, cue_uid_t uid)
+{
+	auto iter = sclw->cue_flags.find(uid);
+	if (iter != sclw->cue_flags.end())
+	{
+		return (iter->second & SCLW_FLAG_SELECTED);
+	}
+
+	// Not found, can't possibly be selected
+	return false;
 }
 
 static void stack_cue_list_widget_motion(GtkWidget *widget, GdkEventMotion *event, gpointer user_data)
@@ -1050,6 +1068,7 @@ static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *
 {
 	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
 	cue_uid_t new_cue_uid = sclw->primary_selection;
+	bool select_new_cue = false;
 
 	if (event->keyval == GDK_KEY_Up)
 	{
@@ -1075,12 +1094,6 @@ static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *
 				new_cue_uid = stack_cue_list_iter_get(iter)->uid;
 			}
 		}
-
-		stack_cue_list_widget_set_primary_selection(sclw, new_cue_uid);
-		stack_cue_list_widget_reset_selection(sclw);
-
-		// Prevent default Gtk Widget handling of keypresses
-		return true;
 	}
 	else if (event->keyval == GDK_KEY_Down)
 	{
@@ -1106,9 +1119,20 @@ static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *
 				new_cue_uid = stack_cue_list_iter_get(iter)->uid;
 			}
 		}
+	}
 
-		stack_cue_list_widget_set_primary_selection(sclw, new_cue_uid);
-		stack_cue_list_widget_reset_selection(sclw);
+	// On either keypress select the new cue
+	if (event->keyval == GDK_KEY_Up || event->keyval == GDK_KEY_Down)
+	{
+		if (event->state & GDK_SHIFT_MASK)
+		{
+			stack_cue_list_widget_add_to_selection(sclw, new_cue_uid);
+			stack_cue_list_widget_set_primary_selection(sclw, new_cue_uid);
+		}
+		else
+		{
+			stack_cue_list_widget_select_single_cue(sclw, new_cue_uid);
+		}
 
 		// Prevent default Gtk Widget handling of keypresses
 		return true;
