@@ -41,8 +41,8 @@ static void stack_app_init(StackApp *app)
 				// We only have the filename, which if we pass to dlopen it'll look on
 				// the library search path rather than where the file actually is, so
 				// add on the directory we're searching
-				char entry_relative_path[NAME_MAX];
-				snprintf(entry_relative_path, NAME_MAX, "./%s", entry->d_name);
+				char entry_relative_path[NAME_MAX + 3];
+				snprintf(entry_relative_path, NAME_MAX + 3, "./%s", entry->d_name);
 
 				// Attempt to open the entry as a dynamic library
 				void *dl_handle = dlopen(entry_relative_path, RTLD_NOW);
