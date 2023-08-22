@@ -88,12 +88,13 @@ GtkWidget *stack_cue_list_widget_new();
 
 // Functions:
 void stack_cue_list_widget_set_cue_list(StackCueListWidget *sclw, StackCueList *cue_list);
-//ovoid stack_cue_list_widget_select_single(StackCueListWidget *sclw, StackCue *cue);
+void stack_cue_list_widget_select_single_cue(StackCueListWidget *sclw, cue_uid_t new_uid);
 void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_uid_t new_uid);
 StackCue *stack_cue_list_widget_cue_from_position(StackCueListWidget *sclw, int32_t x, int32_t y);
 void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue, int32_t fields);
 void stack_cue_list_widget_list_modified(StackCueListWidget *sclw);
-bool stack_cue_list_widget_expand_cue(StackCueListWidget *sclw, StackCue *cue, bool expand);
+bool stack_cue_list_widget_expand_cue(StackCueListWidget *sclw, cue_uid_t new_uid, bool expand);
+bool stack_cue_list_widget_is_cue_selected(StackCueListWidget *sclw, cue_uid_t uid);
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);

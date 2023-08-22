@@ -604,56 +604,94 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	// Store a pointer to the cue we're deleting (as the selection will change
-	// during this function)
-	StackCue *cue_to_delete = window->selected_cue;
+	// First determine the cue we should select after all selected cues have
+	// been deleted. This is the cue after the bottom-most selected cue
+	cue_uid_t new_selection = STACK_CUE_UID_NONE;
+	bool previous_was_selected = false;
+	cue_uid_t previous_cue = STACK_CUE_UID_NONE;
 
-	// If a cue has been selected
-	if (cue_to_delete != NULL)
+	// Iterate over the cue list
+	void *iter = stack_cue_list_iter_front(window->cue_list);
+	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
 	{
-		// Find another cue to select
-		cue_uid_t new_selection = STACK_CUE_UID_NONE;
+		StackCue *cue = stack_cue_list_iter_get(iter);
+		bool is_selected = stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid);
 
-		// Try to jump to the cue after the one we're on
-		void *iter = stack_cue_list_iter_at(window->cue_list, cue_to_delete->uid, NULL);
+		// If the current cue is not selected, and the previous cue was, mark
+		// this cue as the new selection
+		if (!is_selected && previous_was_selected)
+		{
+			new_selection = cue->uid;
+			previous_was_selected = false;
+		}
+
+		// Keep track of the previous cue and its selection state
+		if (is_selected)
+		{
+			previous_was_selected = true;
+		}
+		previous_cue = cue->uid;
+
+		// Iterate
 		stack_cue_list_iter_next(iter);
+	}
 
-		// If we're off the end, try jumping to the one before
-		if (stack_cue_list_iter_at_end(window->cue_list, iter))
+	// It is possible here (for example if we've selected the last items in the
+	// list) that the new selection is still nothing, but we account for that
+	// later
+	//
+	// Tidy up
+	stack_cue_list_iter_free(iter);
+
+	// Iterate over all the cues and delete the ones that are selected
+	iter = stack_cue_list_iter_front(window->cue_list);
+	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+	{
+		StackCue *cue = stack_cue_list_iter_get(iter);
+
+		// If the cue is selected
+		if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
 		{
-			stack_cue_list_iter_free(iter);
-			iter = stack_cue_list_iter_at(window->cue_list, cue_to_delete->uid, NULL);
-			stack_cue_list_iter_prev(iter);
-		}
+			// If this is the currently primary selection, deselect it properly
+			if (cue == window->selected_cue)
+			{
+				stack_cue_unset_tabs(window->selected_cue, window->notebook);
+				window->selected_cue = NULL;
+			}
 
-		// If we're not off the end, store the selection
-		if (!stack_cue_list_iter_at_end(window->cue_list, iter))
+			// Iterate to the next cue now or the iterator will become invalid
+			stack_cue_list_iter_next(iter);
+
+			// Remove the cue from the cue list
+			stack_cue_list_lock(window->cue_list);
+			stack_cue_list_remove(window->cue_list, cue);
+			stack_cue_list_unlock(window->cue_list);
+
+			// Destroy the cue
+			stack_cue_destroy(cue);
+		}
+		else
 		{
-			new_selection = stack_cue_list_iter_get(iter)->uid;
+			// Iterate
+			stack_cue_list_iter_next(iter);
 		}
+	}
 
-		// Tidy up
-		stack_cue_list_iter_free(iter);
+	// Tidy up
+	stack_cue_list_iter_free(iter);
 
-		// Deselect the cue
-		stack_cue_unset_tabs(cue_to_delete, window->notebook);
-		window->selected_cue = NULL;
+	// Redraw the whole list widget
+	stack_cue_list_widget_list_modified(window->sclw);
 
-		// Remove the cue from the cue list
-		stack_cue_list_lock(window->cue_list);
-		stack_cue_list_remove(window->cue_list, cue_to_delete);
-		stack_cue_list_unlock(window->cue_list);
-
-		// Destroy the cue
-		stack_cue_destroy(cue_to_delete);
-
-		// Redraw the whole list widget
-		stack_cue_list_widget_list_modified(window->sclw);
-
-		// Select the new cue (must be done after unset_tabs has been called)
-		// otherwise we'll cue up a selection change that'll attempt to unset
-		// the tabs again
+	// If we have a new selection, select it, otherwise select the last cue in
+	// the cue list
+	if (new_selection != STACK_CUE_UID_NONE)
+	{
 		stack_cue_list_widget_select_single_cue(window->sclw, new_selection);
+	}
+	else
+	{
+		saw_select_last_cue(window);
 	}
 }
 
@@ -816,7 +854,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20230520-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20230822-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
