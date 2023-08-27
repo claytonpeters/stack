@@ -760,7 +760,7 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 
 static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 {
-	// Clear all flags, except for the primary
+	// Clear all selection flags, except the primary
 	for (auto iter : sclw->cue_flags)
 	{
 		if (iter.second & SCLW_FLAG_SELECTED && iter.first != sclw->primary_selection)
@@ -772,6 +772,13 @@ static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 			// Redraw
 			stack_cue_list_widget_update_cue(sclw, iter.first, 0);
 		}
+	}
+
+	// Select the primary
+	if (!(sclw->cue_flags[sclw->primary_selection] & SCLW_FLAG_SELECTED))
+	{
+		sclw->cue_flags[sclw->primary_selection] |= SCLW_FLAG_SELECTED;
+		stack_cue_list_widget_update_cue(sclw, sclw->primary_selection, 0);
 	}
 }
 
@@ -787,7 +794,7 @@ void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_u
 	{
 		cue_uid_t old_uid = sclw->primary_selection;
 		sclw->primary_selection = new_uid;
-		sclw->cue_flags[new_uid] = SCLW_FLAG_SELECTED;
+		//sclw->cue_flags[new_uid] = SCLW_FLAG_SELECTED;
 
 		// Redraw both rows
 		stack_cue_list_widget_update_cue(sclw, old_uid, 0);
@@ -812,6 +819,64 @@ void stack_cue_list_widget_add_to_selection(StackCueListWidget *sclw, cue_uid_t 
 	}
 	else
 	{
+		sclw->cue_flags[new_uid] = SCLW_FLAG_SELECTED;
+	}
+
+	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
+
+	// TODO: This needs to be different as the primary selection should behave
+	// differently to everything else
+	//g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+
+	// Redraw
+	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
+	{
+		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+	}
+}
+
+void stack_cue_list_widget_remove_from_selection(StackCueListWidget *sclw, cue_uid_t new_uid)
+{
+	auto iter = sclw->cue_flags.find(new_uid);
+	if (iter != sclw->cue_flags.end())
+	{
+		iter->second &= ~SCLW_FLAG_SELECTED;
+	}
+	else
+	{
+		sclw->cue_flags[new_uid] = 0;
+	}
+
+	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
+
+	// TODO: This needs to be different as the primary selection should behave
+	// differently to everything else
+	//g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+
+	// Redraw
+	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
+	{
+		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+	}
+}
+
+void stack_cue_list_widget_toggle_selection(StackCueListWidget *sclw, cue_uid_t new_uid)
+{
+	auto iter = sclw->cue_flags.find(new_uid);
+	if (iter != sclw->cue_flags.end())
+	{
+		if (iter->second & SCLW_FLAG_SELECTED)
+		{
+			iter->second &= ~SCLW_FLAG_SELECTED;
+		}
+		else
+		{
+			iter->second |= SCLW_FLAG_SELECTED;
+		}
+	}
+	else
+	{
+		// If not found, it can't have been selected
 		sclw->cue_flags[new_uid] = SCLW_FLAG_SELECTED;
 	}
 
@@ -959,7 +1024,7 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 			// For Ctrl+Click (but not Shift+Ctrl+Click) we add to selection
 			else if (event->state & GDK_CONTROL_MASK)
 			{
-				stack_cue_list_widget_add_to_selection(sclw, clicked_cue);
+				stack_cue_list_widget_toggle_selection(sclw, clicked_cue);
 			}
 
 			// Set the new primary row
