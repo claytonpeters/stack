@@ -17,9 +17,6 @@ struct StackAudioCue
 	// The short (i.e. not fully qualified) file to playback
 	gchar *short_filename;
 
-	// The GtkBuilder instance
-	GtkBuilder *builder;
-
 	// The media tab
 	GtkWidget *media_tab;
 
