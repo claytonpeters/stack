@@ -695,6 +695,30 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	}
 }
 
+// Menu callback
+static gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Only do this if the cue list has focus
+	if (gtk_window_get_focus(GTK_WINDOW(window)) == GTK_WIDGET(window->sclw))
+	{
+		auto iter = stack_cue_list_iter_front(window->cue_list);
+		for (; !stack_cue_list_iter_at_end(window->cue_list, iter); stack_cue_list_iter_next(iter))
+		{
+			stack_cue_list_widget_add_to_selection(window->sclw, stack_cue_list_iter_get(iter)->uid);
+		}
+		stack_cue_list_iter_free(iter);
+
+		// Don't let GTK pass on the event
+		return true;
+	}
+
+	// GTK should pass to another widget
+	return false;
+}
+
 // Edit -> Show Settings
 static void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 {
@@ -1467,114 +1491,49 @@ static gboolean saw_cue_list_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 void saw_file_dropped(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info, guint time, gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	/*if (gtk_selection_data_get_target(data) == gdk_atom_intern_static_string("GTK_TREE_MODEL_ROW"))
+	gchar **files = gtk_selection_data_get_uris(data);
+	if (files != NULL)
 	{
-
-		GtkTreePath *dest_path = NULL;
-		GtkTreeViewDropPosition pos;
-
-		// This seems to be the condition of whether a drop has actually happened...
-		if (x != 0 && y != 0)
+		// Iterate over the list of files
+		// TODO: Do we need to free `files`?
+		size_t index = 0;
+		while (files[index] != NULL)
 		{
-			// Get the index of the drop
-			size_t new_index = 0;
+			stack_log("saw_file_dropped: files[%d] = %s\n", index, files[index]);
 
-			// Check to see if there is a row at (x,y) where we are being dropped
-			if (gtk_tree_view_get_dest_row_at_pos(window->treeview, x, y, &dest_path, &pos))
+			// Lock the cue list
+			stack_cue_list_lock(window->cue_list);
+
+			// Create the new cue
+			StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
+			if (new_cue != NULL)
 			{
-				// We have a row, figure out where we're going
-				new_index = gtk_tree_path_get_indices(dest_path)[0];
-				if (pos == GTK_TREE_VIEW_DROP_AFTER)
-				{
-					new_index++;
-				}
-			}
-			else
-			{
-				// We have no row, assume end of list
-				new_index = stack_cue_list_count(window->cue_list);
+				// Set the file on the cue
+				stack_property_set_string(stack_cue_get_property(new_cue, "file"), STACK_PROPERTY_VERSION_DEFINED, (const char*)files[index]);
+
+				// Add the list to our cue stack
+				stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
 			}
 
-			GtkTreeModel *model;
-			GList *list;
+			// Unlock the cue list
+			stack_cue_list_unlock(window->cue_list);
 
-			// Get the selected cue
-			list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), &model);
-
-			// If there is a selection
-			if (list != NULL)
+			// Update that last row in the list store with the basics of the cue
+			if (new_cue != NULL)
 			{
-				list = g_list_first(list);
-
-				// Get the path to the selected row
-				GtkTreePath *path = (GtkTreePath*)(list->data);
-
-				// Get the data from the tree model for that row
-				GtkTreeIter iter;
-				gtk_tree_model_get_iter(model, &iter, path);
-
-				// Get the cue
-				gpointer cue;
-				gtk_tree_model_get(model, &iter, STACK_MODEL_CUE_POINTER, &cue, -1);
-
-				stack_log("saw_row_dragged(): Moving cue %d (uid: 0x%016lx) to index %lu\n", STACK_CUE(cue)->id, STACK_CUE(cue)->uid, new_index);
-
-				// Remove the cue from the cue list and move it to it's new location
-				stack_cue_list_lock(window->cue_list);
-				stack_cue_list_move(window->cue_list, STACK_CUE(cue), new_index);
-				stack_cue_list_unlock(window->cue_list);
-
-				// Tidy up
-				g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
-			}
-		}
-	}
-	else*/
-	{
-		gchar **files = gtk_selection_data_get_uris(data);
-		if (files != NULL)
-		{
-			// Iterate over the list of files
-			// TODO: Do we need to free `files`?
-			size_t index = 0;
-			while (files[index] != NULL)
-			{
-				stack_log("saw_file_dropped: files[%d] = %s\n", index, files[index]);
-
-				// Lock the cue list
-				stack_cue_list_lock(window->cue_list);
-
-				// Create the new cue
-				StackCue* new_cue = STACK_CUE(stack_cue_new("StackAudioCue", window->cue_list));
-				if (new_cue != NULL)
-				{
-					// Set the file on the cue
-					stack_property_set_string(stack_cue_get_property(new_cue, "file"), STACK_PROPERTY_VERSION_DEFINED, (const char*)files[index]);
-
-					// Add the list to our cue stack
-					stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
-				}
-
-				// Unlock the cue list
-				stack_cue_list_unlock(window->cue_list);
-
-				// Update that last row in the list store with the basics of the cue
-				if (new_cue != NULL)
-				{
-					stack_cue_list_widget_update_cue(window->sclw, new_cue->uid, 0);
-				}
-
-				// Iterate
-				index++;
+				stack_cue_list_widget_update_cue(window->sclw, new_cue->uid, 0);
 			}
 
-			// Select the new cue (or the last of the new cues)
-			saw_select_last_cue(window);
+			// Iterate
+			index++;
 		}
 
-		// Tell our drag source we're done
-		gtk_drag_finish(context, true, false, time);
+		// Select the new cue (or the last of the new cues)
+		saw_select_last_cue(window);
 	}
+
+	// Tell our drag source we're done
+	gtk_drag_finish(context, true, false, time);
 }
 
 // Initialises the window
@@ -1629,6 +1588,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_copy_clicked", G_CALLBACK(saw_edit_copy_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_paste_clicked", G_CALLBACK(saw_edit_paste_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_delete_clicked", G_CALLBACK(saw_edit_delete_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_edit_select_all_clicked", G_CALLBACK(saw_edit_select_all_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_edit_show_settings_clicked", G_CALLBACK(saw_edit_show_settings_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_group_clicked", G_CALLBACK(saw_cue_add_group_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
@@ -1663,7 +1623,8 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Setup custom list view
 	window->sclw = STACK_CUE_LIST_WIDGET(stack_cue_list_widget_new());
 	window->sclw->cue_list = window->cue_list;
-	gtk_container_add(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueScrollWindow")), GTK_WIDGET(window->sclw));
+	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawCueListPlaceholder")));
+	gtk_paned_add1(GTK_PANED(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(window->sclw));
 	gtk_widget_set_visible(GTK_WIDGET(window->sclw), true);
 
 	// Master Out Meter: Get the UI item to add the cue to
@@ -1696,6 +1657,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
+	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
 
 	// Apply some input validation
 	stack_limit_gtk_entry_float(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueNumber")), false);
