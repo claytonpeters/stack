@@ -9,6 +9,7 @@ pa_mainloop_api *mainloop_api = NULL;
 pa_context *context = NULL;
 semaphore state_semaphore;
 char *default_sink_name = NULL;
+int32_t open_streams = 0;
 
 // Device enumeration structures:
 struct PulseAudioSinkCountData
@@ -381,25 +382,36 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 		// Disconnect from the stream
 		pa_stream_disconnect(STACK_PULSE_AUDIO_DEVICE(device)->stream);
 
-		// Stop the mainloop to ensure no more events are in progress
-		pa_threaded_mainloop_stop(mainloop);
+		// Decrement the count of open streams
+		open_streams--;
+
+		// If there are no active streams, stop the mainloop
+		if (open_streams == 0)
+		{
+			// Stop the mainloop to ensure no more events are in progress
+			pa_threaded_mainloop_stop(mainloop);
+		}
 
 		// Mainloop might still be using the stream
 		pa_stream_unref(STACK_PULSE_AUDIO_DEVICE(device)->stream);
 
-		// Disconnect our context
-		pa_context_disconnect(context);
+		// Tidy up if nothing is using the stream
+		if (open_streams == 0)
+		{
+			// Disconnect our context
+			pa_context_disconnect(context);
 
-		// Wait for the disconnect
-		state_semaphore.wait();
+			// Wait for the disconnect
+			state_semaphore.wait();
 
-		// Tidy up
-		pa_context_unref(context);
-		context = NULL;
+			// Tidy up
+			pa_context_unref(context);
+			context = NULL;
 
-		// Free the main loop
-		pa_threaded_mainloop_free(mainloop);
-		mainloop = NULL;
+			// Free the main loop
+			pa_threaded_mainloop_free(mainloop);
+			mainloop = NULL;
+		}
 	}
 
 	// Call superclass destroy
@@ -480,6 +492,9 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 
 		return NULL;
 	}
+
+	// Increment the count of open streams
+	open_streams++;
 
 	// Call the underflow callback now to trigger writing some audio
 	stack_pulse_audio_stream_underflow_callback(context, device);
