@@ -362,7 +362,7 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 {
 	// Handy pointers
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 	GtkFileChooser *chooser = GTK_FILE_CHOOSER(widget);
 
 	// Get the filename
@@ -408,7 +408,7 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 
 static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Set the time (this will do the bounds checking in the validator)
 	stack_time_t media_start_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
@@ -419,7 +419,7 @@ static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpoin
 
 static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Set the time (this will do the bounds checking in the validator)
 	stack_time_t media_end_time = stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget)));
@@ -430,7 +430,7 @@ static gboolean acp_trim_end_changed(GtkWidget *widget, GdkEvent *event, gpointe
 
 static void acp_trim_preview_changed(StackAudioPreview *preview, guint64 start, guint64 end, gpointer user_data)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(preview)))->selected_cue);
 
 	// Set the time
 	stack_property_set_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, start);
@@ -439,7 +439,7 @@ static void acp_trim_preview_changed(StackAudioPreview *preview, guint64 start, 
 
 static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Set the loops
 	int32_t loops = atoi(gtk_entry_get_text(GTK_ENTRY(widget)));
@@ -450,7 +450,7 @@ static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer u
 
 static void acp_volume_changed(GtkRange *range, gpointer user_data)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(range)))->selected_cue);
 
 	// Get the volume from the slider, set it in the cue, and then read back out
 	// the validated version
@@ -640,6 +640,21 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	if (sac_builder == NULL)
 	{
 		sac_builder = gtk_builder_new_from_file("StackAudioCue.ui");
+
+		// Set up callbacks
+		gtk_builder_add_callback_symbol(sac_builder, "acp_file_changed", G_CALLBACK(acp_file_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_start_changed", G_CALLBACK(acp_trim_start_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_volume_changed", G_CALLBACK(acp_volume_changed));
+
+		// Apply input limiting
+		stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimStart")), false);
+		stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimEnd")), false);
+		stack_limit_gtk_entry_int(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpLoops")), true);
+
+		// Connect the signals
+		gtk_builder_connect_signals(sac_builder, NULL);
 	}
 	audio_cue->media_tab = GTK_WIDGET(gtk_builder_get_object(sac_builder, "acpGrid"));
 
@@ -684,21 +699,6 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(gtk_builder_get_object(sac_builder, "acpFile")), last_file_chooser_folder);
 	}
-
-	// Set up callbacks
-	gtk_builder_add_callback_symbol(sac_builder, "acp_file_changed", G_CALLBACK(acp_file_changed));
-	gtk_builder_add_callback_symbol(sac_builder, "acp_trim_start_changed", G_CALLBACK(acp_trim_start_changed));
-	gtk_builder_add_callback_symbol(sac_builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
-	gtk_builder_add_callback_symbol(sac_builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
-	gtk_builder_add_callback_symbol(sac_builder, "acp_volume_changed", G_CALLBACK(acp_volume_changed));
-
-	// Apply input limiting
-	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimStart")), false);
-	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimEnd")), false);
-	stack_limit_gtk_entry_int(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpLoops")), true);
-
-	// Connect the signals
-	gtk_builder_connect_signals(sac_builder, (gpointer)cue);
 
 	// Add an extra reference to the media tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected

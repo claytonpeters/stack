@@ -18,9 +18,6 @@ struct StackActionCue
 	// Superclass
 	StackCue super;
 
-	// The GtkBuilder instance
-	GtkBuilder *builder;
-
 	// The action tab
 	GtkWidget *action_tab;
 

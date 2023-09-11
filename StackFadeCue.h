@@ -18,9 +18,6 @@ struct StackFadeCue
 	// Superclass
 	StackCue super;
 
-	// The GtkBuilder instance
-	GtkBuilder *builder;
-
 	// The fade tab
 	GtkWidget *fade_tab;
 

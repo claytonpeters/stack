@@ -15,6 +15,10 @@ static const double STACK_FADE_CUE_DEFAULT_TARGET_VOLUME = -INFINITY;
 static const StackFadeProfile STACK_FADE_CUE_DEFAULT_PROFILE = STACK_FADE_PROFILE_EXP;
 static const bool STACK_FADE_CUE_DEFAULT_STOP_TARGET = true;
 
+// Global: A single instance of our builder so we don't have to keep reloading
+// it every time we change the selected cue
+static GtkBuilder *sfc_builder = NULL;
+
 static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
 {
 	if (version == STACK_PROPERTY_VERSION_DEFINED)
@@ -45,7 +49,7 @@ static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVers
 		StackCue *new_target = stack_cue_get_by_uid(new_target_uid);
 
 		// Get the Select Cue button
-		GtkButton *button = GTK_BUTTON(gtk_builder_get_object(cue->builder, "fcpCue"));
+		GtkButton *button = GTK_BUTTON(gtk_builder_get_object(sfc_builder, "fcpCue"));
 
 		// Store the cue in the target and update the state
 		if (new_target == NULL)
@@ -92,7 +96,7 @@ static void stack_fade_cue_ccb_target_volume(StackProperty *property, StackPrope
 		}
 
 		// Get the volume label and update it's value
-		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(cue->builder, "fcpVolumeValueLabel")), buffer);
+		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sfc_builder, "fcpVolumeValueLabel")), buffer);
 	}
 
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
@@ -146,7 +150,7 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	stack_cue_set_action_time(STACK_CUE(cue), 5 * NANOSECS_PER_SEC);
 
 	// Initialise our variables
-	cue->builder = NULL;
+	sfc_builder = NULL;
 	cue->fade_tab = NULL;
 	cue->target_cue_id_string[0] = '\0';
 	cue->playback_start_target_volume = 0.0;
@@ -185,16 +189,10 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 static void stack_fade_cue_destroy(StackCue *cue)
 {
 	// Tidy up
-	if (STACK_FADE_CUE(cue)->builder)
+	if (STACK_FADE_CUE(cue)->fade_tab)
 	{
 		// Remove our reference to the fade tab
 		g_object_unref(STACK_FADE_CUE(cue)->fade_tab);
-
-		// Destroy the top level widget in the builder
-		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_FADE_CUE(cue)->builder, "window1")));
-
-		// Unref the builder
-		g_object_unref(STACK_FADE_CUE(cue)->builder);
 	}
 
 	// Call parent destructor
@@ -253,7 +251,7 @@ void stack_fade_cue_set_profile(StackFadeCue *cue, StackFadeProfile profile)
 static void fcp_cue_changed(GtkButton *widget, gpointer user_data)
 {
 	// Get the cue
-	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+	StackFadeCue *cue = STACK_FADE_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Get the parent window
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->fade_tab));
@@ -272,7 +270,7 @@ static void fcp_cue_changed(GtkButton *widget, gpointer user_data)
 /// Called when the volume slider changes
 static void fcp_volume_changed(GtkRange *range, gpointer user_data)
 {
-	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+	StackFadeCue *cue = STACK_FADE_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(range)))->selected_cue);
 
 	// Get the volume and store it
 	double vol_db = gtk_range_get_value(range);
@@ -282,7 +280,7 @@ static void fcp_volume_changed(GtkRange *range, gpointer user_data)
 /// Called when the fade time edit box loses focus
 static gboolean fcp_fade_time_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
-	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+	StackFadeCue *cue = STACK_FADE_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Set the time
 	stack_cue_set_action_time(STACK_CUE(cue), stack_time_string_to_ns(gtk_entry_get_text(GTK_ENTRY(widget))));
@@ -300,13 +298,13 @@ static gboolean fcp_fade_time_changed(GtkWidget *widget, GdkEvent *event, gpoint
 /// Called when the fade profile changes
 static void fcp_profile_changed(GtkToggleButton *widget, gpointer user_data)
 {
-	StackFadeCue *cue = STACK_FADE_CUE(user_data);
+	StackFadeCue *cue = STACK_FADE_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Get pointers to the four radio button options
-	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeLinear"));
-	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeQuadratic"));
-	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeExponential"));
-	GtkToggleButton* r4 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "fcpFadeTypeInvExponential"));
+	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeLinear"));
+	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeQuadratic"));
+	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeExponential"));
+	GtkToggleButton* r4 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeInvExponential"));
 
 	// Determine which one is toggled on
 	if (widget == r1 && gtk_toggle_button_get_active(r1)) { stack_fade_cue_set_profile(cue, STACK_FADE_PROFILE_LINEAR); }
@@ -321,7 +319,8 @@ static void fcp_profile_changed(GtkToggleButton *widget, gpointer user_data)
 static void fcp_stop_target_changed(GtkToggleButton *widget, gpointer user_data)
 {
 	// Update the variable
-	stack_fade_cue_set_stop_target(STACK_FADE_CUE(user_data), gtk_toggle_button_get_active(widget));
+	StackFadeCue *cue = STACK_FADE_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
+	stack_fade_cue_set_stop_target(cue, gtk_toggle_button_get_active(widget));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -475,26 +474,28 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Create the tab
 	GtkWidget *label = gtk_label_new("Fade");
 
-	// Load the UI
-	GtkBuilder *builder = gtk_builder_new_from_file("StackFadeCue.ui");
-	fcue->builder = builder;
-	fcue->fade_tab = GTK_WIDGET(gtk_builder_get_object(builder, "fcpGrid"));
+	// Load the UI (if we haven't already)
+	if (sfc_builder == NULL)
+	{
+		sfc_builder = gtk_builder_new_from_file("StackFadeCue.ui");
+
+		// Set up callbacks
+		gtk_builder_add_callback_symbol(sfc_builder, "fcp_cue_changed", G_CALLBACK(fcp_cue_changed));
+		gtk_builder_add_callback_symbol(sfc_builder, "fcp_fade_time_changed", G_CALLBACK(fcp_fade_time_changed));
+		gtk_builder_add_callback_symbol(sfc_builder, "fcp_volume_changed", G_CALLBACK(fcp_volume_changed));
+		gtk_builder_add_callback_symbol(sfc_builder, "fcp_profile_changed", G_CALLBACK(fcp_profile_changed));
+		gtk_builder_add_callback_symbol(sfc_builder, "fcp_stop_target_changed", G_CALLBACK(fcp_stop_target_changed));
+
+		// Connect the signals
+		gtk_builder_connect_signals(sfc_builder, NULL);
+
+		// Apply input limitin
+		stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sfc_builder, "fcpFadeTime")), false);
+	}
+	fcue->fade_tab = GTK_WIDGET(gtk_builder_get_object(sfc_builder, "fcpGrid"));
 
 	// Pause change callbacks on the properties
 	stack_fade_cue_pause_change_callbacks(cue, true);
-
-	// Set up callbacks
-	gtk_builder_add_callback_symbol(builder, "fcp_cue_changed", G_CALLBACK(fcp_cue_changed));
-	gtk_builder_add_callback_symbol(builder, "fcp_fade_time_changed", G_CALLBACK(fcp_fade_time_changed));
-	gtk_builder_add_callback_symbol(builder, "fcp_volume_changed", G_CALLBACK(fcp_volume_changed));
-	gtk_builder_add_callback_symbol(builder, "fcp_profile_changed", G_CALLBACK(fcp_profile_changed));
-	gtk_builder_add_callback_symbol(builder, "fcp_stop_target_changed", G_CALLBACK(fcp_stop_target_changed));
-
-	// Connect the signals
-	gtk_builder_connect_signals(builder, (gpointer)cue);
-
-	// Apply input limitin
-	stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(builder, "fcpFadeTime")), false);
 
 	// Add an extra reference to the fade tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
@@ -521,7 +522,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(target_cue));
 
 		// Set the button text
-		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(builder, "fcpCue")), button_text.c_str());
+		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sfc_builder, "fcpCue")), button_text.c_str());
 	}
 
 	// Set the values: fade time
@@ -529,18 +530,18 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	stack_time_t cue_action_time = 0;
 	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_DEFINED, &cue_action_time);
 	stack_format_time_as_string(cue_action_time, buffer, 32);
-	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(builder, "fcpFadeTime")), buffer);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sfc_builder, "fcpFadeTime")), buffer);
 
 	// Set the values: stop target
 	bool stop_target = STACK_FADE_CUE_DEFAULT_STOP_TARGET;
 	stack_property_get_bool(stack_cue_get_property(cue, "stop_target"), STACK_PROPERTY_VERSION_DEFINED, &stop_target);
 	if (stop_target)
 	{
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpStopTarget")), true);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpStopTarget")), true);
 	}
 	else
 	{
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpStopTarget")), false);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpStopTarget")), false);
 	}
 
 	// Update fade type option
@@ -549,19 +550,19 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	switch (profile)
 	{
 		case STACK_FADE_PROFILE_LINEAR:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpFadeTypeLinear")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeLinear")), true);
 			break;
 
 		case STACK_FADE_PROFILE_QUAD:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpFadeTypeQuadratic")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeQuadratic")), true);
 			break;
 
 		case STACK_FADE_PROFILE_EXP:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpFadeTypeExponential")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeExponential")), true);
 			break;
 
 		case STACK_FADE_PROFILE_INVEXP:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "fcpFadeTypeInvExponential")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sfc_builder, "fcpFadeTypeInvExponential")), true);
 			break;
 	}
 
@@ -576,8 +577,8 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		snprintf(buffer, 32, "%.2f dB", target_volume);
 	}
-	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(builder, "fcpVolume")), target_volume);
-	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(builder, "fcpVolumeValueLabel")), buffer);
+	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(sfc_builder, "fcpVolume")), target_volume);
+	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sfc_builder, "fcpVolumeValueLabel")), buffer);
 
 	// Resume change callbacks on the properties
 	stack_fade_cue_pause_change_callbacks(cue, false);
@@ -595,18 +596,8 @@ static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 		gtk_notebook_remove_page(notebook, page);
 	}
 
-	// We don't need the top level window, so destroy it (GtkBuilder doesn't
-	// destroy top-level windows itself)
-	gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_FADE_CUE(cue)->builder, "window1")));
-
-	// Destroy the builder
-	g_object_unref(STACK_FADE_CUE(cue)->builder);
-
 	// Remove our reference to the fade tab
 	g_object_unref(STACK_FADE_CUE(cue)->fade_tab);
-
-	// Be tidy
-	STACK_FADE_CUE(cue)->builder = NULL;
 	STACK_FADE_CUE(cue)->fade_tab = NULL;
 }
 
