@@ -12,6 +12,7 @@ G_DEFINE_TYPE(StackCueListWidget, stack_cue_list_widget, GTK_TYPE_WIDGET)
 
 // Custom signals
 static guint signal_selection_changed = 0;
+static guint signal_primary_selection_changed = 0;
 
 // Relevant geometry for columns
 typedef struct SCLWColumnGeometry
@@ -760,14 +761,15 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 
 static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 {
+	bool changed = false;
+
 	// Clear all selection flags, except the primary
 	for (auto iter : sclw->cue_flags)
 	{
 		if (iter.second & SCLW_FLAG_SELECTED && iter.first != sclw->primary_selection)
 		{
+			changed = true;
 			sclw->cue_flags[iter.first] &= ~SCLW_FLAG_SELECTED;
-
-			// TODO: We should fire a selection change here
 
 			// Redraw
 			stack_cue_list_widget_update_cue(sclw, iter.first, 0);
@@ -779,6 +781,12 @@ static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 	{
 		sclw->cue_flags[sclw->primary_selection] |= SCLW_FLAG_SELECTED;
 		stack_cue_list_widget_update_cue(sclw, sclw->primary_selection, 0);
+	}
+
+	// Signal that one or more selected items have changed
+	if (changed)
+	{
+		g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
 	}
 }
 
@@ -800,7 +808,7 @@ void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_u
 		stack_cue_list_widget_update_cue(sclw, old_uid, 0);
 		stack_cue_list_widget_update_cue(sclw, new_uid, 0);
 
-		g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+		g_signal_emit(G_OBJECT(sclw), signal_primary_selection_changed, 0, new_uid);
 
 		// Redraw
 		if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
@@ -824,9 +832,8 @@ void stack_cue_list_widget_add_to_selection(StackCueListWidget *sclw, cue_uid_t 
 
 	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
 
-	// TODO: This needs to be different as the primary selection should behave
-	// differently to everything else
-	//g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+	// Signal that one or more selected items have changed
+	g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
 
 	// Redraw
 	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
@@ -849,9 +856,8 @@ void stack_cue_list_widget_remove_from_selection(StackCueListWidget *sclw, cue_u
 
 	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
 
-	// TODO: This needs to be different as the primary selection should behave
-	// differently to everything else
-	//g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+	// Signal that one or more selected items have changed
+	g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
 
 	// Redraw
 	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
@@ -882,9 +888,8 @@ void stack_cue_list_widget_toggle_selection(StackCueListWidget *sclw, cue_uid_t 
 
 	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
 
-	// TODO: This needs to be different as the primary selection should behave
-	// differently to everything else
-	//g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0, new_uid);
+	// Signal that one or more selected items have changed
+	g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
 
 	// Redraw
 	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
@@ -1304,12 +1309,6 @@ static void stack_cue_list_widget_finalize(GObject *obj)
 	G_OBJECT_CLASS(stack_cue_list_widget_parent_class)->finalize(obj);
 }
 
-static gboolean stack_cue_list_widget_focus(GtkWidget *widget, GtkDirectionType direction)
-{
-	fprintf(stderr, "FOCUS: %d\n", direction);
-	return true;
-}
-
 static void stack_cue_list_widget_class_init(StackCueListWidgetClass *cls)
 {
 	// Things we need to override at the class level
@@ -1324,6 +1323,7 @@ static void stack_cue_list_widget_class_init(StackCueListWidgetClass *cls)
 	widget_cls->map = stack_cue_list_widget_map;
 	widget_cls->unmap = stack_cue_list_widget_unmap;
 
-	// TODO: Check this!
-	signal_selection_changed = g_signal_new("selection-changed", stack_cue_list_widget_get_type(), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT64);
+	// Setup signals for selection changes
+	signal_primary_selection_changed = g_signal_new("primary-selection-changed", stack_cue_list_widget_get_type(), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT64);
+	signal_selection_changed = g_signal_new("selection-changed", stack_cue_list_widget_get_type(), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }

@@ -689,7 +689,6 @@ cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 /// @param property The property that caused the change (could be NULL)
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue, StackProperty *property)
 {
-	stack_log("stack_cue_list_changed(): Called by cue UID %016lx, property: %s\n", cue->uid, property != NULL ? property->name : "None");
 	cue_list->changed = true;
 }
 

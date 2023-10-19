@@ -1495,7 +1495,6 @@ void saw_file_dropped(GtkWidget *widget, GdkDragContext *context, gint x, gint y
 	if (files != NULL)
 	{
 		// Iterate over the list of files
-		// TODO: Do we need to free `files`?
 		size_t index = 0;
 		while (files[index] != NULL)
 		{
@@ -1531,6 +1530,9 @@ void saw_file_dropped(GtkWidget *widget, GdkDragContext *context, gint x, gint y
 		// Select the new cue (or the last of the new cues)
 		saw_select_last_cue(window);
 	}
+
+	// Tidy up
+	g_free(files);
 
 	// Tell our drag source we're done
 	gtk_drag_finish(context, true, false, time);
@@ -1669,7 +1671,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up signal handler for drag-drop in cue list
 	g_signal_connect(window->sclw, "drag-data-received", G_CALLBACK(saw_file_dropped), (gpointer)window);
-	g_signal_connect(window->sclw, "selection-changed", G_CALLBACK(saw_cue_selected), (gpointer)window);
+	g_signal_connect(window->sclw, "primary-selection-changed", G_CALLBACK(saw_cue_selected), (gpointer)window);
 	g_signal_connect(window->sclw, "key-press-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
 	g_signal_connect(window->sclw, "key-release-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
 
