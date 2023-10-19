@@ -31,33 +31,29 @@ bool src_show_dialog(StackAppWindow *window)
 		cue_id_t start = stack_cue_string_to_id(gtk_entry_get_text(start_entry));
 		cue_id_t increment = stack_cue_string_to_id(gtk_entry_get_text(increment_entry));
 
-		// Get the list of selected items
-		GtkTreeModel *model = gtk_tree_view_get_model(window->treeview);
-		GList *selected = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(window->treeview), NULL);
-
-		// Iterate over the selected items
-		GList *ptr = selected;
+		// Start renumbering by iterating over the list
 		cue_id_t new_cue_id = start;
-		while (ptr != NULL)
+		void *iter = stack_cue_list_iter_front(window->cue_list);
+		while (!stack_cue_list_iter_at_end(window->cue_list, iter))
 		{
-			// Get the value of the cue pointer for the selected cue
-			GtkTreeIter iter;
-			GValue value = G_VALUE_INIT;
-			GtkTreePath *path = (GtkTreePath*)ptr->data;
-			gtk_tree_model_get_iter(model, &iter, path);
-			gtk_tree_model_get_value(model, &iter, STACK_MODEL_CUE_POINTER, &value);
+			// Get the cue
+			StackCue *cue = stack_cue_list_iter_get(iter);
 
-			// Set the new cue ID
-			StackCue *cue = STACK_CUE(g_value_get_pointer(&value));
-			stack_cue_set_id(cue, new_cue_id);
+			// If the cue is selected
+			if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+			{
+				// Set the new cue ID
+				stack_cue_set_id(cue, new_cue_id);
+				new_cue_id += increment;
+			}
 
-			// Iterate to next item in list
-			ptr = ptr->next;
-			new_cue_id += increment;
+
+			// Iterate to next cue
+			stack_cue_list_iter_next(iter);
 		}
 
-		// Free the selection list
-		g_list_free_full(selected, (GDestroyNotify)gtk_tree_path_free);
+		// Tidy up
+		stack_cue_list_iter_free(iter);
 	}
 
 	// Destroy the dialog

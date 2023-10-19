@@ -129,6 +129,9 @@ struct StackCue
 	// Parent cue list
 	StackCueList *parent;
 
+	// Parent cue
+	StackCue *parent_cue;
+
 	// Determines if the cue can have child cues
 	bool can_have_children;
 
@@ -163,15 +166,6 @@ struct StackCue
 	// The properties for the cue (this is a std::map internally). Any
 	// properties stored in here will automatically be written to JSON
 	void *properties;
-};
-
-struct StackGroupCue
-{
-	// Super class
-	StackCue super;
-
-	// The array of cues (this is a std::list internally)
-	void *cues;
 };
 
 // Typedefs for create/delete functions
@@ -287,7 +281,9 @@ void stack_cue_list_destroy(StackCueList *cue_list);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);
 void *stack_cue_list_iter_front(StackCueList *cue_list);
+void *stack_cue_list_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *index);
 void *stack_cue_list_iter_next(void *iter);
+void *stack_cue_list_iter_prev(void *iter);
 StackCue *stack_cue_list_iter_get(void *iter);
 void stack_cue_list_iter_free(void *iter);
 bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
@@ -301,6 +297,7 @@ void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, size_t index);
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
 StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid);
+StackCue *stack_cue_list_get_cue_by_index(StackCueList *cue_list, size_t index);
 cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list);
 const char *stack_cue_list_get_show_name(StackCueList *cue_list);
 const char *stack_cue_list_get_show_designer(StackCueList *cue_list);
@@ -314,8 +311,6 @@ const char* stack_cue_get_field(StackCue *cue, const char *field);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))
-#define STACK_GROUP_CUE(_c) ((StackGroupCue*)(_c))
 #define STACK_CUE_LIST(_c) ((StackCueList*)(_c))
 
 #endif
-

@@ -1,5 +1,6 @@
 // Includes:
 #include "StackCue.h"
+#include "StackGroupCue.h"
 #include "StackLog.h"
 #include <map>
 #include <cstring>
@@ -21,6 +22,13 @@ static map<cue_uid_t, StackCue*> cue_uid_map;
 // Generates a UID
 static cue_uid_t stack_cue_generate_uid()
 {
+	static bool seeded = false;
+	if (!seeded)
+	{
+		seeded = true;
+		srand(time(NULL));
+	}
+
 	cue_uid_t uid = STACK_CUE_UID_NONE;
 
 	// Repeatedly generate UUIDs until we find a free one
@@ -60,6 +68,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 {
 	cue->_class_name = "StackCue";
 	cue->parent = cue_list;
+	cue->parent_cue = NULL;
 	cue->can_have_children = false;
 	cue->id = stack_cue_list_get_next_cue_number(cue_list);
 	cue->uid = stack_cue_generate_uid();
@@ -85,17 +94,17 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 
 	StackProperty *r = stack_property_create("r", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, r);
-	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(r, stack_cue_ccb, cue);
 
 	StackProperty *g = stack_property_create("g", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, g);
-	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(g, stack_cue_ccb, cue);
 
 	StackProperty *b = stack_property_create("b", STACK_PROPERTY_TYPE_UINT8);
 	stack_cue_add_property(cue, b);
-	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, 210);
+	stack_property_set_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, 0);
 	stack_property_set_changed_callback(b, stack_cue_ccb, cue);
 
 	StackProperty *pre_time = stack_property_create("pre_time", STACK_PROPERTY_TYPE_INT64);
@@ -727,5 +736,8 @@ void stack_cue_initsystem()
 	// Register base cue type
 	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base };
 	stack_register_cue_class(stack_cue_class);
+
+	// Group cues are built-in, not plugins
+	stack_group_cue_register();
 }
 

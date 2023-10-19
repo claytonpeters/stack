@@ -8,6 +8,10 @@
 #include <cmath>
 #include <json/json.h>
 
+// Global: A single instance of our builder so we don't have to keep reloading
+// it every time we change the selected cue
+static GtkBuilder *sac_builder = NULL;
+
 static void stack_action_cue_ccb_target(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	// If a defined-version property has changed, we should notify the cue list
@@ -51,7 +55,7 @@ static void stack_action_cue_ccb_action(StackProperty *property, StackPropertyVe
 }
 
 /// Pause or resumes change callbacks on variables
-static void stack_audio_cue_pause_change_callbacks(StackCue *cue, bool pause)
+static void stack_action_cue_pause_change_callbacks(StackCue *cue, bool pause)
 {
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "action"), pause);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
@@ -76,7 +80,6 @@ static StackCue* stack_action_cue_create(StackCueList *cue_list)
 	stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
 
 	// Initialise our variables
-	cue->builder = NULL;
 	cue->action_tab = NULL;
 	stack_cue_set_action_time(STACK_CUE(cue), 1);
 	cue->target_cue_id_string[0] = '\0';
@@ -101,19 +104,6 @@ static StackCue* stack_action_cue_create(StackCueList *cue_list)
 /// Destroys a action cue
 static void stack_action_cue_destroy(StackCue *cue)
 {
-	// Tidy up
-	if (STACK_ACTION_CUE(cue)->builder)
-	{
-		// Remove our reference to the action tab
-		g_object_unref(STACK_ACTION_CUE(cue)->action_tab);
-
-		// Destroy the top level widget in the builder
-		gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_ACTION_CUE(cue)->builder, "window1")));
-
-		// Unref the builder
-		g_object_unref(STACK_ACTION_CUE(cue)->builder);
-	}
-
 	// Call parent destructor
 	stack_cue_destroy_base(cue);
 }
@@ -153,7 +143,7 @@ void stack_action_cue_set_action(StackActionCue *cue, StackActionCueAction actio
 static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 {
 	// Get the cue
-	StackActionCue *cue = STACK_ACTION_CUE(user_data);
+	StackActionCue *cue = STACK_ACTION_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Get the parent window
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->action_tab));
@@ -190,12 +180,12 @@ static void acp_cue_changed(GtkButton *widget, gpointer user_data)
 /// Called when the action changes
 static void acp_action_changed(GtkToggleButton *widget, gpointer user_data)
 {
-	StackActionCue *cue = STACK_ACTION_CUE(user_data);
+	StackActionCue *cue = STACK_ACTION_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
 
 	// Get pointers to the four radio button options
-	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "acpActionTypePlay"));
-	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "acpActionTypePause"));
-	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(cue->builder, "acpActionTypeStop"));
+	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypePlay"));
+	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypePause"));
+	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypeStop"));
 
 	// Determine which one is toggled on
 	if (widget == r1 && gtk_toggle_button_get_active(r1)) { stack_action_cue_set_action(cue, STACK_ACTION_CUE_PLAY); }
@@ -287,20 +277,22 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Create the tab
 	GtkWidget *label = gtk_label_new("Action");
 
-	// Load the UI
-	GtkBuilder *builder = gtk_builder_new_from_file("StackActionCue.ui");
-	acue->builder = builder;
-	acue->action_tab = GTK_WIDGET(gtk_builder_get_object(builder, "acpGrid"));
+	// Load the UI (if we haven't already)
+	if (sac_builder == NULL)
+	{
+		sac_builder = gtk_builder_new_from_file("StackActionCue.ui");
+
+		// Set up callbacks
+		gtk_builder_add_callback_symbol(sac_builder, "acp_cue_changed", G_CALLBACK(acp_cue_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_action_changed", G_CALLBACK(acp_action_changed));
+
+		// Connect the signals
+		gtk_builder_connect_signals(sac_builder, NULL);
+	}
+	acue->action_tab = GTK_WIDGET(gtk_builder_get_object(sac_builder, "acpGrid"));
 
 	// Pause change callbacks on the properties
-	stack_audio_cue_pause_change_callbacks(cue, true);
-
-	// Set up callbacks
-	gtk_builder_add_callback_symbol(builder, "acp_cue_changed", G_CALLBACK(acp_cue_changed));
-	gtk_builder_add_callback_symbol(builder, "acp_action_changed", G_CALLBACK(acp_action_changed));
-
-	// Connect the signals
-	gtk_builder_connect_signals(builder, (gpointer)cue);
+	stack_action_cue_pause_change_callbacks(cue, true);
 
 	// Add an extra reference to the action tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
@@ -327,7 +319,7 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		button_text = std::string(cue_number) + ": " + std::string(stack_cue_get_rendered_name(target_cue));
 
 		// Set the button text
-		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(builder, "acpCue")), button_text.c_str());
+		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sac_builder, "acpCue")), button_text.c_str());
 	}
 
 	// Update action option
@@ -336,20 +328,20 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	switch (action)
 	{
 		case STACK_ACTION_CUE_PLAY:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "acpActionTypePlay")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypePlay")), true);
 			break;
 
 		case STACK_ACTION_CUE_PAUSE:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "acpActionTypePause")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypePause")), true);
 			break;
 
 		case STACK_ACTION_CUE_STOP:
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(builder, "acpActionTypeStop")), true);
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sac_builder, "acpActionTypeStop")), true);
 			break;
 	}
 
 	// Resume change callbacks on the properties
-	stack_audio_cue_pause_change_callbacks(cue, false);
+	stack_action_cue_pause_change_callbacks(cue, false);
 }
 
 /// Removes the properties tabs for a action cue
@@ -364,18 +356,10 @@ static void stack_action_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 		gtk_notebook_remove_page(notebook, page);
 	}
 
-	// We don't need the top level window, so destroy it (GtkBuilder doesn't
-	// destroy top-level windows itself)
-	gtk_widget_destroy(GTK_WIDGET(gtk_builder_get_object(STACK_ACTION_CUE(cue)->builder, "window1")));
-
-	// Destroy the builder
-	g_object_unref(STACK_ACTION_CUE(cue)->builder);
-
 	// Remove our reference to the action tab
 	g_object_unref(STACK_ACTION_CUE(cue)->action_tab);
 
 	// Be tidy
-	STACK_ACTION_CUE(cue)->builder = NULL;
 	STACK_ACTION_CUE(cue)->action_tab = NULL;
 }
 
