@@ -39,3 +39,6 @@ CMakeFiles/*
 
 # Temporary files
 *~
+
+# Igonre any test show files
+*.stack
