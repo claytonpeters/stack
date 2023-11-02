@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package StackRPC.v1;
+
+message ControlRequest {
+	uint64 message_id = 1;
+	oneof type {
+		CueActionRequest cue_action_request = 2;
+		ListCuesRequest list_cues_request = 3;
+		GetCuesRequest get_cues_request = 4;
+		GetShowRequest get_show_request = 5;
+	}
+}
+
+message ControlResponse {
+	uint64 response_to = 1;
+	oneof type {
+		CueActionResponse cue_action_response = 2;
+		ListCuesResponse list_cues_response = 3;
+		GetCuesResponse get_cues_response = 4;
+		GetShowResponse get_show_response = 5;
+	}
+}
+
+// Enumeration of possible cue actions
+enum CueAction {
+	// Start the cue playing, if it isn't
+	Play = 0;
+
+	// Pause the cue
+	Pause = 1;
+
+	// Stop the cue
+	Stop = 2;
+
+	// Stop all of the cues (cue_id is ignored)
+	StopAll = 3;
+}
+
+// Should match StackCueState in StackCue.h
+enum CueState {
+	Stopped = 0;
+	Paused = 1;
+	Prepared = 2;
+	PlayingPre = 3;
+	PlayingAction = 4;
+	PlayingPost = 5;
+	Error = -1;
+}
+
+// Should match StackCueWaitTrigger in StackCue.h
+enum CueWaitTrigger {
+	None = 0;
+	Immediate = 1;
+	AfterPre = 2;
+	AfterAction = 3;
+}
+
+// Tells a cue to do an action
+message CueActionRequest {
+	int64 cue_id = 1;
+	CueAction cue_action = 2;
+}
+
+message CueActionResponse {
+}
+
+// Requests a list of all the cue IDs
+message ListCuesRequest {
+	// Whether to include cue IDs of group cue children
+	bool include_children = 1;
+}
+
+// Responds with an ordered list of cue IDs
+message ListCuesResponse {
+	// Repeated cue UID
+	repeated int64 cue_uid = 2;
+}
+
+// Requests information about a cue
+message GetCuesRequest {
+	// The cues to get the information for
+	repeated int64 cue_uid = 1;
+}
+
+// Response to GetCuesRequest
+message GetCuesResponse {
+	// Information about the cue
+	repeated CueInfo cue_info = 1;
+}
+
+// Requests information about the show
+message GetShowRequest {
+}
+
+// Response to GetShowRequest
+message GetShowResponse {
+	// The name of the show
+	string name = 1;
+
+	// The designer of the show
+	string designer = 2;
+
+	// The revision of the show
+	string revision = 3;
+
+	// The filename of the show
+	string filename = 4;
+}
+
+message CueInfo {
+	// The cue UID
+	int64 uid = 1;
+
+	// Reserved for future use (parent group cue)
+	int64 parent_uid = 2;
+
+	// The cue number
+	int32 id = 3;
+
+	// The state of the cue
+	CueState state = 4;
+
+	// The rendered name of the cue
+	string name = 5;
+
+	// Prewait Time in nanoseconds
+	int64 prewait_time = 6;
+
+	// Action Time in nanoseconds
+	int64 action_time = 7;
+
+	// Postwait Time in nanoseconds
+	int64 postwait_time = 8;
+
+	// Postwait trigger event
+	CueWaitTrigger post_trigger = 9;
+
+	// RGBA-packed colour
+	int32 colour = 10;
+
+	// Cue notes
+	string notes = 11;
+}

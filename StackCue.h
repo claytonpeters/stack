@@ -6,6 +6,7 @@
 #include "StackAudioDevice.h"
 #include "StackRingBuffer.h"
 #include "StackProperty.h"
+#include "StackRPCSocket.h"
 #include <gtk/gtk.h>
 #include <cstdint>
 #include <cstdlib>
@@ -118,6 +119,11 @@ struct StackCueList
 	// Cache
 	bool *active_channels_cache;
 	float *rms_cache;
+
+#if HAVE_LIBPROTOBUF_C == 1
+	// Remote control for the cue list
+	StackRPCSocket *rpc_socket;
+#endif
 };
 
 // Base class for cues
@@ -290,6 +296,7 @@ bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter);
 void stack_cue_list_pulse(StackCueList *cue_list);
 void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
+void stack_cue_list_stop_all(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue, StackProperty *property);
 void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue);

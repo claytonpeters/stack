@@ -878,7 +878,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20230822-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20231102-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -926,39 +926,7 @@ static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 // Menu/toolbar callback
 static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 {
-	// Get the window
-	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-
-	// Lock the cue list
-	stack_cue_list_lock(window->cue_list);
-
-	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(window->cue_list);
-
-	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
-	{
-		// Get the cue
-		StackCue *cue = stack_cue_list_iter_get(citer);
-
-		if ((cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST) || cue->state == STACK_CUE_STATE_PAUSED)
-		{
-			// Stop the cue
-			stack_cue_stop(cue);
-
-			// Update the row
-			stack_cue_list_widget_update_cue(window->sclw, cue->uid, 0);
-		}
-
-		// Iterate
-		citer = stack_cue_list_iter_next(citer);
-	}
-
-	// Unlock the cue list
-	stack_cue_list_unlock(window->cue_list);
-
-	// Free the iterator
-	stack_cue_list_iter_free(citer);
+	stack_cue_list_stop_all(STACK_APP_WINDOW(user_data)->cue_list);
 }
 
 static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
