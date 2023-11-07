@@ -493,6 +493,14 @@ static bool stack_audio_cue_play(StackCue *cue)
 		return true;
 	}
 
+	// Ensure we have an audio device
+	if (audio_cue->super.parent->audio_device == NULL)
+	{
+		// Set cue state to error
+		stack_cue_set_state(STACK_CUE(cue), STACK_CUE_STATE_ERROR);
+		return false;
+	}
+
 	// Initialise playback
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "file"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "media_start_time"));
@@ -894,9 +902,13 @@ void stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
 	{
 		snprintf(message, size, "No audio file selected");
 	}
-	if (STACK_AUDIO_CUE(cue)->playback_file == NULL)
+	else if (STACK_AUDIO_CUE(cue)->playback_file == NULL)
 	{
 		snprintf(message, size, "Invalid audio file");
+	}
+	else if (cue->parent->audio_device == NULL)
+	{
+		snprintf(message, size, "No audio device");
 	}
 	else
 	{

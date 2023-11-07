@@ -69,6 +69,11 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->kill_thread = false;
 	cue_list->pulse_thread = std::thread(stack_cue_list_pulse_thread, cue_list);
 
+#if HAVE_LIBPROTOBUF_C == 1
+	// Create the RPC socket
+	cue_list->rpc_socket = stack_rpc_socket_create(NULL, NULL, cue_list);
+#endif
+
 	return cue_list;
 }
 
@@ -81,6 +86,14 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		stack_log("stack_cue_list_destroy(): Attempted to destroy NULL!\n");
 		return;
 	}
+
+#if HAVE_LIBPROTOBUF_C == 1
+	// Close the RPC socket before anything else to stop any remote access
+	if (cue_list->rpc_socket)
+	{
+		stack_rpc_socket_destroy(cue_list->rpc_socket);
+	}
+#endif
 
 	// Stop the pulse thread
 	cue_list->kill_thread = true;
@@ -347,14 +360,14 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	stack_time_t clocktime = stack_get_clock_time();
 
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
 		// If the cue is in one of the playing states
-		auto cue_state = (*iter)->state;
+		auto cue_state = cue->state;
 		if (cue_state >= STACK_CUE_STATE_PLAYING_PRE && cue_state <= STACK_CUE_STATE_PLAYING_POST)
 		{
 			// Pulse the cue
-			stack_cue_pulse(*iter, clocktime);
+			stack_cue_pulse(cue, clocktime);
 		}
 	}
 
@@ -379,6 +392,27 @@ void stack_cue_list_lock(StackCueList *cue_list)
 void stack_cue_list_unlock(StackCueList *cue_list)
 {
 	cue_list->lock.unlock();
+}
+
+/// Stops all the cues in the cue list
+/// @param cue_list The cue list
+void stack_cue_list_stop_all(StackCueList *cue_list)
+{
+	// Lock the cue list
+	stack_cue_list_lock(cue_list);
+
+	// Iterate over all the cues
+	for (auto cue : *SCL_GET_LIST(cue_list))
+	{
+		if ((cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST) || cue->state == STACK_CUE_STATE_PAUSED)
+		{
+			// Stop the cue
+			stack_cue_stop(cue);
+		}
+	}
+
+	// Unlock the cue list
+	stack_cue_list_unlock(cue_list);
 }
 
 /// Saves the cue list to a file
@@ -412,12 +446,12 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
 
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
 		Json::Reader reader;
-		char *cue_json_data = stack_cue_to_json(*iter);
+		char *cue_json_data = stack_cue_to_json(cue);
 		reader.parse(cue_json_data, cue_root);
 		stack_cue_free_json(cue_json_data);
 
@@ -772,11 +806,11 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
 {
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
-		if ((*iter)->uid == uid)
+		if (cue->uid == uid)
 		{
-			return *iter;
+			return cue;
 		}
 	}
 
@@ -788,12 +822,13 @@ StackCue *stack_cue_list_get_cue_by_index(StackCueList *cue_list, size_t index)
 	size_t count = 0;
 
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter, ++count)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
 		if (count == index)
 		{
-			return *iter;
+			return cue;
 		}
+		count++;
 	}
 
 	return NULL;
@@ -806,11 +841,11 @@ cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list)
 	cue_id_t max_cue_id = 0;
 
 	// Iterate over all the cues, seraching for the maximum cue ID
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
-		if ((*iter)->id > max_cue_id)
+		if (cue->id > max_cue_id)
 		{
-			max_cue_id = (*iter)->id;
+			max_cue_id = cue->id;
 		}
 	}
 
@@ -911,11 +946,11 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	memset(new_data, 0, cue_list->channels * request_samples * sizeof(float));
 
 	// Allocate a buffer for new cue data
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
 		// Get the list of active_channels
 		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(*iter, cue_list->active_channels_cache);
+		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)
@@ -927,7 +962,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		float *cue_data = new float[active_channel_count * request_samples];
 
 		// Get the audio data from the cue
-		size_t samples_received = stack_cue_get_audio(*iter, cue_data, request_samples);
+		size_t samples_received = stack_cue_get_audio(cue, cue_data, request_samples);
 
 		// Add this cues data on to the new data
 		size_t source_channel = 0;
@@ -965,7 +1000,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		}
 
 		// Create or update RMS data
-		auto rms_iter = rms_data->find((*iter)->uid);
+		auto rms_iter = rms_data->find(cue->uid);
 		if (rms_iter == rms_data->end())
 		{
 			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
@@ -975,7 +1010,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 				new_rms_data[i].peak_level = cue_list->rms_cache[i];
 				new_rms_data[i].peak_time = stack_get_clock_time();
 			}
-			(*rms_data)[(*iter)->uid] = new_rms_data;
+			(*rms_data)[cue->uid] = new_rms_data;
 		}
 		else
 		{
