@@ -26,6 +26,9 @@ struct StackAudioDevice
 
 	// Arbitrary user data passed to request_audio function
 	void *request_audio_user_data;
+
+	// The name of the audio device
+	char *device_name;
 };
 
 // Structure: Descriptor of an audio device

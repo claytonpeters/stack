@@ -414,6 +414,11 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 		}
 	}
 
+	if (device->device_name != NULL)
+	{
+		free(device->device_name);
+	}
+
 	// Call superclass destroy
 	stack_audio_device_destroy_base(device);
 }
@@ -426,6 +431,12 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	// Allocate the new device
 	StackPulseAudioDevice *device = new StackPulseAudioDevice();
 	device->stream = NULL;
+
+	// Just in case the context has been shutdown
+	if (open_streams == 0)
+	{
+		stack_init_pulse_audio();
+	}
 
 	// If we've not been given a device name...
 	if (name == NULL)
@@ -440,6 +451,11 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 		}
 
 		stack_log("stack_pulse_audio_device_create(): Using default sink, %s\n", default_sink_name);
+		STACK_AUDIO_DEVICE(device)->device_name = strdup(default_sink_name);
+	}
+	else
+	{
+		STACK_AUDIO_DEVICE(device)->device_name = strdup(name);
 	}
 
 	// Set up superclass

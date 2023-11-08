@@ -181,6 +181,19 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	delete cue_list;
 }
 
+void stack_cue_list_set_audio_device(StackCueList *cue_list, StackAudioDevice *audio_device)
+{
+	// Stop all the current cues and destroy the audio device
+	stack_cue_list_stop_all(cue_list);
+	if (cue_list->audio_device != NULL)
+	{
+		stack_audio_device_destroy(cue_list->audio_device);
+	}
+
+	// Store the new audio device
+	cue_list->audio_device = audio_device;
+}
+
 /// Returns the number of cues in the cue list
 /// @param cue_list The cue list
 size_t stack_cue_list_count(StackCueList *cue_list)

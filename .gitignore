@@ -39,6 +39,7 @@ CMakeFiles/*
 
 # Temporary files
 *~
+*.swp
 
-# Igonre any test show files
+# Ignore any test show files
 *.stack
