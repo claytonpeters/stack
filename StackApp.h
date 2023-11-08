@@ -73,22 +73,9 @@ StackApp *stack_app_new(void);
 StackAppWindow* stack_app_window_new(StackApp *app);
 void stack_app_window_open(StackAppWindow *window, GFile *file);
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, StackCue *hide);
+size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data);
 void sss_show_dialog(StackAppWindow* window);
 bool src_show_dialog(StackAppWindow* window);
-
-// TreeViewModel / ListStore column IDs
-#define STACK_MODEL_CUEID             (0)
-#define STACK_MODEL_NAME              (1)
-#define STACK_MODEL_PREWAIT_PERCENT   (2)
-#define STACK_MODEL_PREWAIT_TEXT      (3)
-#define STACK_MODEL_ACTION_PERCENT    (4)
-#define STACK_MODEL_ACTION_TEXT       (5)
-#define STACK_MODEL_POSTWAIT_PERCENT  (6)
-#define STACK_MODEL_POSTWAIT_TEXT     (7)
-#define STACK_MODEL_STATE_IMAGE       (8)
-#define STACK_MODEL_COLOR             (9)
-#define STACK_MODEL_CUE_POINTER       (10)
-#define STACK_MODEL_ERROR_MESSAGE     (11)
 
 #endif
 

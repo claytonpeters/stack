@@ -177,6 +177,11 @@ void stack_alsa_audio_device_destroy(StackAudioDevice *device)
 		snd_pcm_close(STACK_ALSA_AUDIO_DEVICE(device)->stream);
 	}
 
+	if (device->device_name != NULL)
+	{
+		free(device->device_name);
+	}
+
 	// Call superclass destroy
 	stack_audio_device_destroy_base(device);
 }
@@ -339,6 +344,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	STACK_AUDIO_DEVICE(device)->sample_rate = sample_rate;
 	STACK_AUDIO_DEVICE(device)->request_audio = request_audio;
 	STACK_AUDIO_DEVICE(device)->request_audio_user_data = user_data;
+	STACK_AUDIO_DEVICE(device)->device_name = strdup(name);
 
 	// Start the output thread
 	device->output_thread = std::thread(stack_alsa_audio_device_output_thread, device);
