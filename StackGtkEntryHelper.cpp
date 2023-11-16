@@ -25,6 +25,18 @@ void stack_limit_gtk_entry_float_callback(GtkEntryBuffer *buffer, guint position
 {
 	bool negatives = (bool)userdata;
 
+	// If the only text that was inserted was Inf, allow it (for infinite)
+	if (count == 3 && (chars[1] == 'I' || chars[1] == 'i') && chars[1] == 'n' && chars[2] == 'f')
+	{
+		return;
+	}
+
+	// If the only text that was inserted was -Inf, allow it (for -infinite)
+	if (count == 4 && chars[0] == '-' && (chars[1] == 'I' || chars[1] == 'i') && chars[2] == 'n' && chars[3] == 'f')
+	{
+		return;
+	}
+
 	// Iterate through the string that was inserted and if anything is not a number,
 	for (size_t i = 0; i < count; i++)
 	{

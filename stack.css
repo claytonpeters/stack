@@ -279,7 +279,7 @@ treeview.view.progressbar:selected:backdrop
 treeview.view.progressbar:backdrop
 {
 	color: @theme_fg_color;
-	background-image: none; 
+	background-image: none;
 }
 
 menu
@@ -513,3 +513,8 @@ tooltip label
 	color: @tooltip_label_color;
 }
 
+scale marks mark label
+{
+	padding-left: 4px;
+	font-size: 75%
+}

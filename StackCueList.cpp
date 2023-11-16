@@ -34,8 +34,6 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->show_name = strdup("");
 	cue_list->show_designer = strdup("");
 	cue_list->show_revision = strdup("");
-
-	// Default to a two-channel set up
 	cue_list->channels = channels;
 	cue_list->active_channels_cache = new bool[cue_list->channels];
 	cue_list->rms_cache = new float[cue_list->channels];
@@ -183,15 +181,76 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 
 void stack_cue_list_set_audio_device(StackCueList *cue_list, StackAudioDevice *audio_device)
 {
+	size_t old_channels = 0, new_channels = 0;
+
 	// Stop all the current cues and destroy the audio device
 	stack_cue_list_stop_all(cue_list);
 	if (cue_list->audio_device != NULL)
 	{
+		old_channels = cue_list->audio_device->channels;
 		stack_audio_device_destroy(cue_list->audio_device);
 	}
 
 	// Store the new audio device
 	cue_list->audio_device = audio_device;
+
+	if (audio_device == NULL)
+	{
+		return;
+	}
+
+	// Lock
+	stack_cue_list_lock(cue_list);
+
+	new_channels = audio_device->channels;
+
+	if (new_channels != old_channels)
+	{
+		if (cue_list->active_channels_cache != NULL)
+		{
+			delete [] cue_list->active_channels_cache;
+		}
+		cue_list->active_channels_cache = new bool[new_channels];
+
+		if (cue_list->rms_cache != NULL)
+		{
+			delete [] cue_list->rms_cache;
+		}
+		cue_list->rms_cache = new float[new_channels];
+
+		// Re-initialise the ring buffers
+		if (cue_list->buffers != NULL)
+		{
+			for (size_t i = 0; i < old_channels; i++)
+			{
+				stack_ring_buffer_destroy(cue_list->buffers[i]);
+			}
+			delete [] cue_list->buffers;
+		}
+		cue_list->buffers = new StackRingBuffer*[new_channels];
+		for (size_t i = 0; i < new_channels; i++)
+		{
+			cue_list->buffers[i] = stack_ring_buffer_create(32768);
+		}
+
+		// Re-initialise master RMS data
+		if (cue_list->master_rms_data != NULL)
+		{
+			delete [] cue_list->master_rms_data;
+		}
+		cue_list->master_rms_data = new StackChannelRMSData[new_channels];
+		for (size_t i = 0; i < new_channels; i++)
+		{
+			cue_list->master_rms_data[i].current_level = -INFINITY;
+			cue_list->master_rms_data[i].peak_level = -INFINITY;
+			cue_list->master_rms_data[i].peak_time = 0;
+		}
+
+		cue_list->channels = new_channels;
+	}
+
+	// Unlock
+	stack_cue_list_unlock(cue_list);
 }
 
 /// Returns the number of cues in the cue list

@@ -12,22 +12,15 @@
       <pattern>*.mp3</pattern>
     </patterns>
   </object>
-  <object class="GtkAdjustment" id="acpVolumeAdjust">
-    <property name="lower">-50</property>
-    <property name="upper">21</property>
-    <property name="step-increment">0.01</property>
-    <property name="page-increment">0.10</property>
-    <property name="page-size">1</property>
-  </object>
   <object class="GtkWindow" id="window1">
     <property name="can-focus">False</property>
     <child>
-      <!-- n-columns=2 n-rows=4 -->
+      <!-- n-columns=2 n-rows=3 -->
       <object class="GtkGrid" id="acpGrid">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
-        <property name="margin-left">10</property>
-        <property name="margin-right">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-end">10</property>
         <property name="margin-top">10</property>
         <property name="margin-bottom">10</property>
         <property name="hexpand">True</property>
@@ -195,67 +188,6 @@
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="acpVolumeLabel">
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="halign">end</property>
-            <property name="label" translatable="yes">_Volume:</property>
-            <property name="use-underline">True</property>
-            <property name="mnemonic-widget">acpVolume</property>
-          </object>
-          <packing>
-            <property name="left-attach">0</property>
-            <property name="top-attach">3</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkBox" id="acpVolumeBox">
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="spacing">8</property>
-            <child>
-              <object class="GtkScale" id="acpVolume">
-                <property name="height-request">32</property>
-                <property name="visible">True</property>
-                <property name="can-focus">True</property>
-                <property name="tooltip-text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
-                <property name="hexpand">True</property>
-                <property name="adjustment">acpVolumeAdjust</property>
-                <property name="show-fill-level">True</property>
-                <property name="fill-level">21</property>
-                <property name="round-digits">2</property>
-                <property name="digits">2</property>
-                <property name="draw-value">False</property>
-                <property name="value-pos">right</property>
-                <signal name="value-changed" handler="acp_volume_changed" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="acpVolumeValueLabel">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="label" translatable="yes">0.00 dB</property>
-                <property name="ellipsize">start</property>
-                <property name="width-chars">9</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left-attach">1</property>
-            <property name="top-attach">3</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -282,5 +214,12 @@
         </child>
       </object>
     </child>
+  </object>
+  <object class="GtkAdjustment" id="acpVolumeAdjust">
+    <property name="lower">-50</property>
+    <property name="upper">21</property>
+    <property name="step-increment">0.01</property>
+    <property name="page-increment">0.10</property>
+    <property name="page-size">1</property>
   </object>
 </interface>
