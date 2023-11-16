@@ -503,6 +503,9 @@ void stack_rpc_socket_destroy(StackRPCSocket *rpc_socket)
 	// Join the listen thread for it to exit
 	stack_log("stack_rpc_socket_destroy(): Waiting for thread to terminate\n");
 	rpc_socket->listen_thread.join();
+
+	// Delete ourselves
+	delete rpc_socket;
 }
 
 #endif
