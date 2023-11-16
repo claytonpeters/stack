@@ -405,6 +405,13 @@ void stack_cue_destroy(StackCue *cue)
 	// Save the UID - we need to remove it from the map once the cue is deleted
 	cue_uid_t uid = cue->uid;
 
+	// Tidy up properties
+	for (auto iter = STACK_CUE_PROPERTIES(cue)->begin(); iter != STACK_CUE_PROPERTIES(cue)->end(); iter++)
+	{
+		stack_property_destroy(iter->second);
+	}
+	delete STACK_CUE_PROPERTIES(cue);
+
 	// No need to iterate up through superclasses - we can't be NULL
 	iter->second->destroy_func(cue);
 
@@ -419,13 +426,6 @@ void stack_cue_destroy(StackCue *cue)
 	{
 		cue_uid_map.erase(uid_iter);
 	}
-
-	// Tidy up properties
-	for (auto iter = STACK_CUE_PROPERTIES(cue)->begin(); iter != STACK_CUE_PROPERTIES(cue)->end(); iter++)
-	{
-		stack_property_destroy(iter->second);
-	}
-	delete STACK_CUE_PROPERTIES(cue);
 }
 
 // Starts cue playback

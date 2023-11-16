@@ -20,6 +20,16 @@ struct StackAudioCue
 	// The media tab
 	GtkWidget *media_tab;
 
+	// The levels tab
+	GtkWidget *levels_tab;
+
+	// The levels
+	GtkWidget *master_scale;
+	GtkWidget *master_value;
+	GtkWidget **channel_scales;
+	GtkWidget **channel_values;
+	bool affect_live;
+
 	// The currently open file
 	StackAudioFile *playback_file;
 

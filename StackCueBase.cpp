@@ -146,7 +146,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	}
 
 	// Get the _live_ version of these properties
-	int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;	
+	int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
 	stack_time_t cue_pre_time = 0, cue_action_time = 0, cue_post_time = 0;
 	stack_property_get_int32(stack_cue_get_property(cue, "post_trigger"), STACK_PROPERTY_VERSION_LIVE, &cue_post_trigger);
 	stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
