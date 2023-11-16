@@ -541,12 +541,12 @@ static void stack_audio_preview_scroll(GtkWidget *widget, GdkEventScroll *event,
 		return;
 	}
 
-	if (event->direction == GDK_SCROLL_UP && !event->state & GDK_SHIFT_MASK)
+	if (event->direction == GDK_SCROLL_UP && !(event->state & GDK_SHIFT_MASK))
 	{
 		scale = 1.0/1.2;
 		zoom = true;
 	}
-	else if (event->direction == GDK_SCROLL_DOWN && !event->state & GDK_SHIFT_MASK)
+	else if (event->direction == GDK_SCROLL_DOWN && !(event->state & GDK_SHIFT_MASK))
 	{
 		scale = 1.2;
 		zoom = true;
@@ -571,7 +571,6 @@ static void stack_audio_preview_scroll(GtkWidget *widget, GdkEventScroll *event,
 
 	if (zoom)
 	{
-
 		// The time at the center of the view
 		stack_time_t center_x_time = preview->start_time + (current_time_range / 2);
 
@@ -606,7 +605,6 @@ static void stack_audio_preview_scroll(GtkWidget *widget, GdkEventScroll *event,
 		new_start_time = offset_x_time - new_time_range / 2;
 		new_end_time = offset_x_time + new_time_range / 2;
 	}
-
 
 	if (scroll)
 	{
@@ -730,17 +728,43 @@ void stack_audio_preview_set_file(StackAudioPreview *preview, const char *file)
 
 void stack_audio_preview_set_view_range(StackAudioPreview *preview, stack_time_t start, stack_time_t end)
 {
-	preview->start_time = (start > 0 ? start : 0);
+	bool changed = false;
+
+	// Clamp the start
+	if (start < 0)
+	{
+		start = 0;
+	}
+
+	// Clamp the end
 	if (preview->file != NULL && preview->file_length_time != 0)
 	{
-		preview->end_time = (end <= preview->file_length_time ? end : preview->file_length_time);
+		if (end > preview->file_length_time)
+		{
+			end = preview->file_length_time;
+		}
 	}
-	else
+
+	// Change, and flag if it did
+	if (preview->start_time != start)
 	{
+		changed = true;
+		preview->start_time = start;
+	}
+
+	// Change, and flag if it did
+	if (preview->end_time != end)
+	{
+		changed = true;
 		preview->end_time = end;
 	}
-	preview->force_regenerate = true;
-	gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
+
+	// Redraw if something changed
+	if (changed)
+	{
+		preview->force_regenerate = true;
+		gdk_threads_add_idle(stack_audio_preview_idle_redraw, preview);
+	}
 }
 
 void stack_audio_preview_set_playback(StackAudioPreview *preview, stack_time_t playback_time)
