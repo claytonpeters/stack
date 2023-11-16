@@ -1305,6 +1305,15 @@ static void stack_cue_list_widget_finalize(GObject *obj)
 	g_object_unref(sclw->icon_pause);
 	g_object_unref(sclw->icon_error);
 
+	if (sclw->list_surface != NULL)
+	{
+		cairo_surface_destroy(sclw->list_surface);
+	}
+	if (sclw->list_cr != NULL)
+	{
+		cairo_destroy(sclw->list_cr);
+	}
+
 	// Chain up
 	G_OBJECT_CLASS(stack_cue_list_widget_parent_class)->finalize(obj);
 }
