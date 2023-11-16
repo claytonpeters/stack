@@ -225,7 +225,18 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 				int16_t *i16_buffer = new int16_t[total_sample_count];
 				for (size_t i = 0; i < total_sample_count; i++)
 				{
-					i16_buffer[i] = (int16_t)(buffer[i] * 32767.0f);
+					if (buffer[i] < -1.0)
+					{
+						i16_buffer[i] = -32678;
+					}
+					else if (buffer[i] > 1.0)
+					{
+						i16_buffer[i] = 32767;
+					}
+					else
+					{
+						i16_buffer[i] = (int16_t)(buffer[i] * 32767.0f);
+					}
 				}
 
 				// Write out
