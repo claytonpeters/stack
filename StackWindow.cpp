@@ -878,7 +878,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20231102-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20231116-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1204,12 +1204,21 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 	// Clear the list store
 	saw_clear_list_store(window);
 
-	// Stop the timer
+	// Instruct the timer to stop
+	stack_log("saw_destroy(): Waiting for UI timer to stop\n");
 	window->timer_state = 2;
 
-	// Busy wait whilst we wait for the timer to stop (this probably should be
-	// done with a semaphore...)
-	while (window->timer_state == 3) {}
+	// Wait for the timer to stop
+	while (window->timer_state != 3)
+	{
+		// Run an event loop to let the timer fire
+		while (gtk_events_pending())
+		{
+			gtk_main_iteration();
+		}
+	}
+
+	stack_log("saw_destroy(): Timer stopped\n");
 
 	// Destroy the cue list
 	stack_cue_list_destroy(window->cue_list);
@@ -1369,7 +1378,7 @@ static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer us
 	GtkRadioButton* r4 = GTK_RADIO_BUTTON(gtk_builder_get_object(window->builder, "sawPostWaitTrigger4"));
 
 	// Determine which one is toggled on
-	StackCueWaitTrigger trigger;
+	StackCueWaitTrigger trigger = STACK_CUE_WAIT_TRIGGER_NONE;
 	if (widget == r1 && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(r1)))
 	{
 		trigger = STACK_CUE_WAIT_TRIGGER_NONE;
