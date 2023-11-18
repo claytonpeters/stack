@@ -1653,7 +1653,6 @@ static void stack_app_window_init(StackAppWindow *window)
 	g_signal_connect(window->sclw, "key-release-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
 
 	// Set up a drop target to handle files being dropped
-	GtkTargetEntry entries[] = { {"text/plain", GTK_TARGET_OTHER_APP, 0} };
 	gtk_drag_dest_set(GTK_WIDGET(window->sclw), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
 	gtk_drag_dest_add_uri_targets(GTK_WIDGET(window->sclw));
 
