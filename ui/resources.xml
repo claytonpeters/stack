@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/stack">
+	<file>ui/SelectCue.ui</file>
+	<file>ui/StackActionCue.ui</file>
+	<file>ui/StackAudioCue.ui</file>
+	<file>ui/StackFadeCue.ui</file>
+	<file>ui/StackGroupCue.ui</file>
+	<file>ui/StackLoading.ui</file>
+	<file>ui/StackRenumberCue.ui</file>
+	<file>ui/StackShowSettings.ui</file>
+	<file>ui/window.ui</file>
+	<file>ui/stack.css</file>
+  </gresource>
+</gresources>

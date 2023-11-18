@@ -93,7 +93,7 @@ static void stack_group_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	GtkWidget *label = gtk_label_new("Group");
 
 	// Load the UI
-	GtkBuilder *builder = gtk_builder_new_from_file("StackGroupCue.ui");
+	GtkBuilder *builder = gtk_builder_new_from_resource("/org/stack/ui/StackGroupCue.ui");
 	acue->builder = builder;
 	acue->group_tab = GTK_WIDGET(gtk_builder_get_object(builder, "gcpGrid"));
 

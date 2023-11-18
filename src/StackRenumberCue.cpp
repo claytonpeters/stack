@@ -5,7 +5,7 @@
 bool src_show_dialog(StackAppWindow *window)
 {
 	// Build the dialog
-	GtkBuilder *builder = gtk_builder_new_from_file("StackRenumberCue.ui");
+	GtkBuilder *builder = gtk_builder_new_from_resource("/org/stack/ui/StackRenumberCue.ui");
 	GtkDialog *dialog = GTK_DIALOG(gtk_builder_get_object(builder, "StackRenumberCueDialog"));
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
 	gtk_dialog_add_buttons(dialog, "OK", 1, "Cancel", 2, NULL);

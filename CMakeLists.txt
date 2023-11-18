@@ -1,7 +1,43 @@
 cmake_minimum_required(VERSION 3.12)
 project(stack)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -O3 -Werror=return-type")
-set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkEntryHelper.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/MPEGAudioFile.cpp)
+
+# Set up target for our compiled resources
+find_program(GLIB_COMPILE_RESOURCES NAMES glib-compile-resources REQUIRED)
+set(RESOURCES_C src/resources.c)
+set(RESOURCES_XML ui/resources.xml)
+add_custom_command(
+    OUTPUT ${RESOURCES_C}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${GLIB_COMPILE_RESOURCES}
+    ARGS
+        --generate-source
+        --target=${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
+        ${RESOURCES_XML}
+    VERBATIM
+    MAIN_DEPENDENCY ${RESOURCES_XML}
+    DEPENDS
+        ui/SelectCue.ui
+        ui/StackActionCue.ui
+        ui/StackAudioCue.ui
+        ui/StackFadeCue.ui
+        ui/StackGroupCue.ui
+        ui/StackLoading.ui
+        ui/StackRenumberCue.ui
+        ui/StackShowSettings.ui
+        ui/window.ui
+		ui/stack.css
+)
+add_custom_target(
+    resources-target
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
+)
+set_source_files_properties(
+    ${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
+    PROPERTIES GENERATED TRUE
+)
+
+set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkEntryHelper.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/MPEGAudioFile.cpp ${RESOURCES_C})
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 add_library(StackPulseAudioDevice SHARED src/StackPulseAudioDevice.cpp)
@@ -55,6 +91,7 @@ endif()
 
 add_executable(runstack ${STACK_SOURCES})
 set_target_properties(runstack PROPERTIES ENABLE_EXPORTS TRUE)
+add_dependencies(runstack resources-target)
 
 target_link_libraries(StackPulseAudioDevice ${PULSEAUDIO_LIBRARY})
 target_link_libraries(StackPulseAudioDevice ${PULSEAUDIO_MAINLOOP_LIBRARY})

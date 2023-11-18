@@ -477,7 +477,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Load the UI (if we haven't already)
 	if (sfc_builder == NULL)
 	{
-		sfc_builder = gtk_builder_new_from_file("StackFadeCue.ui");
+		sfc_builder = gtk_builder_new_from_resource("/org/stack/ui/StackFadeCue.ui");
 
 		// Set up callbacks
 		gtk_builder_add_callback_symbol(sfc_builder, "fcp_cue_changed", G_CALLBACK(fcp_cue_changed));

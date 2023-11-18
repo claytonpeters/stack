@@ -1540,8 +1540,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	{
 		// Read our CSS file and generate a CSS provider
 		GtkCssProvider *cssp = gtk_css_provider_new();
-		GFile* file = g_file_new_for_path("stack.css");
-		gtk_css_provider_load_from_file(cssp, file, NULL);
+		gtk_css_provider_load_from_resource(cssp, "/org/stack/ui/stack.css");
 
 		// Get the screen
 		GdkScreen *screen = gdk_screen_get_default();
@@ -1551,11 +1550,10 @@ static void stack_app_window_init(StackAppWindow *window)
 
 		// Tidy up
 		g_object_unref(cssp);
-		g_object_unref(file);
 	}
 
 	// Read the builder file
-	window->builder = gtk_builder_new_from_file("window.ui");
+	window->builder = gtk_builder_new_from_resource("/org/stack/ui/window.ui");
 
 	// Setup the callbacks - main UI
 	gtk_builder_add_callback_symbol(window->builder, "saw_file_new_clicked", G_CALLBACK(saw_file_new_clicked));
@@ -1670,7 +1668,7 @@ static void stack_app_window_init(StackAppWindow *window)
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, StackCue *hide)
 {
 	// Build the dialog
-	GtkBuilder *builder = gtk_builder_new_from_file("SelectCue.ui");
+	GtkBuilder *builder = gtk_builder_new_from_resource("/org/stack/ui/SelectCue.ui");
 	GtkDialog *dialog = GTK_DIALOG(gtk_builder_get_object(builder, "cueSelectDialog"));
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
 
@@ -1823,7 +1821,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 	// Set up the loading dialog and data
 	ShowLoadingData sld;
-	sld.builder = gtk_builder_new_from_file("StackLoading.ui");
+	sld.builder = gtk_builder_new_from_resource("/org/stack/ui/StackLoading.ui");
 	sld.dialog = GTK_DIALOG(gtk_builder_get_object(sld.builder, "StackLoadingDialog"));
 	sld.window = window;
 	sld.uri = uri;
