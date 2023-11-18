@@ -40,7 +40,7 @@ Features:
 
 Stack uses CMake as its build system. You will need at least version 3.12 of
 CMake to build. You will need the following library dependencies (along with
-their development package) to compile and run Stack:
+their development packages) to compile and run Stack:
 
 * pkg-config
 * GTK3
@@ -51,11 +51,11 @@ their development package) to compile and run Stack:
 * libsoxr
 * protobuf-c (optional, required for remote control)
 
-For Ubuntu, this list of dependencies can be installed with:
+For Ubuntu 22.04, this list of dependencies can be installed with:
 
 ```shell
-sudo apt install pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev libpulse0
-  libpulse-dev libasound2 libasound2-dev libjsoncpp25 \ libjsoncpp-dev libmad0
+sudo apt install pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev libpulse0 \
+  libpulse-dev libasound2 libasound2-dev libjsoncpp25 libjsoncpp-dev libmad0 \
   libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
 ```
 
