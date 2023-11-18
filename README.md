@@ -35,3 +35,40 @@ Features:
   * Custom per-cue colours
 * List of active cues with per-channel levels and times
 * Remote control via a (currently undocumented) protobuf-based protocol
+
+## Building
+
+Stack uses CMake as its build system. You will need at least version 3.12 of
+CMake to build. You will need the following library dependencies (along with
+their development package) to compile and run Stack:
+
+* pkg-config
+* GTK3
+* PulseAudio
+* ALSA
+* jsoncpp
+* libmad (optional, required for MP3 playback)
+* libsoxr
+* protobuf-c (optional, required for remote control)
+
+For Ubuntu, this list of dependencies can be installed with:
+
+```shell
+sudo apt install pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev libpulse0
+  libpulse-dev libasound2 libasound2-dev libjsoncpp25 \ libjsoncpp-dev libmad0
+  libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+```
+
+Compilation (once you have the correct dependencies installed), should be as
+simple as:
+
+```shell
+cmake .
+make
+```
+
+This will compile all the plugins and binaries. You can run Stack by running
+
+```shell
+./runstack
+```
