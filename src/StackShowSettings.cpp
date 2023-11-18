@@ -125,7 +125,7 @@ void sss_show_dialog(StackAppWindow *window)
 	StackShowSettingsDialogData dialog_data;
 
 	// Build the dialog
-	dialog_data.builder = gtk_builder_new_from_file("StackShowSettings.ui");
+	dialog_data.builder = gtk_builder_new_from_resource("/org/stack/ui/StackShowSettings.ui");
 	dialog_data.dialog = GTK_DIALOG(gtk_builder_get_object(dialog_data.builder, "StackShowSettingsDialog"));
 	dialog_data.audio_device_changed = false;
 	gtk_window_set_transient_for(GTK_WINDOW(dialog_data.dialog), GTK_WINDOW(window));

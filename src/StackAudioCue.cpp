@@ -926,7 +926,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Load the UI (if we haven't already)
 	if (sac_builder == NULL)
 	{
-		sac_builder = gtk_builder_new_from_file("StackAudioCue.ui");
+		sac_builder = gtk_builder_new_from_resource("/org/stack/ui/StackAudioCue.ui");
 
 		// Set up callbacks
 		gtk_builder_add_callback_symbol(sac_builder, "acp_file_changed", G_CALLBACK(acp_file_changed));

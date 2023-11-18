@@ -280,7 +280,7 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Load the UI (if we haven't already)
 	if (sac_builder == NULL)
 	{
-		sac_builder = gtk_builder_new_from_file("StackActionCue.ui");
+		sac_builder = gtk_builder_new_from_resource("/org/stack/ui/StackActionCue.ui");
 
 		// Set up callbacks
 		gtk_builder_add_callback_symbol(sac_builder, "acp_cue_changed", G_CALLBACK(acp_cue_changed));

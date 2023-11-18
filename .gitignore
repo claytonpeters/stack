@@ -43,3 +43,6 @@ CMakeFiles/*
 
 # Ignore any test show files
 *.stack
+
+# Ignore our generated resources file
+src/resources.c
