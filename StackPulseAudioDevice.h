@@ -5,6 +5,7 @@
 #include "StackAudioDevice.h"
 #include <pulse/pulseaudio.h>
 #include "semaphore.h"
+#include <thread>
 
 // Structure
 struct StackPulseAudioDevice
@@ -17,6 +18,12 @@ struct StackPulseAudioDevice
 
 	// Synchronisation semaphore
 	semaphore sync_semaphore;
+
+	// Output loop thread
+	std::thread output_thread;
+
+	// Kill flag for the thread
+	bool thread_running;
 };
 
 // Functions: PulseAudio device functions

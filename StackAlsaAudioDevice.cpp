@@ -198,7 +198,7 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 		snd_pcm_sframes_t writable = snd_pcm_avail_update(device->stream);
 		if (writable < 0)
 		{
-			stack_log("stack_alsa_audio_device_callback: snd_pcm_avail_update failed with %s\n", snd_strerror(writable));
+			stack_log("stack_alsa_audio_device_output_thread: snd_pcm_avail_update failed with %s\n", snd_strerror(writable));
 		}
 
 		while (writable >= 256)
