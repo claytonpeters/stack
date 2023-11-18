@@ -882,6 +882,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
+	gtk_about_dialog_set_logo(about, STACK_APP_WINDOW(user_data)->icon);
 	gtk_window_set_transient_for(GTK_WINDOW(about), GTK_WINDOW(user_data));
 
 	// Show the dialog
@@ -1593,6 +1594,10 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Get the StackAppWindow
 	GObject* wintpl = gtk_builder_get_object(window->builder, "StackAppWindow");
+
+	// Set the window icon
+	window->icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stack-icon-256.png", NULL);
+	gtk_window_set_icon(GTK_WINDOW(window), window->icon);
 
 	// Get the StackAppWindow's child
 	GObject* contents = gtk_builder_get_object(window->builder, "StackAppWindowContents");

@@ -36,6 +36,9 @@ struct StackAppWindow
 	// The parent class
 	GtkApplicationWindow parent;
 
+	// The icon for the window
+	GdkPixbuf *icon;
+
 	// Our cue list
 	StackCueList *cue_list;
 
