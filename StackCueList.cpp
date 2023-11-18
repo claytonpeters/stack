@@ -1017,6 +1017,9 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	float *new_data = new float[cue_list->channels * request_samples];
 	memset(new_data, 0, cue_list->channels * request_samples * sizeof(float));
 
+	float *cue_data = NULL;
+	size_t cue_data_size = 0;
+
 	// Allocate a buffer for new cue data
 	for (auto cue : *SCL_GET_LIST(cue_list))
 	{
@@ -1030,11 +1033,24 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			continue;
 		}
 
-		// Allocate a buffer for new cue audio
-		float *cue_data = new float[active_channel_count * request_samples];
+		// Ensure our cue-data buffer is large enough for new cue audio
+		if (cue_data_size < active_channel_count * request_samples)
+		{
+			if (cue_data != NULL)
+			{
+				delete [] cue_data;
+			}
+			cue_data_size = active_channel_count * request_samples;
+			cue_data = new float[cue_data_size];
+		}
 
 		// Get the audio data from the cue
 		size_t samples_received = stack_cue_get_audio(cue, cue_data, request_samples);
+
+		if (samples_received <= 0)
+		{
+			continue;
+		}
 
 		// Add this cues data on to the new data
 		size_t source_channel = 0;
@@ -1097,8 +1113,11 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 				}
 			}
 		}
+	}
 
-		// Tidy up
+	// Tidy up
+	if (cue_data != NULL)
+	{
 		delete [] cue_data;
 	}
 
