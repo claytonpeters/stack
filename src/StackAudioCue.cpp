@@ -18,6 +18,9 @@ static gchar *last_file_chooser_folder = NULL;
 // it every time we change the selected cue
 static GtkBuilder *sac_builder = NULL;
 
+// Global: A single instace of our icon
+static GdkPixbuf *icon = NULL;
+
 // Pre-define this:
 static void stack_audio_cue_populate_levels(StackAudioCue *cue);
 static StackProperty *stack_audio_cue_get_channel_volume_property(StackAudioCue *cue, size_t channel, bool create);
@@ -1414,11 +1417,21 @@ const char *stack_audio_cue_get_field_base(StackCue *cue, const char *field)
 	return stack_cue_get_field_base(cue, field);
 }
 
+/// Returns the icon for a cue
+/// @param cue The cue to get the icon of
+GdkPixbuf *stack_audio_cue_get_icon(StackCue *cue)
+{
+	return icon;
+}
+
 // Registers StackAudioCue with the application
 void stack_audio_cue_register()
 {
+	// Load the icon
+	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackaudiocue.png", NULL);
+
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field_base };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field_base, stack_audio_cue_get_icon };
 	stack_register_cue_class(audio_cue_class);
 }
 

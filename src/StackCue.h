@@ -191,6 +191,7 @@ typedef void(*stack_cue_get_error_t)(StackCue*, char*, size_t);
 typedef size_t(*stack_cue_get_active_channels_t)(StackCue*, bool*);
 typedef size_t(*stack_cue_get_audio_t)(StackCue*, float*, size_t);
 typedef const char*(*stack_cue_get_field_t)(StackCue*, const char *);
+typedef GdkPixbuf*(*stack_cue_get_icon_t)(StackCue*);
 
 // Defines information about a class
 struct StackCueClass
@@ -212,6 +213,7 @@ struct StackCueClass
 	stack_cue_get_active_channels_t get_active_channels_func;
 	stack_cue_get_audio_t get_audio_func;
 	stack_cue_get_field_t get_field_func;
+	stack_cue_get_icon_t get_icon_func;
 };
 
 // Functions: Helpers
@@ -260,6 +262,7 @@ void stack_cue_get_error(StackCue *cue, char *message, size_t size);
 const char* stack_cue_get_rendered_name(StackCue *cue);
 size_t stack_cue_get_active_channels(StackCue *cue, bool *active);
 size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples);
+GdkPixbuf* stack_cue_get_icon(StackCue *cue);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -278,6 +281,7 @@ void stack_cue_get_error_base(StackCue *cue, char *message, size_t size);
 size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active);
 size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples);
 const char* stack_cue_get_field_base(StackCue *cue, const char *field);
+GdkPixbuf* stack_cue_get_icon_base(StackCue *cue);
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);

@@ -45,4 +45,4 @@ CMakeFiles/*
 *.stack
 
 # Ignore our generated resources file
-src/resources.c
+src/*resources.c

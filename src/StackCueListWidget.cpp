@@ -514,6 +514,7 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 	{
 		// Decide on an icon to draw
 		GdkPixbuf *pixbuf;
+		bool free_pixbuf = false;
 		switch (cue->state)
 		{
 			case STACK_CUE_STATE_ERROR:
@@ -529,12 +530,22 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 				break;
 			default:
 				pixbuf = NULL;
+				if (stack_cue_get_icon(cue) != NULL)
+				{
+					pixbuf = gdk_pixbuf_scale_simple(stack_cue_get_icon(cue), sclw->row_height - 8, sclw->row_height - 8, GDK_INTERP_BILINEAR);
+					free_pixbuf = true;
+				}
 		}
 
 		// Draw an icon if we have one
 		if (pixbuf != NULL)
 		{
 			gtk_render_icon(style_context, sclw->list_cr, pixbuf, 4, row_y + (sclw->row_height - 16) / 2);
+		}
+
+		if (free_pixbuf)
+		{
+			g_object_unref(pixbuf);
 		}
 	}
 

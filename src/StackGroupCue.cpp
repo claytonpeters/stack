@@ -184,6 +184,13 @@ void stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
 	strncpy(message, "", size);
 }
 
+/// Returns the icon for a cue
+/// @param cue The cue to get the icon of
+GdkPixbuf *stack_group_cue_get_icon(StackCue *cue)
+{
+	return NULL;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
@@ -191,6 +198,6 @@ void stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
 void stack_group_cue_register()
 {
 	// Register built in cue types
-	StackCueClass* action_cue_class = new StackCueClass{ "StackGroupCue", "StackCue", stack_group_cue_create, stack_group_cue_destroy, stack_group_cue_play, NULL, NULL, stack_group_cue_pulse, stack_group_cue_set_tabs, stack_group_cue_unset_tabs, stack_group_cue_to_json, stack_group_cue_free_json, stack_group_cue_from_json, stack_group_cue_get_error, NULL, NULL, NULL };
+	StackCueClass* action_cue_class = new StackCueClass{ "StackGroupCue", "StackCue", stack_group_cue_create, stack_group_cue_destroy, stack_group_cue_play, NULL, NULL, stack_group_cue_pulse, stack_group_cue_set_tabs, stack_group_cue_unset_tabs, stack_group_cue_to_json, stack_group_cue_free_json, stack_group_cue_from_json, stack_group_cue_get_error, NULL, NULL, NULL, stack_group_cue_get_icon };
 	stack_register_cue_class(action_cue_class);
 }
