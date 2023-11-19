@@ -435,7 +435,17 @@ size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples)
 	return 0;
 }
 
+/// Returns the value of a field for a cue
+/// @param cue The cue to get the field for
+/// @param field The field to get the value of
 const char *stack_cue_get_field_base(StackCue *cue, const char *field)
 {
 	return "???";
+}
+
+/// Returns the icon for a cue
+/// @param cue The cue to get the icon of
+GdkPixbuf *stack_cue_get_icon_base(StackCue *cue)
+{
+	return NULL;
 }

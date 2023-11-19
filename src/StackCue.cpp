@@ -730,11 +730,27 @@ const char *stack_cue_get_field(StackCue *cue, const char *field)
 	return cue_class_map[string(class_name)]->get_field_func(cue, field);
 }
 
+// Gets the icon for the cue
+GdkPixbuf *stack_cue_get_icon(StackCue *cue)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_field function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_icon_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_icon_func(cue);
+}
+
 // Initialise the StackCue system
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base, stack_cue_get_icon_base };
 	stack_register_cue_class(stack_cue_class);
 
 	// Group cues are built-in, not plugins

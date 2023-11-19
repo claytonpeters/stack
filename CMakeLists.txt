@@ -2,48 +2,71 @@ cmake_minimum_required(VERSION 3.12)
 project(stack)
 list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -O3 -Werror=return-type")
 
-# Set up target for our compiled resources
+# Add in program for compiling resources
 find_program(GLIB_COMPILE_RESOURCES NAMES glib-compile-resources REQUIRED)
-set(RESOURCES_C src/resources.c)
-set(RESOURCES_XML ui/resources.xml)
+
+# Compile resource target: Stack
 add_custom_command(
-    OUTPUT ${RESOURCES_C}
+    OUTPUT src/resources.c
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMAND ${GLIB_COMPILE_RESOURCES}
-    ARGS
-        --generate-source
-        --target=${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
-        ${RESOURCES_XML}
+    ARGS --generate-source --target=src/resources.c src/resources.xml
     VERBATIM
-    MAIN_DEPENDENCY ${RESOURCES_XML}
-    DEPENDS
-        ui/SelectCue.ui
-        ui/StackActionCue.ui
-        ui/StackAudioCue.ui
-        ui/StackFadeCue.ui
-        ui/StackGroupCue.ui
-        ui/StackLoading.ui
-        ui/StackRenumberCue.ui
-        ui/StackShowSettings.ui
-        ui/window.ui
-		ui/stack.css
+    MAIN_DEPENDENCY src/resources.xml
+    DEPENDS ui/SelectCue.ui ui/StackActionCue.ui ui/StackAudioCue.ui ui/StackFadeCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
 )
-add_custom_target(
-    resources-target
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
-)
-set_source_files_properties(
-    ${CMAKE_CURRENT_BINARY_DIR}/${RESOURCES_C}
-    PROPERTIES GENERATED TRUE
-)
+add_custom_target(resources-target DEPENDS src/resources.c)
+set_source_files_properties(src/resources.c PROPERTIES GENERATED TRUE)
 
-set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkEntryHelper.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/MPEGAudioFile.cpp ${RESOURCES_C})
+# Compile resource target: StackActionCue
+add_custom_command(
+    OUTPUT src/stackactioncue-resources.c
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${GLIB_COMPILE_RESOURCES}
+    ARGS --generate-source --target=src/stackactioncue-resources.c src/stackactioncue-resources.xml
+    VERBATIM
+    MAIN_DEPENDENCY src/stackactioncue-resources.xml
+    DEPENDS icons/stackactioncue-pause.png icons/stackactioncue-play.png icons/stackactioncue-stop.png
+)
+add_custom_target(stackactioncue-resources-target DEPENDS src/stackactioncue-resources.c)
+set_source_files_properties(src/stackactioncue-resources.c PROPERTIES GENERATED TRUE)
+
+# Compile resource target: StackAudioCue
+add_custom_command(
+    OUTPUT src/stackaudiocue-resources.c
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${GLIB_COMPILE_RESOURCES}
+    ARGS --generate-source --target=src/stackaudiocue-resources.c src/stackaudiocue-resources.xml
+    VERBATIM
+    MAIN_DEPENDENCY src/stackaudiocue-resources.xml
+    DEPENDS icons/stackaudiocue.png
+)
+add_custom_target(stackaudiocue-resources-target DEPENDS src/stackaudiocue-resources.c)
+set_source_files_properties(src/stackaudiocue-resources.c PROPERTIES GENERATED TRUE)
+
+# Compile resource target: StackFadeCue
+add_custom_command(
+    OUTPUT src/stackfadecue-resources.c
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${GLIB_COMPILE_RESOURCES}
+    ARGS --generate-source --target=src/stackfadecue-resources.c src/stackfadecue-resources.xml
+    VERBATIM
+    MAIN_DEPENDENCY src/stackfadecue-resources.xml
+    DEPENDS icons/stackfadecue.png
+)
+add_custom_target(stackfadecue-resources-target DEPENDS src/stackfadecue-resources.c)
+set_source_files_properties(src/stackfadecue-resources.c PROPERTIES GENERATED TRUE)
+
+set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkEntryHelper.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/MPEGAudioFile.cpp src/resources.c)
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 add_library(StackPulseAudioDevice SHARED src/StackPulseAudioDevice.cpp)
-add_library(StackActionCue SHARED src/StackActionCue.cpp)
-add_library(StackFadeCue SHARED src/StackFadeCue.cpp)
-add_library(StackAudioCue SHARED src/StackAudioCue.cpp)
+add_library(StackActionCue SHARED src/StackActionCue.cpp src/stackactioncue-resources.c)
+add_dependencies(StackActionCue stackactioncue-resources-target)
+add_library(StackAudioCue SHARED src/StackAudioCue.cpp src/stackaudiocue-resources.c)
+add_dependencies(StackAudioCue stackaudiocue-resources-target)
+add_library(StackFadeCue SHARED src/StackFadeCue.cpp src/stackfadecue-resources.c)
+add_dependencies(StackFadeCue stackfadecue-resources-target)
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 find_package(PkgConfig REQUIRED)

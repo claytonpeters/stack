@@ -19,6 +19,9 @@ static const bool STACK_FADE_CUE_DEFAULT_STOP_TARGET = true;
 // it every time we change the selected cue
 static GtkBuilder *sfc_builder = NULL;
 
+// Global: A single instace of our icon
+static GdkPixbuf *icon = NULL;
+
 static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
 {
 	if (version == STACK_PROPERTY_VERSION_DEFINED)
@@ -722,14 +725,24 @@ const char *stack_fade_cue_get_field(StackCue *cue, const char *field)
 	return stack_cue_get_field_base(cue, field);
 }
 
+/// Returns the icon for a cue
+/// @param cue The cue to get the icon of
+GdkPixbuf *stack_fade_cue_get_icon(StackCue *cue)
+{
+	return icon;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CLASS REGISTRATION
 
 // Registers StackFadeCue with the application
 void stack_fade_cue_register()
 {
+	// Load the icon
+	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackfadecue.png", NULL);
+
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error, NULL, NULL, stack_fade_cue_get_field };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error, NULL, NULL, stack_fade_cue_get_field, stack_fade_cue_get_icon };
 	stack_register_cue_class(fade_cue_class);
 }
 
