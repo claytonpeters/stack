@@ -1713,20 +1713,11 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 			char cue_number[32];
 			stack_cue_id_to_string(cue->id, cue_number, 32);
 
-			// Format color
-			uint8_t r = 0, g = 0, b = 0;
-			stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
-			stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
-			stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
-			char col_buffer[8];
-			snprintf(col_buffer, 8, "#%02x%02x%02x", r, g, b);
-
 			// Update iterator
 			gtk_list_store_set(store, &iter,
 				0, cue_number,
 				1, stack_cue_get_rendered_name(cue),
-				2, col_buffer,
-				3, (gpointer)cue, -1);
+				2, (gpointer)cue, -1);
 		}
 
 		// Iterate

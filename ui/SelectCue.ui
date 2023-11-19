@@ -8,8 +8,6 @@
       <column type="gchararray"/>
       <!-- column-name Name -->
       <column type="gchararray"/>
-      <!-- column-name Color -->
-      <column type="gchararray"/>
       <!-- column-name Cue1 -->
       <column type="gpointer"/>
     </columns>
