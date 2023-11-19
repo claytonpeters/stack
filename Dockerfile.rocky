@@ -1,0 +1,14 @@
+ARG RELEASE=notset
+FROM rockylinux:${RELEASE}
+
+ARG RELEASE
+RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RELEASE}.noarch.rpm
+
+RUN yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
+  glib2 glib2-devel pulseaudio-libs pulseaudio-libs-devel alsa-lib \
+  alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
+  protobuf-c protobuf-c-devel
+
+COPY ../ /stack
+
+RUN cd /stack; cmake .; make
