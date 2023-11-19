@@ -42,22 +42,57 @@ Stack uses CMake as its build system. You will need at least version 3.12 of
 CMake to build. You will need the following library dependencies (along with
 their development packages) to compile and run Stack:
 
+* cmake
+* gcc/g++
 * pkg-config
-* GTK3
+* gtk3
+* glib2
 * PulseAudio
-* ALSA
+* ALSA (optional, required for ALSA audio devices)
 * jsoncpp
 * libmad (optional, required for MP3 playback)
-* libsoxr
+* libsoxr (optional, required for resampling)
 * protobuf-c (optional, required for remote control)
 
-For Ubuntu 22.04, this list of dependencies can be installed with:
+For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
 
 ```shell
-sudo apt install pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev libpulse0 \
-  libpulse-dev libasound2 libasound2-dev libjsoncpp25 libjsoncpp-dev libmad0 \
-  libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
+  libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp25 libjsoncpp-dev \
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
 ```
+
+For **Ubuntu 20.04**, the slight variation on the above is:
+
+```shell
+sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
+  libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp1 libjsoncpp-dev \
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+```
+
+For **Rocky Linux 8**, the list of dependencies is can be installed with:
+
+```shell
+# Some of the required packages are only found in EPEL
+yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+yum -y install cmake gcc-c++ pkg-config gtk3 gtk3-devel glib2 glib2-devel \
+  pulseaudio-libs pulseaudio-libs-devel alsa-lib alsa-lib-devel libmad \
+  soxr soxr-devel jsoncpp jsoncpp-devel protobuf-c protobuf-c-devel
+```
+
+For **Rocky Linux 9**, this is slightly different again:
+
+```shell
+# Some of the required packages are only found in EPEL
+yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
+  glib2 glib2-devel pulseaudio-libs pulseaudio-libs-devel alsa-lib \
+  alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
+  protobuf-c protobuf-c-devel
+```
+
+**Note that whilst Stack has been show to compile on Ubuntu 20.04, Rocky Linux
+8, and Rocky Linux 9, it has not been tested!**
 
 Compilation (once you have the correct dependencies installed), should be as
 simple as:

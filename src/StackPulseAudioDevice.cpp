@@ -394,7 +394,7 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 		if (o != NULL)
 		{
 			while (pa_operation_get_state(o) == PA_OPERATION_RUNNING) {
-				usleep(10);
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			}
 
 			// Tidy up
