@@ -11,6 +11,6 @@ RUN DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" \
 ARG RELEASE
 RUN echo "$RELEASE"; if [ "$RELEASE" = "focal" ]; then apt -y install libjsoncpp1 libjsoncpp-dev; else apt -y install libjsoncpp25 libjsoncpp-dev; fi
 
-COPY ../ /stack
+COPY . /stack
 
 RUN cd /stack; cmake .; make

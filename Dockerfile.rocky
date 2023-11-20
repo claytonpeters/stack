@@ -9,6 +9,6 @@ RUN yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
   protobuf-c protobuf-c-devel
 
-COPY ../ /stack
+COPY . /stack
 
 RUN cd /stack; cmake .; make
