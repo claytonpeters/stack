@@ -1759,7 +1759,7 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 
 				// Get the cue
 				gpointer selected_cue;
-				gtk_tree_model_get(model, &iter, 3, &selected_cue, -1);
+				gtk_tree_model_get(model, &iter, 2, &selected_cue, -1);
 
 				// Tidy up
 				g_list_free_full(list, (GDestroyNotify) gtk_tree_path_free);
