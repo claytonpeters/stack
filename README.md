@@ -18,7 +18,7 @@ Cues:
 * Action Cues: Start/Stop/Pause other cues
 
 Outputs:
-* PulseAudio
+* PulseAudio (also work with PipeWire via PipeWire PulseAudio plugin)
 * ALSA
 
 PulseAudio is set as the default output device with a common 2-channel, 44.1kHz
