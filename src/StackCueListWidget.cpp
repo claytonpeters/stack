@@ -25,6 +25,13 @@ typedef struct SCLWColumnGeometry
 	double pre_x;
 } SCLWColumnGeometry;
 
+typedef struct SCLWUpdateCue
+{
+	StackCueListWidget *sclw;
+	cue_uid_t cue_uid;
+	int32_t fields;
+} SCLWUpdateCue;
+
 // Pre-defs:
 static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, guint width, guint height);
 static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields);
@@ -256,13 +263,26 @@ cue_uid_t stack_cue_list_widget_get_cue_at_point(StackCueListWidget *sclw, int32
 	}
 }
 
+static gboolean stack_cue_list_widget_idle_update_cue(gpointer user_data)
+{
+	SCLWUpdateCue *uc = (SCLWUpdateCue*)user_data;
+	StackCue *cue = stack_cue_get_by_uid(uc->cue_uid);
+	stack_cue_list_widget_update_row(uc->sclw, cue, NULL, -1, uc->fields);
+	delete uc;
+
+	return G_SOURCE_REMOVE;
+}
+
 void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue_uid, int32_t fields)
 {
 	if (stack_cue_list_widget_is_cue_visible(sclw, cue_uid))
 	{
-		StackCue *cue = stack_cue_get_by_uid(cue_uid);
-		stack_cue_list_widget_update_row(sclw, cue, NULL, -1, fields);
-		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+		// This must be done on the UI thread or we get... issues
+		SCLWUpdateCue *uc = new SCLWUpdateCue;
+		uc->sclw = sclw;
+		uc->cue_uid = cue_uid;
+		uc->fields = fields;
+		gdk_threads_add_idle(stack_cue_list_widget_idle_update_cue, uc);
 	}
 }
 
@@ -1076,7 +1096,7 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 			// Move the cue (if it's in a different location)
 			if (moved)
 			{
-				stack_log("stack_cue_list_button: Moving cue 0x%016llx to index %d\n", sclw->dragged_cue, sclw->drop_index);
+				stack_log("stack_cue_list_widget_button(): Moving cue 0x%016llx to index %d\n", sclw->dragged_cue, sclw->drop_index);
 
 				// Because index and index + 1 essentially represent the same location, if
 				// the drop is after the original cue we need to subtract one to account for
