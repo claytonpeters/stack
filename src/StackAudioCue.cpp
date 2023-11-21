@@ -33,7 +33,10 @@ static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
 	if (media_end_time > media_start_time)
 	{
-		action_time = media_end_time - media_start_time;
+		double rate = 1.0;
+		stack_property_get_double(stack_cue_get_property(STACK_CUE(cue), "rate"), STACK_PROPERTY_VERSION_DEFINED, &rate);
+
+		action_time = (stack_time_t)((double)(media_end_time - media_start_time) / rate);
 	}
 	else
 	{
@@ -124,7 +127,6 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			// Create new properties
 			for (size_t channel = old_channels; channel < new_channels; channel++)
 			{
-				stack_log("stack_audio_cue_ccb_file(): Creating property for channel %d\n", channel + 1);
 				stack_audio_cue_get_channel_volume_property(cue, channel + 1, true);
 			}
 		}
@@ -133,7 +135,6 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			// Delete some old properties
 			for (size_t channel = new_channels; channel < old_channels; channel++)
 			{
-				stack_log("stack_audio_cue_ccb_fil(): Deleting property for channel %d\n", channel + 1);
 				StackProperty *property = stack_audio_cue_get_channel_volume_property(cue, channel + 1, false);
 				stack_cue_remove_property(STACK_CUE(cue), property->name);
 				stack_property_destroy(property);
@@ -235,6 +236,36 @@ static void stack_audio_cue_ccb_volume(StackProperty *property, StackPropertyVer
 	}
 }
 
+static void stack_audio_cue_ccb_rate(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackAudioCue* cue = STACK_AUDIO_CUE(user_data);
+
+		// Notify cue list that we've changed
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
+
+		// The action time needs recalculating
+		stack_audio_cue_update_action_time(cue);
+
+		// Fire an updated-selected-cue signal to signal the UI to change
+		if (cue->media_tab)
+		{
+			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->media_tab));
+			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+
+			double rate = 1.0;
+			stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &rate);
+
+			char buffer[32];
+			snprintf(buffer, 32, "%.2f", rate);
+			gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpRate")), buffer);
+		}
+	}
+}
+
 int64_t stack_audio_cue_validate_media_start_time(StackPropertyUInt64 *property, StackPropertyVersion version, const int64_t value, void *user_data)
 {
 	// If a defined-version property has changed, we should notify the cue list
@@ -299,6 +330,24 @@ double stack_audio_cue_validate_volume(StackPropertyDouble *property, StackPrope
 		if (value < -59.99)
 		{
 			return -INFINITY;
+		}
+	}
+
+	return value;
+}
+
+double stack_audio_cue_validate_rate(StackPropertyDouble *property, StackPropertyVersion version, const double value, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackAudioCue* cue = STACK_AUDIO_CUE(user_data);
+
+		// Don't go below 0.01x rate
+		if (value < 0.01)
+		{
+			return 0.01;
 		}
 	}
 
@@ -372,6 +421,12 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	stack_cue_add_property(STACK_CUE(cue), volume);
 	stack_property_set_changed_callback(volume, stack_audio_cue_ccb_volume, (void*)cue);
 	stack_property_set_validator(volume, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
+
+	StackProperty *rate = stack_property_create("rate", STACK_PROPERTY_TYPE_DOUBLE);
+	stack_cue_add_property(STACK_CUE(cue), rate);
+	stack_property_set_double(rate, STACK_PROPERTY_VERSION_DEFINED, 1.0);
+	stack_property_set_changed_callback(rate, stack_audio_cue_ccb_rate, (void*)cue);
+	stack_property_set_validator(volume, (stack_property_validator_t)stack_audio_cue_validate_rate, (void*)cue);
 
 	// Initialise our variables: preview
 	cue->preview_widget = NULL;
@@ -513,6 +568,17 @@ static gboolean acp_loops_changed(GtkWidget *widget, GdkEvent *event, gpointer u
 	// Set the loops
 	int32_t loops = atoi(gtk_entry_get_text(GTK_ENTRY(widget)));
 	stack_property_set_int32(stack_cue_get_property(STACK_CUE(cue), "loops"), STACK_PROPERTY_VERSION_DEFINED, loops);
+
+	return false;
+}
+
+static gboolean acp_rate_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+{
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
+
+	// Set the loops
+	double rate = atof(gtk_entry_get_text(GTK_ENTRY(widget)));
+	stack_property_set_double(stack_cue_get_property(STACK_CUE(cue), "rate"), STACK_PROPERTY_VERSION_DEFINED, rate);
 
 	return false;
 }
@@ -784,17 +850,23 @@ static bool stack_audio_cue_play(StackCue *cue)
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "media_end_time"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "loops"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "play_volume"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "rate"));
 	for (size_t channel = 0; channel < audio_cue->playback_file->channels; channel++)
 	{
 		stack_property_copy_defined_to_live(stack_audio_cue_get_channel_volume_property(STACK_AUDIO_CUE(cue), channel + 1, false));
 	}
 	audio_cue->playback_loops = 0;
 
+	// Get the custom playback rate
+	double rate = 1.0;
+	stack_property_get_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_LIVE, &rate);
+
 	// If the sample rate of the file does not match the playback device, set
 	// up a resampler
-	if (audio_cue->playback_file->sample_rate != audio_cue->super.parent->audio_device->sample_rate)
+	int32_t playback_sample_rate = (int32_t)((double)audio_cue->playback_file->sample_rate * rate);
+	if ((double)playback_sample_rate != audio_cue->super.parent->audio_device->sample_rate)
 	{
-		audio_cue->resampler = stack_resampler_create(audio_cue->playback_file->sample_rate, audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
+		audio_cue->resampler = stack_resampler_create(playback_sample_rate, audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
 	}
 
 	// Get the start time
@@ -845,6 +917,10 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_time_t run_action_time = 0, cue_action_time = 0;
 	stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
 	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+
+	// Get the custom playback rate
+	double rate = 1.0;
+	stack_property_get_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_LIVE, &rate);
 
 	// If we're in playback, but we've reached the end of our time
 	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue_action_time)
@@ -897,7 +973,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 			if (audio_cue->resampler)
 			{
 				stack_resampler_destroy(audio_cue->resampler);
-				audio_cue->resampler = stack_resampler_create(audio_cue->playback_file->sample_rate, audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
+				audio_cue->resampler = stack_resampler_create((int32_t)((double)audio_cue->playback_file->sample_rate * rate), audio_cue->super.parent->audio_device->sample_rate, audio_cue->playback_file->channels);
 			}
 		}
 	}
@@ -913,7 +989,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		stack_time_t media_start_time = 0;
 		stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_LIVE, &media_start_time);
 		audio_cue->preview_widget->last_redraw_time = stack_get_clock_time();
-		stack_audio_preview_set_playback(audio_cue->preview_widget, media_start_time + run_action_time);
+		stack_audio_preview_set_playback(audio_cue->preview_widget, media_start_time + (stack_time_t)((double)run_action_time) * rate);
 	}
 }
 
@@ -936,11 +1012,13 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_start_changed", G_CALLBACK(acp_trim_start_changed));
 		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
 		gtk_builder_add_callback_symbol(sac_builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_rate_changed", G_CALLBACK(acp_rate_changed));
 
 		// Apply input limiting
 		stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimStart")), false);
 		stack_limit_gtk_entry_time(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimEnd")), false);
 		stack_limit_gtk_entry_int(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpLoops")), true);
+		stack_limit_gtk_entry_float(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpRate")), false);
 
 		// Connect the signals
 		gtk_builder_connect_signals(sac_builder, NULL);
@@ -952,11 +1030,13 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	stack_time_t media_start_time = 0, media_end_time = 0;
 	double volume = 0.0;
 	int32_t loops = 1;
+	double rate = 1.0;
 	stack_property_get_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_DEFINED, &loops);
 	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
 	stack_property_get_string(stack_cue_get_property(cue, "file"), STACK_PROPERTY_VERSION_DEFINED, &file);
 	stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
 	stack_property_get_int64(stack_cue_get_property(cue, "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
+	stack_property_get_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_DEFINED, &rate);
 
 	// We keep the preview widget and re-add it to the UI each time so as not
 	// to need to reload the preview every time
@@ -1041,6 +1121,10 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Set the values: loops
 	snprintf(buffer, 32, "%d", loops);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpLoops")), buffer);
+
+	// Set the values: loops
+	snprintf(buffer, 32, "%.2f", rate);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpRate")), buffer);
 }
 
 // Removes the properties tabs for an audio cue

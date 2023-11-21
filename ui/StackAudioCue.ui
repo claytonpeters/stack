@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <object class="GtkFileFilter" id="acpAudioFileFilter">
@@ -15,7 +15,7 @@
   <object class="GtkWindow" id="window1">
     <property name="can-focus">False</property>
     <child>
-      <!-- n-columns=2 n-rows=3 -->
+      <!-- n-columns=2 n-rows=4 -->
       <object class="GtkGrid" id="acpGrid">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
@@ -139,10 +139,10 @@
               </packing>
             </child>
             <child>
-              <object class="GtkLabel">
+              <object class="GtkLabel" id="acpLoopsLabel">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
-                <property name="margin-left">12</property>
+                <property name="margin-start">12</property>
                 <property name="label" translatable="yes">_Loop</property>
                 <property name="use-underline">True</property>
                 <property name="mnemonic-widget">acpLoops</property>
@@ -171,6 +171,7 @@
             </child>
             <child>
               <object class="GtkLabel">
+                <property name="name">acpTimesLabel</property>
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">times</property>
@@ -210,6 +211,62 @@
           <packing>
             <property name="left-attach">1</property>
             <property name="top-attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="acpMediaRateLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">_Rate:</property>
+            <property name="use-underline">True</property>
+            <property name="justify">right</property>
+            <property name="wrap">True</property>
+            <property name="mnemonic-widget">acpTrimStart</property>
+            <property name="ellipsize">end</property>
+          </object>
+          <packing>
+            <property name="left-attach">0</property>
+            <property name="top-attach">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <child>
+              <object class="GtkEntry" id="acpRate">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">Sets the playback speed of the file, affecting both time and pitch</property>
+                <property name="width-chars">6</property>
+                <property name="caps-lock-warning">False</property>
+                <property name="placeholder-text" translatable="yes">Rate</property>
+                <signal name="focus-out-event" handler="acp_rate_changed" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="acpXLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-start">6</property>
+                <property name="label" translatable="yes">x</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left-attach">1</property>
+            <property name="top-attach">3</property>
           </packing>
         </child>
       </object>
