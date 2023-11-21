@@ -426,7 +426,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	stack_cue_add_property(STACK_CUE(cue), rate);
 	stack_property_set_double(rate, STACK_PROPERTY_VERSION_DEFINED, 1.0);
 	stack_property_set_changed_callback(rate, stack_audio_cue_ccb_rate, (void*)cue);
-	stack_property_set_validator(volume, (stack_property_validator_t)stack_audio_cue_validate_rate, (void*)cue);
+	stack_property_set_validator(rate, (stack_property_validator_t)stack_audio_cue_validate_rate, (void*)cue);
 
 	// Initialise our variables: preview
 	cue->preview_widget = NULL;

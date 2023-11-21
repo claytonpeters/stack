@@ -268,6 +268,7 @@ static gboolean stack_cue_list_widget_idle_update_cue(gpointer user_data)
 	SCLWUpdateCue *uc = (SCLWUpdateCue*)user_data;
 	StackCue *cue = stack_cue_get_by_uid(uc->cue_uid);
 	stack_cue_list_widget_update_row(uc->sclw, cue, NULL, -1, uc->fields);
+	gtk_widget_queue_draw(GTK_WIDGET(uc->sclw));
 	delete uc;
 
 	return G_SOURCE_REMOVE;
