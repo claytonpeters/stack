@@ -2,5 +2,6 @@
 <gresources>
   <gresource prefix="/org/stack">
 	<file>icons/stackfadecue.png</file>
+	<file>ui/StackFadeCue.ui</file>
   </gresource>
 </gresources>

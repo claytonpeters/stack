@@ -4,5 +4,6 @@
 	<file>icons/stackactioncue-pause.png</file>
 	<file>icons/stackactioncue-play.png</file>
 	<file>icons/stackactioncue-stop.png</file>
+	<file>ui/StackActionCue.ui</file>
   </gresource>
 </gresources>

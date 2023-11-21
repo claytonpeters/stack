@@ -13,7 +13,7 @@ add_custom_command(
     ARGS --generate-source --target=src/resources.c src/resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/resources.xml
-    DEPENDS ui/SelectCue.ui ui/StackActionCue.ui ui/StackAudioCue.ui ui/StackExecCue.ui ui/StackFadeCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
+    DEPENDS ui/SelectCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
 )
 add_custom_target(resources-target DEPENDS src/resources.c)
 set_source_files_properties(src/resources.c PROPERTIES GENERATED TRUE)
@@ -26,7 +26,7 @@ add_custom_command(
     ARGS --generate-source --target=src/stackactioncue-resources.c src/stackactioncue-resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/stackactioncue-resources.xml
-    DEPENDS icons/stackactioncue-pause.png icons/stackactioncue-play.png icons/stackactioncue-stop.png
+    DEPENDS icons/stackactioncue-pause.png icons/stackactioncue-play.png icons/stackactioncue-stop.png ui/StackActionCue.ui
 )
 add_custom_target(stackactioncue-resources-target DEPENDS src/stackactioncue-resources.c)
 set_source_files_properties(src/stackactioncue-resources.c PROPERTIES GENERATED TRUE)
@@ -39,7 +39,7 @@ add_custom_command(
     ARGS --generate-source --target=src/stackaudiocue-resources.c src/stackaudiocue-resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/stackaudiocue-resources.xml
-    DEPENDS icons/stackaudiocue.png
+    DEPENDS icons/stackaudiocue.png ui/StackAudioCue.ui
 )
 add_custom_target(stackaudiocue-resources-target DEPENDS src/stackaudiocue-resources.c)
 set_source_files_properties(src/stackaudiocue-resources.c PROPERTIES GENERATED TRUE)
@@ -52,7 +52,7 @@ add_custom_command(
     ARGS --generate-source --target=src/stackexeccue-resources.c src/stackexeccue-resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/stackexeccue-resources.xml
-    DEPENDS icons/stackexeccue.png
+    DEPENDS icons/stackexeccue.png ui/StackExecCue.ui
 )
 add_custom_target(stackexeccue-resources-target DEPENDS src/stackexeccue-resources.c)
 set_source_files_properties(src/stackexecue-resources.c PROPERTIES GENERATED TRUE)
@@ -65,7 +65,7 @@ add_custom_command(
     ARGS --generate-source --target=src/stackfadecue-resources.c src/stackfadecue-resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/stackfadecue-resources.xml
-    DEPENDS icons/stackfadecue.png
+    DEPENDS icons/stackfadecue.png ui/StackFadeCue.ui
 )
 add_custom_target(stackfadecue-resources-target DEPENDS src/stackfadecue-resources.c)
 set_source_files_properties(src/stackfadecue-resources.c PROPERTIES GENERATED TRUE)
