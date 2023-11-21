@@ -801,6 +801,12 @@ static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
+static void saw_cue_add_exec_clicked(void* widget, gpointer user_data)
+{
+	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackExecCue");
+}
+
+// Menu callback
 static void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1572,6 +1578,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_fade_clicked", G_CALLBACK(saw_cue_add_fade_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_action_clicked", G_CALLBACK(saw_cue_add_action_clicked));
+	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_exec_clicked", G_CALLBACK(saw_cue_add_exec_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_renumber_clicked", G_CALLBACK(saw_cue_renumber_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_play_clicked", G_CALLBACK(saw_cue_play_clicked));
 	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_clicked", G_CALLBACK(saw_cue_stop_clicked));
@@ -1639,6 +1646,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
+	gtk_accel_group_connect(ag, '4', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_exec_clicked), window, NULL));
 	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
 
 	// Apply some input validation
