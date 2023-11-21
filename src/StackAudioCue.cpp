@@ -1180,6 +1180,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	stack_property_write_json(stack_cue_get_property(cue, "media_start_time"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "media_end_time"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "loops"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "rate"), &cue_root);
 	double volume = 0.0;
 	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
 	if (std::isfinite(volume))
@@ -1277,6 +1278,16 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	else
 	{
 		stack_property_set_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_DEFINED, 1);
+	}
+
+	// Load reate
+	if (cue_data.isMember("rate"))
+	{
+		stack_property_set_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_DEFINED, cue_data["rate"].asDouble());
+	}
+	else
+	{
+		stack_property_set_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_DEFINED, 1.0);
 	}
 
 	// Load playback volume
