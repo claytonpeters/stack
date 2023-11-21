@@ -13,7 +13,7 @@ add_custom_command(
     ARGS --generate-source --target=src/resources.c src/resources.xml
     VERBATIM
     MAIN_DEPENDENCY src/resources.xml
-    DEPENDS ui/SelectCue.ui ui/StackActionCue.ui ui/StackAudioCue.ui ui/StackFadeCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
+    DEPENDS ui/SelectCue.ui ui/StackActionCue.ui ui/StackAudioCue.ui ui/StackExecCue.ui ui/StackFadeCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
 )
 add_custom_target(resources-target DEPENDS src/resources.c)
 set_source_files_properties(src/resources.c PROPERTIES GENERATED TRUE)
@@ -44,6 +44,19 @@ add_custom_command(
 add_custom_target(stackaudiocue-resources-target DEPENDS src/stackaudiocue-resources.c)
 set_source_files_properties(src/stackaudiocue-resources.c PROPERTIES GENERATED TRUE)
 
+# Compile resource target: StackExecCue
+add_custom_command(
+    OUTPUT src/stackexeccue-resources.c
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${GLIB_COMPILE_RESOURCES}
+    ARGS --generate-source --target=src/stackexeccue-resources.c src/stackexeccue-resources.xml
+    VERBATIM
+    MAIN_DEPENDENCY src/stackexeccue-resources.xml
+    DEPENDS icons/stackexeccue.png
+)
+add_custom_target(stackexeccue-resources-target DEPENDS src/stackexeccue-resources.c)
+set_source_files_properties(src/stackexecue-resources.c PROPERTIES GENERATED TRUE)
+
 # Compile resource target: StackFadeCue
 add_custom_command(
     OUTPUT src/stackfadecue-resources.c
@@ -67,6 +80,8 @@ add_library(StackAudioCue SHARED src/StackAudioCue.cpp src/stackaudiocue-resourc
 add_dependencies(StackAudioCue stackaudiocue-resources-target)
 add_library(StackFadeCue SHARED src/StackFadeCue.cpp src/stackfadecue-resources.c)
 add_dependencies(StackFadeCue stackfadecue-resources-target)
+add_library(StackExecCue SHARED src/StackExecCue.cpp src/stackexeccue-resources.c)
+add_dependencies(StackExecCue stackexeccue-resources-target)
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 find_package(PkgConfig REQUIRED)

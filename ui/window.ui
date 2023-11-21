@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.8"/>
   <object class="GtkAccelGroup" id="sawAccelGroup"/>
@@ -254,6 +254,16 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="sawCueAddExecCueMI">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Add _Exec Cue</property>
+                        <property name="use-underline">True</property>
+                        <signal name="activate" handler="saw_cue_add_exec_clicked" swapped="no"/>
+                        <accelerator key="4" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="sawCueSep2">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -490,6 +500,15 @@
                         <property name="label" translatable="yes">Action Cue</property>
                         <property name="use-underline">True</property>
                         <signal name="activate" handler="saw_cue_add_action_clicked" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="sawAddExecCueMI">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Execute Cue</property>
+                        <property name="use-underline">True</property>
+                        <signal name="activate" handler="saw_cue_add_exec_clicked" swapped="no"/>
                       </object>
                     </child>
                   </object>

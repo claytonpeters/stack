@@ -5,6 +5,7 @@
 	<file>ui/StackActionCue.ui</file>
 	<file>ui/StackAudioCue.ui</file>
 	<file>ui/StackFadeCue.ui</file>
+	<file>ui/StackExecCue.ui</file>
 	<file>ui/StackGroupCue.ui</file>
 	<file>ui/StackLoading.ui</file>
 	<file>ui/StackRenumberCue.ui</file>
