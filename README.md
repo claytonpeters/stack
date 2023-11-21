@@ -16,6 +16,7 @@ Cues:
 * Fade Cues
   * Choice of fade profiles
 * Action Cues: Start/Stop/Pause other cues
+* Execute Cues: Run arbitrary programs/commands/scripts
 
 Outputs:
 * PulseAudio (also work with PipeWire via PipeWire PulseAudio plugin)
