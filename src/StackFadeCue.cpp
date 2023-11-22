@@ -527,6 +527,10 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		// Set the button text
 		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sfc_builder, "fcpCue")), button_text.c_str());
 	}
+	else
+	{
+		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sfc_builder, "fcpCue")), "Select Cue...");
+	}
 
 	// Set the values: fade time
 	char buffer[32];	// Warning: used multiple times!
