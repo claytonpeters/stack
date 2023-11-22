@@ -65,6 +65,7 @@ struct StackChannelRMSData
 	float current_level;
 	float peak_level;
 	stack_time_t peak_time;
+	bool clipped;
 };
 
 // Cue list
