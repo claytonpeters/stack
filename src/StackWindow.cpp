@@ -1000,6 +1000,7 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		PangoAttribute *attr = pango_attr_weight_new(PANGO_WEIGHT_BOLD);
 		pango_attr_list_insert(attrs, attr);
 		gtk_label_set_attributes(cue_widget->name, attrs);
+		pango_attr_list_unref(attrs);
 
 		// Widget for cue name
 		cue_widget->time = GTK_LABEL(gtk_label_new(""));
@@ -1237,6 +1238,9 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 
 	// Destroy the cue list
 	stack_cue_list_destroy(window->cue_list);
+
+	// Tidy up the builder
+	g_object_unref(window->builder);
 }
 
 // Cue property change (done on focus-out)
