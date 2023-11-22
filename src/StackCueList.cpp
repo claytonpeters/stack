@@ -589,6 +589,9 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	// Get the file size
 	goffset size = g_file_info_get_size(file_info);
 
+	// Tidy up
+	g_object_unref(file_info);
+
 	// Allocate memory
 	std::vector<char> json_buffer(size + 1);
 
