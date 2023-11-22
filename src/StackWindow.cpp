@@ -1050,6 +1050,10 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		for (size_t i = 0; i < channel_count; i++)
 		{
 			stack_level_meter_set_level_and_peak(cue_widget->meter, i, rms[i].current_level, rms[i].peak_level);
+			if (rms[i].clipped)
+			{
+				stack_level_meter_set_clipped(cue_widget->meter, i, true);
+			}
 
 			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
 			// TODO: This should probably be in StackCueList instead
@@ -1149,6 +1153,10 @@ static gboolean saw_ui_timer(gpointer user_data)
 	for (size_t i = 0; i < window->cue_list->channels; i++)
 	{
 		stack_level_meter_set_level_and_peak(window->master_out_meter, i, window->cue_list->master_rms_data[i].current_level, window->cue_list->master_rms_data[i].peak_level);
+		if (window->cue_list->master_rms_data[i].clipped)
+		{
+			stack_level_meter_set_clipped(window->master_out_meter, i, true);
+		}
 
 		const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
 		// TODO: This should probably be in StackCueList instead

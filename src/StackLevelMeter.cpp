@@ -36,14 +36,17 @@ void stack_level_meter_set_channels(StackLevelMeter *meter, guint channels)
 	meter->channels = channels;
 	delete [] meter->levels;
 	delete [] meter->peaks;
+	delete [] meter->clipped;
 	meter->levels = new float[meter->channels];
 	meter->peaks = new float[meter->channels];
+	meter->clipped = new bool[meter->channels];
 
 	// Set all the levels to min
 	for (guint i = 0; i < channels; i++)
 	{
 		meter->levels[i] = meter->min;
 		meter->peaks[i] = meter->min;
+		meter->clipped[i] = false;
 	}
 }
 
@@ -75,6 +78,20 @@ void stack_level_meter_set_peak(StackLevelMeter *meter, guint channel, float lev
 	}
 }
 
+void stack_level_meter_set_clipped(StackLevelMeter *meter, guint channel, bool clipped)
+{
+	if (channel >= meter->channels)
+	{
+		return;
+	}
+
+	if (clipped != meter->clipped[channel])
+	{
+		meter->clipped[channel] = clipped;
+		gtk_widget_queue_draw(GTK_WIDGET(meter));
+	}
+}
+
 void stack_level_meter_set_level_and_peak(StackLevelMeter *meter, guint channel, float level, float peak)
 {
 	if (channel >= meter->channels)
@@ -99,6 +116,7 @@ void stack_level_meter_reset(StackLevelMeter *meter)
 		{
 			meter->levels[i] = meter->min;
 			meter->peaks[i] = meter->min;
+			meter->clipped[i] = false;
 			redraw = true;
 		}
 	}
@@ -159,7 +177,7 @@ static gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr)
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 
 	const float bar_height = floorf((float)height / (float)meter->channels);
-	const float float_width = (float)width;
+	const float float_width = (float)width - bar_height;  // Subtract bar height for square clipped indicator
 	const float level_scalar = float_width / (meter->max - meter->min);
 
 	for (guint i = 0; i < meter->channels; i++)
@@ -180,6 +198,18 @@ static gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr)
 		cairo_rectangle(cr, 0.0, bar_height * (float)i, level_x, bar_height - 1.0);
 		cairo_fill(cr);
 
+		// Draw the clipped indicator
+		if (meter->clipped[i])
+		{
+			cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
+		}
+		else
+		{
+			cairo_set_source_rgb(cr, 0.2, 0.0, 0.0);
+		}
+		cairo_rectangle(cr, float_width + 1.0, bar_height * (float)i, float_width + bar_height, bar_height - 1.0);
+		cairo_fill(cr);
+
 		// Grab the peak and put it in bounds
 		float peak = meter->peaks[i];
 		if (peak < meter->min) { peak = meter->min; }
@@ -196,10 +226,21 @@ static gboolean stack_level_meter_draw(GtkWidget *widget, cairo_t *cr)
 	return false;
 }
 
+static void stack_level_meter_button(GtkWidget *widget, GdkEventButton *event, gpointer user_data)
+{
+	StackLevelMeter *meter = STACK_LEVEL_METER(widget);
+
+	// Reset clipped indicator
+	memset(meter->clipped, 0, meter->channels * sizeof(bool));
+
+	// Redraw
+	gtk_widget_queue_draw(widget);
+}
+
 static void stack_level_meter_init(StackLevelMeter *meter)
 {
-	// We don't allocate a GdkWindow of our own
-	gtk_widget_set_has_window(GTK_WIDGET(meter), false);
+	gtk_widget_set_has_window(GTK_WIDGET(meter), true);
+	meter->window = NULL;
 
 	meter->foreground_pattern = NULL;
 	meter->background_pattern = NULL;
@@ -209,6 +250,66 @@ static void stack_level_meter_init(StackLevelMeter *meter)
 	meter->channels = 1;
 	meter->levels = NULL;
 	meter->peaks = NULL;
+	meter->clipped = NULL;
+
+	g_signal_connect(meter, "button-press-event", G_CALLBACK(stack_level_meter_button), NULL);
+}
+
+static void stack_level_meter_realize(GtkWidget *widget)
+{
+	// Note that the Gtk+ docs say you should usually chain up here... but most
+	// examples I've found don't, and I've yet to make anything work when I do
+
+	StackLevelMeter *meter = STACK_LEVEL_METER(widget);
+
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+
+	GdkWindowAttr attr;
+	attr.x = allocation.x;
+	attr.y = allocation.y;
+	attr.width = allocation.width;
+	attr.height = allocation.height;
+	attr.wclass = GDK_INPUT_OUTPUT;
+	attr.window_type = GDK_WINDOW_CHILD;
+	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK;
+	attr.visual = gtk_widget_get_visual(widget);
+
+	GdkWindow *parent = gtk_widget_get_parent_window(widget);
+	meter->window = gdk_window_new(parent, &attr, GDK_WA_WMCLASS | GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL);
+
+	// Register our window with the widget
+	gtk_widget_set_window(widget, meter->window);
+	gtk_widget_register_window(widget, meter->window);
+	gtk_widget_set_realized(widget, true);
+}
+
+static void stack_level_meter_unrealize(GtkWidget *widget)
+{
+	StackLevelMeter *meter = STACK_LEVEL_METER(widget);
+
+	gtk_widget_set_realized(widget, false);
+	gtk_widget_unregister_window(widget, meter->window);
+	gtk_widget_set_window(widget, NULL);
+
+	gdk_window_destroy(meter->window);
+	meter->window = NULL;
+}
+
+static void stack_level_meter_map(GtkWidget *widget)
+{
+	// Chain up
+	GTK_WIDGET_CLASS(stack_level_meter_parent_class)->map(widget);
+
+	gdk_window_show(STACK_LEVEL_METER(widget)->window);
+}
+
+static void stack_level_meter_unmap(GtkWidget *widget)
+{
+	gdk_window_hide(STACK_LEVEL_METER(widget)->window);
+
+	// Chain up
+	GTK_WIDGET_CLASS(stack_level_meter_parent_class)->unmap(widget);
 }
 
 static void stack_level_meter_finalize(GObject *obj)
@@ -221,6 +322,10 @@ static void stack_level_meter_finalize(GObject *obj)
 	if (meter->peaks != NULL)
 	{
 		delete [] meter->peaks;
+	}
+	if (meter->clipped != NULL)
+	{
+		delete [] meter->clipped;
 	}
 	stack_level_meter_destroy_patterns(meter);
 
@@ -237,4 +342,8 @@ static void stack_level_meter_class_init(StackLevelMeterClass *cls)
 	// Things we need to override at the widget level
 	GtkWidgetClass *widget_cls = GTK_WIDGET_CLASS(cls);
 	widget_cls->draw = stack_level_meter_draw;
+	widget_cls->realize = stack_level_meter_realize;
+	widget_cls->unrealize = stack_level_meter_unrealize;
+	widget_cls->map = stack_level_meter_map;
+	widget_cls->unmap = stack_level_meter_unmap;
 }

@@ -1015,7 +1015,9 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 	// Allocate a buffer for mixing our new data in to
 	float *new_data = new float[cue_list->channels * request_samples];
+	bool *new_clipped = new bool[cue_list->channels];
 	memset(new_data, 0, cue_list->channels * request_samples * sizeof(float));
+	memset(new_clipped, 0, cue_list->channels * sizeof(bool));
 
 	float *cue_data = NULL;
 	size_t cue_data_size = 0;
@@ -1076,6 +1078,14 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 				// Write out the data
 				*write_pointer += value;
+
+				// Check for clipping
+				if (*write_pointer > 1.0)
+				{
+					new_clipped[dest_channel] = true;
+				}
+
+				// Move to next sample
 				write_pointer++;
 				read_pointer += active_channel_count;
 			}
@@ -1097,6 +1107,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 				new_rms_data[i].current_level = cue_list->rms_cache[i];
 				new_rms_data[i].peak_level = cue_list->rms_cache[i];
 				new_rms_data[i].peak_time = stack_get_clock_time();
+				new_rms_data[i].clipped = new_clipped[i];
 			}
 			(*rms_data)[cue->uid] = new_rms_data;
 		}
@@ -1111,6 +1122,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 					rms_data[i].peak_level = cue_list->rms_cache[i];
 					rms_data[i].peak_time = stack_get_clock_time();
 				}
+				rms_data[i].clipped = new_clipped[i];
 			}
 		}
 	}
@@ -1129,9 +1141,14 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		float channel_rms = 0.0;
 		float *channel_data = &new_data[channel * request_samples];
 		// Calculate master RMS
+		mc_rms_data->clipped = false;
 		for (size_t i = 0; i < request_samples; i++)
 		{
 			channel_rms += channel_data[i] * channel_data[i];
+			if (channel_data[i] > 1.0)
+			{
+				mc_rms_data->clipped = true;
+			}
 		}
 		mc_rms_data->current_level = stack_scalar_to_db(sqrtf(channel_rms / (float)request_samples));
 		if (mc_rms_data->current_level >= mc_rms_data->peak_level)
@@ -1145,6 +1162,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 	// Tidy up
 	delete [] new_data;
+	delete [] new_clipped;
 
 	stack_cue_list_unlock(cue_list);
 

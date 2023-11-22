@@ -29,8 +29,14 @@ struct StackLevelMeter
 	// The current peak levels
 	float *peaks;
 
+	// The current clip status
+	bool *clipped;
+
 	// The number of channels
 	guint channels;
+
+	// Our window
+	GdkWindow *window;
 };
 
 struct StackLevelMeterClass
@@ -49,6 +55,7 @@ GtkWidget *stack_level_meter_new(guint channels, float min, float max);
 void stack_level_meter_set_channels(StackLevelMeter *meter, guint channels);
 void stack_level_meter_set_level(StackLevelMeter *meter, guint channel, float level);
 void stack_level_meter_set_peak(StackLevelMeter *meter, guint channel, float peak);
+void stack_level_meter_set_clipped(StackLevelMeter *meter, guint channel, bool clipped);
 void stack_level_meter_set_level_and_peak(StackLevelMeter *meter, guint channel, float level, float peak);
 void stack_level_meter_reset(StackLevelMeter *meter);
 
