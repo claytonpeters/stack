@@ -1296,6 +1296,9 @@ static void stack_cue_list_widget_realize(GtkWidget *widget)
 	gtk_widget_set_window(widget, sclw->window);
 	gtk_widget_register_window(widget, sclw->window);
 	gtk_widget_set_realized(widget, true);
+
+	// Enable tooltips
+	gtk_widget_set_has_tooltip(widget, true);
 }
 
 static void stack_cue_list_widget_unrealize(GtkWidget *widget)
@@ -1350,6 +1353,37 @@ static void stack_cue_list_widget_finalize(GObject *obj)
 	G_OBJECT_CLASS(stack_cue_list_widget_parent_class)->finalize(obj);
 }
 
+static gboolean stack_cue_list_widget_query_tooltip(GtkWidget* widget, gint x, gint y, gboolean keyboard_tooltip, GtkTooltip* tooltip)
+{
+	if (keyboard_tooltip)
+	{
+		return false;
+	}
+
+	cue_uid_t cue_uid = stack_cue_list_widget_get_cue_at_point(STACK_CUE_LIST_WIDGET(widget), x, y);
+	if (cue_uid == STACK_CUE_UID_NONE)
+	{
+		return false;
+	}
+
+	StackCue *cue = stack_cue_get_by_uid(cue_uid);
+	if (cue == NULL)
+	{
+		return false;
+	}
+
+	char error[512];
+	stack_cue_get_error(cue, error, 512);
+	if (strlen(error) == 0)
+	{
+		return false;
+	}
+
+	gtk_tooltip_set_text(tooltip, error);
+
+	return true;
+}
+
 static void stack_cue_list_widget_class_init(StackCueListWidgetClass *cls)
 {
 	// Things we need to override at the class level
@@ -1363,6 +1397,7 @@ static void stack_cue_list_widget_class_init(StackCueListWidgetClass *cls)
 	widget_cls->unrealize = stack_cue_list_widget_unrealize;
 	widget_cls->map = stack_cue_list_widget_map;
 	widget_cls->unmap = stack_cue_list_widget_unmap;
+	widget_cls->query_tooltip = stack_cue_list_widget_query_tooltip;
 
 	// Setup signals for selection changes
 	signal_primary_selection_changed = g_signal_new("primary-selection-changed", stack_cue_list_widget_get_type(), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT64);
