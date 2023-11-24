@@ -326,6 +326,10 @@ static void stack_action_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 		// Set the button text
 		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sac_builder, "acpCue")), button_text.c_str());
 	}
+	else
+	{
+		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sac_builder, "acpCue")), "Select Cue...");
+	}
 
 	// Update action option
 	int32_t action = STACK_ACTION_CUE_STOP;
