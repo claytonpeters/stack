@@ -12,7 +12,7 @@ struct StackShowSettingsDialogData
 	bool audio_device_changed;
 };
 
-void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
+extern "C" void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
 {
 	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
 	dialog_data->audio_device_changed = true;
@@ -54,7 +54,7 @@ void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
 	}
 }
 
-void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
+extern "C" void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
 {
 	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
 	dialog_data->audio_device_changed = true;
@@ -108,13 +108,13 @@ void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data)
 
 }
 
-void sss_sample_rate_changed(GtkComboBox *widget, gpointer user_data)
+extern "C" void sss_sample_rate_changed(GtkComboBox *widget, gpointer user_data)
 {
 	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
 	dialog_data->audio_device_changed = true;
 }
 
-void sss_channels_changed(GtkComboBox *widget, gpointer user_data)
+extern "C" void sss_channels_changed(GtkComboBox *widget, gpointer user_data)
 {
 	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
 	dialog_data->audio_device_changed = true;
@@ -132,12 +132,6 @@ void sss_show_dialog(StackAppWindow *window)
 	gtk_window_set_default_size(GTK_WINDOW(dialog_data.dialog), 550, 300);
 	gtk_dialog_add_buttons(dialog_data.dialog, "OK", 1, "Cancel", 2, NULL);
 	gtk_dialog_set_default_response(dialog_data.dialog, 2);
-
-	// Set up the callbacks - other
-	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_audio_provider_changed", G_CALLBACK(sss_audio_provider_changed));
-	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_audio_device_changed", G_CALLBACK(sss_audio_device_changed));
-	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_sample_rate_changed", G_CALLBACK(sss_sample_rate_changed));
-	gtk_builder_add_callback_symbol(dialog_data.builder, "sss_channels_changed", G_CALLBACK(sss_channels_changed));
 
 	// Connect the signals
 	gtk_builder_connect_signals(dialog_data.builder, (gpointer)&dialog_data);

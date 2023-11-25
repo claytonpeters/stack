@@ -25,7 +25,7 @@ struct ShowLoadingData
 };
 
 // Pre-define some function definitions:
-static void saw_cue_stop_all_clicked(void* widget, gpointer user_data);
+extern "C" void saw_cue_stop_all_clicked(void* widget, gpointer user_data);
 static void saw_remove_inactive_cue_widgets(StackAppWindow *window);
 StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue);
 
@@ -423,7 +423,7 @@ static void saw_setup_default_device(StackAppWindow *window)
 }
 
 // Menu callback
-static void saw_file_save_as_clicked(void* widget, gpointer user_data)
+extern "C" void saw_file_save_as_clicked(void* widget, gpointer user_data)
 {
 	// Run a Save dialog
 	GtkWidget *dialog = gtk_file_chooser_dialog_new("Save Show As", GTK_WINDOW(user_data), GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT, NULL);
@@ -453,7 +453,7 @@ static void saw_file_save_as_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_file_save_clicked(void* widget, gpointer user_data)
+extern "C" void saw_file_save_clicked(void* widget, gpointer user_data)
 {
 	// If the current cue list has no URI
 	if (STACK_APP_WINDOW(user_data)->cue_list->uri == NULL)
@@ -471,7 +471,7 @@ static void saw_file_save_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_file_open_clicked(void* widget, gpointer user_data)
+extern "C" void saw_file_open_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -539,7 +539,7 @@ static void saw_file_open_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_file_new_clicked(void* widget, gpointer user_data)
+extern "C" void saw_file_new_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -606,31 +606,31 @@ static void saw_file_new_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
-static void saw_file_quit_clicked(void* item, gpointer user_data)
+extern "C" void saw_file_quit_clicked(void* item, gpointer user_data)
 {
 	gtk_window_close((GtkWindow*)user_data);
 }
 
 // Menu callback
-static void saw_edit_cut_clicked(void* widget, gpointer user_data)
+extern "C" void saw_edit_cut_clicked(void* widget, gpointer user_data)
 {
 	stack_log("Edit -> Cut clicked\n");
 }
 
 // Menu callback
-static void saw_edit_copy_clicked(void* widget, gpointer user_data)
+extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
 {
 	stack_log("Edit -> Copy clicked\n");
 }
 
 // Menu callback
-static void saw_edit_paste_clicked(void* widget, gpointer user_data)
+extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 {
 	stack_log("Edit -> Paste clicked\n");
 }
 
 // Menu callback
-static void saw_edit_delete_clicked(void* widget, gpointer user_data)
+extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -727,7 +727,7 @@ static void saw_edit_delete_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
-static gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data)
+extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -751,13 +751,13 @@ static gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data)
 }
 
 // Edit -> Show Settings
-static void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
+extern "C" void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 {
 	sss_show_dialog(STACK_APP_WINDOW(user_data));
 }
 
 // Menu callback
-static void saw_cue_add_group_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -814,31 +814,31 @@ static void saw_generic_add_cue(StackAppWindow *window, const char *type)
 }
 
 // Menu callback
-static void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
 {
 	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackAudioCue");
 }
 
 // Menu callback
-static void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
 {
 	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackFadeCue");
 }
 
 // Menu callback
-static void saw_cue_add_action_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_add_action_clicked(void* widget, gpointer user_data)
 {
 	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackActionCue");
 }
 
 // Menu callback
-static void saw_cue_add_exec_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_add_exec_clicked(void* widget, gpointer user_data)
 {
 	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackExecCue");
 }
 
 // Menu callback
-static void saw_cue_renumber_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 {
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -880,7 +880,7 @@ static void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
-static void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
+extern "C" void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -910,7 +910,7 @@ static void saw_view_active_cue_list_clicked(void* widget, gpointer user_data)
 }
 
 // Menu callback
-static void saw_help_about_clicked(void* widget, gpointer user_data)
+extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 {
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
@@ -930,7 +930,7 @@ static void saw_help_about_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_cue_play_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_play_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -947,7 +947,7 @@ static void saw_cue_play_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_cue_stop_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_stop_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -962,7 +962,7 @@ static void saw_cue_stop_clicked(void* widget, gpointer user_data)
 }
 
 // Menu/toolbar callback
-static void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
+extern "C" void saw_cue_stop_all_clicked(void* widget, gpointer user_data)
 {
 	stack_cue_list_stop_all(STACK_APP_WINDOW(user_data)->cue_list);
 }
@@ -1417,7 +1417,7 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 }
 
 // Cue property change (done on focus-out)
-static gboolean saw_cue_number_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+extern "C" gboolean saw_cue_number_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1441,7 +1441,7 @@ static gboolean saw_cue_number_changed(GtkWidget *widget, GdkEvent *event, gpoin
 }
 
 // Cue property change
-static void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data)
+extern "C" void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1462,7 +1462,7 @@ static void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data)
 }
 
 // Cue property change (done on focus-out)
-static gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+extern "C" gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1483,7 +1483,7 @@ static gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpointe
 }
 
 // Cue property change (done on focus-out)
-static gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+extern "C" gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1508,7 +1508,7 @@ static gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpoint
 }
 
 // Cue property change (done on focus-out)
-static gboolean saw_cue_prewait_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+extern "C" gboolean saw_cue_prewait_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1530,7 +1530,7 @@ static gboolean saw_cue_prewait_changed(GtkWidget *widget, GdkEvent *event, gpoi
 }
 
 // Cue property change (done on focus-out)
-static gboolean saw_cue_postwait_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+extern "C" gboolean saw_cue_postwait_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1552,7 +1552,7 @@ static gboolean saw_cue_postwait_changed(GtkWidget *widget, GdkEvent *event, gpo
 }
 
 // Cue property change (done on focus-out)
-static void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer user_data)
+extern "C" void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1746,40 +1746,6 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Read the builder file
 	window->builder = gtk_builder_new_from_resource("/org/stack/ui/window.ui");
-
-	// Setup the callbacks - main UI
-	gtk_builder_add_callback_symbol(window->builder, "saw_file_new_clicked", G_CALLBACK(saw_file_new_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_file_open_clicked", G_CALLBACK(saw_file_open_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_file_save_clicked", G_CALLBACK(saw_file_save_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_file_save_as_clicked", G_CALLBACK(saw_file_save_as_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_file_quit_clicked", G_CALLBACK(saw_file_quit_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_cut_clicked", G_CALLBACK(saw_edit_cut_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_copy_clicked", G_CALLBACK(saw_edit_copy_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_paste_clicked", G_CALLBACK(saw_edit_paste_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_delete_clicked", G_CALLBACK(saw_edit_delete_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_select_all_clicked", G_CALLBACK(saw_edit_select_all_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_edit_show_settings_clicked", G_CALLBACK(saw_edit_show_settings_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_group_clicked", G_CALLBACK(saw_cue_add_group_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_audio_clicked", G_CALLBACK(saw_cue_add_audio_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_fade_clicked", G_CALLBACK(saw_cue_add_fade_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_action_clicked", G_CALLBACK(saw_cue_add_action_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_add_exec_clicked", G_CALLBACK(saw_cue_add_exec_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_renumber_clicked", G_CALLBACK(saw_cue_renumber_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_play_clicked", G_CALLBACK(saw_cue_play_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_clicked", G_CALLBACK(saw_cue_stop_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_stop_all_clicked", G_CALLBACK(saw_cue_stop_all_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_view_active_cue_list_clicked", G_CALLBACK(saw_view_active_cue_list_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_help_about_clicked", G_CALLBACK(saw_help_about_clicked));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_selected", G_CALLBACK(saw_cue_selected));
-
-	// Set up the callbacks - default property pages
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_number_changed", G_CALLBACK(saw_cue_number_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_color_changed", G_CALLBACK(saw_cue_color_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_name_changed", G_CALLBACK(saw_cue_name_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_notes_changed", G_CALLBACK(saw_cue_notes_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_prewait_changed", G_CALLBACK(saw_cue_prewait_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_postwait_changed", G_CALLBACK(saw_cue_postwait_changed));
-	gtk_builder_add_callback_symbol(window->builder, "saw_cue_postwait_trigger_changed", G_CALLBACK(saw_cue_postwait_trigger_changed));
 
 	// Connect the signals
 	gtk_builder_connect_signals(window->builder, (gpointer)window);
