@@ -365,6 +365,7 @@ static StackProperty *stack_audio_cue_get_channel_volume_property(StackAudioCue 
 	// If the property does not yet exist, create it
 	if (property == NULL && create)
 	{
+		stack_log("stack_audio_cue_get_channel_volume_property(): Creating property %s\n", property_name);
 		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
 		stack_property_set_changed_callback(property, stack_audio_cue_ccb_volume, (void*)cue);
 		stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
@@ -1280,7 +1281,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 		stack_property_set_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_DEFINED, 1);
 	}
 
-	// Load reate
+	// Load rate
 	if (cue_data.isMember("rate"))
 	{
 		stack_property_set_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_DEFINED, cue_data["rate"].asDouble());
@@ -1309,7 +1310,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 		stack_property_set_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, 0.0);
 	}
 
-	// Load channel volumes to JSON
+	// Load channel volumes from JSON
 	size_t channel = 1;
 	do
 	{
@@ -1332,7 +1333,9 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 		}
 		else
 		{
-			// Stop at the first channel we don't find
+			// Stop at the first channel we don't find (and destroy the property we created)
+			stack_cue_remove_property(cue, ch_vol_prop->name);
+			stack_property_destroy(ch_vol_prop);
 			break;
 		}
 	} while (true);
