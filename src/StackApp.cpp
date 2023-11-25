@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <cstring>
 #include "StackApp.h"
+#include "StackTrigger.h"
 #include "StackLog.h"
 
 // GTK stuff
@@ -14,6 +15,7 @@ static void stack_app_init(StackApp *app)
 {
 	// Initialise plugin bases
 	stack_cue_initsystem();
+	stack_trigger_initsystem();
 	stack_audio_device_initsystem();
 
 	//// LOAD PLUGINS

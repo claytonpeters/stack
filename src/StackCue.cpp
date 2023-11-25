@@ -13,6 +13,10 @@ using namespace std;
 typedef map<string, StackProperty*> cue_properties_map;
 #define STACK_CUE_PROPERTIES(c) ((cue_properties_map*)(((StackCue*)c)->properties))
 
+// Typedef vector of triggers
+typedef vector<StackTrigger*> cue_triggers_vector;
+#define STACK_CUE_TRIGGERS(c) ((cue_triggers_vector*)(((StackCue*)c)->triggers))
+
 // Map of classes
 static map<string, const StackCueClass*> cue_class_map;
 
@@ -79,6 +83,7 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
 	cue->properties = (void*)new cue_properties_map;
+	cue->triggers = (void*)new cue_triggers_vector;
 
 	// Store the UID in our map
 	cue_uid_map[cue->uid] = cue;
@@ -411,6 +416,13 @@ void stack_cue_destroy(StackCue *cue)
 		stack_property_destroy(iter->second);
 	}
 	delete STACK_CUE_PROPERTIES(cue);
+
+	// Tidy up triggers
+	for (auto iter : *STACK_CUE_TRIGGERS(cue))
+	{
+		stack_trigger_destroy(iter);
+	}
+	delete STACK_CUE_TRIGGERS(cue);
 
 	// No need to iterate up through superclasses - we can't be NULL
 	iter->second->destroy_func(cue);
@@ -754,6 +766,73 @@ GdkPixbuf *stack_cue_get_icon(StackCue *cue)
 
 	// Call the function
 	return cue_class_map[string(class_name)]->get_icon_func(cue);
+}
+
+// Add a trigger to the list of triggers
+void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger)
+{
+	STACK_CUE_TRIGGERS(cue)->push_back(trigger);
+}
+
+// Remove a trigger from the list of triggers and destroys it
+void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger)
+{
+	for (auto iter = STACK_CUE_TRIGGERS(cue)->begin(); iter != STACK_CUE_TRIGGERS(cue)->end(); iter++)
+	{
+		if (*iter == trigger)
+		{
+			STACK_CUE_TRIGGERS(cue)->erase(iter);
+			stack_trigger_destroy(trigger);
+			break;
+		}
+	}
+}
+
+// Removes all trigger from the list of triggers and destroys them
+void stack_cue_clear_triggers(StackCue *cue)
+{
+	// Destroy all the triggers
+	for (auto iter : *STACK_CUE_TRIGGERS(cue))
+	{
+		stack_trigger_destroy(iter);
+	}
+
+	// Clear the vector
+	STACK_CUE_TRIGGERS(cue)->clear();
+}
+
+void *stack_cue_trigger_iter_front(StackCue *cue)
+{
+	cue_triggers_vector::iterator *result = new cue_triggers_vector::iterator;
+	*result = (STACK_CUE_TRIGGERS(cue)->begin());
+	return result;
+}
+
+void *stack_cue_trigger_iter_next(void *iter)
+{
+	++(*(cue_triggers_vector::iterator*)(iter));
+	return iter;
+}
+
+void *stack_cue_trigger_iter_prev(void *iter)
+{
+	--(*(cue_triggers_vector::iterator*)(iter));
+	return iter;
+}
+
+StackTrigger *stack_cue_trigger_iter_get(void *iter)
+{
+	return *(*(cue_triggers_vector::iterator*)(iter));
+}
+
+void stack_cue_trigger_iter_free(void *iter)
+{
+	delete (cue_triggers_vector::iterator*)iter;
+}
+
+bool stack_cue_trigger_iter_at_end(StackCue *cue, void *iter)
+{
+	return (*(cue_triggers_vector::iterator*)(iter)) == STACK_CUE_TRIGGERS(cue)->end();
 }
 
 // Initialise the StackCue system
