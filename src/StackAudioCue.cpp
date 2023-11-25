@@ -1218,7 +1218,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	return strdup(writer.write(cue_root).c_str());
 }
 
-static void stack_audio_cue_free_json(char *json_data)
+static void stack_audio_cue_free_json(StackCue *cue, char *json_data)
 {
 	free(json_data);
 }

@@ -582,9 +582,19 @@ char *stack_cue_to_json(StackCue *cue)
 	return strdup(writer.write(cue_root).c_str());
 }
 
-void stack_cue_free_json(char *json_data)
+void stack_cue_free_json(StackCue *cue, char *json_data)
 {
-	free(json_data);
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a free_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->free_json_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->free_json_func(cue, json_data);
 }
 
 // Generates the cue from JSON data
