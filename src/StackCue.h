@@ -35,6 +35,7 @@ typedef uint64_t cue_uid_t;
 #include "StackRingBuffer.h"
 #include "StackProperty.h"
 #include "StackCueList.h"
+#include "StackTrigger.h"
 
 // Cue state
 enum StackCueState
@@ -103,6 +104,9 @@ struct StackCue
 	// The properties for the cue (this is a std::map internally). Any
 	// properties stored in here will automatically be written to JSON
 	void *properties;
+
+	// The additional triggers for the cue (this is a std::vector internally)
+	void *triggers;
 };
 
 // Typedefs for create/delete functions
@@ -193,6 +197,15 @@ const char* stack_cue_get_rendered_name(StackCue *cue);
 size_t stack_cue_get_active_channels(StackCue *cue, bool *active);
 size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples);
 GdkPixbuf* stack_cue_get_icon(StackCue *cue);
+void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger);
+void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger);
+void stack_cue_clear_triggers(StackCue *cue);
+void *stack_cue_trigger_iter_front(StackCue *cue);
+void *stack_cue_trigger_iter_next(void *iter);
+void *stack_cue_trigger_iter_prev(void *iter);
+StackTrigger *stack_cue_trigger_iter_get(void *iter);
+void stack_cue_trigger_iter_free(void *iter);
+bool stack_cue_trigger_iter_at_end(StackCue *cue, void *iter);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue

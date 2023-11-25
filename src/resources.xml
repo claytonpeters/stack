@@ -2,6 +2,7 @@
 <gresources>
   <gresource prefix="/org/stack">
 	<file>ui/SelectCue.ui</file>
+	<file>ui/SelectTriggerType.ui</file>
 	<file>ui/StackGroupCue.ui</file>
 	<file>ui/StackLoading.ui</file>
 	<file>ui/StackRenumberCue.ui</file>
