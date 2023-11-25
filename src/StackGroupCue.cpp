@@ -154,7 +154,7 @@ static char *stack_group_cue_to_json(StackCue *cue)
 }
 
 /// Frees JSON strings as returned by stack_group_cue_to_json
-static void stack_group_cue_free_json(char *json_data)
+static void stack_group_cue_free_json(StackCue *cue, char *json_data)
 {
 	free(json_data);
 }

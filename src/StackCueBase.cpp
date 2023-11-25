@@ -297,7 +297,7 @@ char *stack_cue_to_json_base(StackCue *cue)
 }
 
 // Frees JSON strings returned by stack_cue_to_json_base
-void stack_cue_free_json_base(char *json_data)
+void stack_cue_free_json_base(StackCue *cue, char *json_data)
 {
 	free(json_data);
 }

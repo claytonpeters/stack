@@ -525,7 +525,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		Json::Reader reader;
 		char *cue_json_data = stack_cue_to_json(cue);
 		reader.parse(cue_json_data, cue_root);
-		stack_cue_free_json(cue_json_data);
+		stack_cue_free_json(cue, cue_json_data);
 
 		// Add it to the cues entry
 		root["cues"].append(cue_root);
