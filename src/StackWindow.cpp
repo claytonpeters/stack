@@ -286,7 +286,10 @@ static void saw_select_first_cue(StackAppWindow *window)
 {
 	void *iter = stack_cue_list_iter_front(window->cue_list);
 	StackCue *cue = stack_cue_list_iter_get(iter);
-	stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
+	if (cue != NULL)
+	{
+		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
+	}
 	stack_cue_list_iter_free(iter);
 }
 
