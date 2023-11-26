@@ -287,7 +287,7 @@ void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue_ui
 	}
 }
 
-static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold)
+static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold, GtkStyleContext *style_context)
 {
 	PangoContext *pc = gtk_widget_get_pango_context(GTK_WIDGET(sclw));
 	PangoFontDescription *fd = pango_context_get_font_description(pc);
@@ -302,9 +302,7 @@ static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t 
 	pango_layout_get_size(pl, NULL, &text_height);
 
 	// Render text
-	cairo_set_source_rgb(cr, RGBf(0xdd, 0xdd, 0xdd));
-	cairo_move_to(cr, x, y + (height - pango_units_to_double(text_height)) / 2 - 1);
-	pango_cairo_show_layout(cr, pl);
+	gtk_render_layout(style_context, cr, x, y + (height - pango_units_to_double(text_height)) / 2 - 1, pl);
 
 	// Tidy up
 	g_object_unref(pl);
@@ -312,34 +310,33 @@ static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t 
 
 static void stack_cue_list_widget_render_header(StackCueListWidget *sclw, cairo_t *cr, double x, double width, const char *text, bool align_center)
 {
-	// Set up pattern for time background
-	cairo_pattern_t *back = cairo_pattern_create_linear(0, 0, 0, sclw->header_height);
-	cairo_pattern_add_color_stop_rgb(back, 0.0, RGBf(0x40, 0x40, 0x50));
-	cairo_pattern_add_color_stop_rgb(back, 1.0, RGBf(0x38, 0x38, 0x48));
+	GtkWidgetPath *path = gtk_widget_path_new();
+	gtk_widget_path_append_type(path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name(path, -1, "treeview");
+	gtk_widget_path_iter_add_class(path, -1, "view");
+	gtk_widget_path_append_type(path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name(path, -1, "header");
+	gtk_widget_path_append_type(path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name(path, -1, "button");
+	gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_NORMAL);
+	GtkStyleContext *sc = gtk_style_context_new();
+	gtk_style_context_set_path(sc, path);
+	gtk_style_context_set_parent(sc, NULL);
+	gtk_style_context_set_state(sc, gtk_widget_path_iter_get_state(path, -1));
 
 	// Draw background
-	cairo_set_source(cr, back);
-	cairo_rectangle(cr, x, 0, width, sclw->header_height);
-	cairo_fill_preserve(cr);
-
-	// Draw edge
-	cairo_set_source_rgb(cr, RGBf(0x30, 0x30, 0x40));
-	cairo_stroke(cr);
-
-	// Draw top
-	cairo_set_source_rgb(cr, RGBf(0x70, 0x70, 0x80));
-	cairo_move_to(cr, x, 0);
-	cairo_line_to(cr, x + width, 0);
-	cairo_stroke(cr);
-
-	// Tidy up
-	cairo_pattern_destroy(back);
+	gtk_render_background(sc, cr, x, 0, width, sclw->header_height);
+	gtk_render_frame(sc, cr, x, 0, width, sclw->header_height);
 
 	// Render text
-	stack_cue_list_widget_render_text(sclw, cr, x + (align_center ? 0 : 8), 0, width, sclw->header_height, text, align_center, true);
+	stack_cue_list_widget_render_text(sclw, cr, x + (align_center ? 0 : 8), 0, width, sclw->header_height, text, align_center, true, sc);
+
+	// Tidy up
+	gtk_widget_path_unref(path);
+	g_object_unref(sc);
 }
 
-static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, double pct)
+static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, double pct, GtkStyleContext *style_context)
 {
 	if (pct > 0.0)
 	{
@@ -362,7 +359,7 @@ static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t 
 	}
 
 	// Render text on top
-	stack_cue_list_widget_render_text(sclw, cr, x, y, width, sclw->row_height, text, true, false);
+	stack_cue_list_widget_render_text(sclw, cr, x, y, width, sclw->row_height, text, true, false, style_context);
 }
 
 static void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWColumnGeometry *geom)
@@ -467,38 +464,11 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 	}
 
 	// Fill the background
-	GtkStyleContext *style_context = gtk_widget_get_style_context(GTK_WIDGET(sclw));
-
-	// Highlight selected row
-	auto flags_iter = sclw->cue_flags.find(cue->uid);
-	bool selected = false;
-	if (flags_iter != sclw->cue_flags.end())
-	{
-		selected = (flags_iter->second & SCLW_FLAG_SELECTED);
-	}
-
-	if (selected)
-	{
-		cairo_set_source_rgb(sclw->list_cr, RGBf(0x40, 0x60, 0x80));
-	}
-	else
-	{
-		// Get background colour
-		uint8_t r = 0xdd, g = 0xdd, b = 0xdd;
-		stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
-		stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
-		stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
-
-		// If all zero, don't render a background
-		if (r + g + b > 0)
-		{
-			cairo_set_source_rgb(sclw->list_cr, RGBf(r, g, b));
-		}
-		else
-		{
-			cairo_set_source_rgb(sclw->list_cr, RGBf(0x40, 0x40, 0x50));
-		}
-	}
+	GtkStyleContext *style_context = gtk_style_context_new();
+	GtkWidgetPath *path = gtk_widget_path_new();
+	gtk_widget_path_append_type(path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name(path, -1, "treeview");
+	gtk_widget_path_iter_add_class(path, -1, "view");
 
 	double rectangle_x = 0.0, rectangle_width = (double)sclw->list_cache_width;
 
@@ -521,13 +491,53 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 			break;
 	}
 
-	// Fill the rectangle
+	// Set the clip region to our rectangle
 	cairo_rectangle(sclw->list_cr, rectangle_x, row_y, rectangle_width, sclw->row_height);
 	cairo_clip(sclw->list_cr);
-	cairo_paint(sclw->list_cr);
+
+	// Highlight selected row
+	auto flags_iter = sclw->cue_flags.find(cue->uid);
+	bool selected = false;
+	if (flags_iter != sclw->cue_flags.end())
+	{
+		selected = (flags_iter->second & SCLW_FLAG_SELECTED);
+	}
+
+	if (selected)
+	{
+		gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_SELECTED);
+		gtk_style_context_set_state(style_context, gtk_widget_path_iter_get_state(path, -1));
+		gtk_style_context_set_path(style_context, path);
+		gtk_render_background(style_context, sclw->list_cr, rectangle_x, row_y, rectangle_width, sclw->row_height);
+	}
+	else
+	{
+		// Get background colour
+		uint8_t r = 0xdd, g = 0xdd, b = 0xdd;
+		stack_property_get_uint8(stack_cue_get_property(cue, "r"), STACK_PROPERTY_VERSION_DEFINED, &r);
+		stack_property_get_uint8(stack_cue_get_property(cue, "g"), STACK_PROPERTY_VERSION_DEFINED, &g);
+		stack_property_get_uint8(stack_cue_get_property(cue, "b"), STACK_PROPERTY_VERSION_DEFINED, &b);
+
+		// If all zero, don't render a background
+		if (r + g + b > 0)
+		{
+			cairo_set_source_rgb(sclw->list_cr, RGBf(r, g, b));
+			cairo_paint(sclw->list_cr);
+		}
+		else
+		{
+			gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_NORMAL);
+			gtk_style_context_set_state(style_context, gtk_widget_path_iter_get_state(path, -1));
+			gtk_style_context_set_path(style_context, path);
+			gtk_render_background(style_context, sclw->list_cr, rectangle_x, row_y, rectangle_width, sclw->row_height);
+		}
+	}
 
 	if (cue->uid == sclw->primary_selection)
 	{
+		gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_FOCUSED);
+		gtk_style_context_set_state(style_context, gtk_widget_path_iter_get_state(path, -1));
+		gtk_style_context_set_path(style_context, path);
 		gtk_render_focus(style_context, sclw->list_cr, 0, row_y, sclw->list_cache_width, sclw->row_height);
 	}
 
@@ -574,13 +584,13 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 	if (fields == 0 || fields == 2)
 	{
 		stack_cue_id_to_string(cue->id, buffer, 32);
-		stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->cue_x, row_y, sclw->cue_width, sclw->row_height, buffer, true, false);
+		stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->cue_x, row_y, sclw->cue_width, sclw->row_height, buffer, true, false, style_context);
 	}
 
 	// Render the cue name
 	if (fields == 0 || fields == 3)
 	{
-		stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->name_x, row_y, geom->name_width, sclw->row_height, stack_cue_get_rendered_name(cue), false, false);
+		stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->name_x, row_y, geom->name_width, sclw->row_height, stack_cue_get_rendered_name(cue), false, false, style_context);
 	}
 
 	// Render the cue times
@@ -634,13 +644,17 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 			}
 		}
 
-		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->pre_x, row_y, sclw->pre_width, pre_buffer, pre_pct);
-		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->action_x, row_y, sclw->action_width, action_buffer, action_pct);
-		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->post_x, row_y, sclw->post_width, post_buffer, post_pct);
+		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->pre_x, row_y, sclw->pre_width, pre_buffer, pre_pct, style_context);
+		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->action_x, row_y, sclw->action_width, action_buffer, action_pct, style_context);
+		stack_cue_list_widget_render_time(sclw, sclw->list_cr, geom->post_x, row_y, sclw->post_width, post_buffer, post_pct, style_context);
 	}
 
 	// Reset any clip region that we might have set
 	cairo_reset_clip(sclw->list_cr);
+
+	// Tidy up
+	gtk_widget_path_unref(path);
+	g_object_unref(style_context);
 }
 
 static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, guint width, guint height)
@@ -680,8 +694,18 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 	SCLWColumnGeometry geom;
 	stack_cue_list_widget_get_geometry(sclw, &geom);
 
-	cairo_set_source_rgb(sclw->list_cr, RGBf(0x40, 0x40, 0x50));
-	cairo_paint(sclw->list_cr);
+	// Fill the background
+	GtkStyleContext *style_context = gtk_style_context_new();
+	GtkWidgetPath *path = gtk_widget_path_new();
+	gtk_widget_path_append_type(path, G_TYPE_NONE);
+	gtk_widget_path_iter_set_object_name(path, -1, "treeview");
+	gtk_widget_path_iter_add_class(path, -1, "view");
+	gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_NORMAL);
+	gtk_style_context_set_state(style_context, gtk_widget_path_iter_get_state(path, -1));
+	gtk_style_context_set_path(style_context, path);
+	gtk_render_background(style_context, sclw->list_cr, 0, 0, width, height);
+	gtk_widget_path_unref(path);
+	g_object_unref(style_context);
 
 	// If we don't have a cue list then return
 	if (sclw->cue_list == NULL)
