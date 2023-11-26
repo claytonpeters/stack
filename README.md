@@ -18,6 +18,10 @@ Cues:
 * Action Cues: Start/Stop/Pause other cues
 * Execute Cues: Run arbitrary programs/commands/scripts
 
+Cue Triggers:
+* Spacebar to play next cue in playlist
+* Custom key triggers to play/pause/stop cues when a key is pressed/released
+
 Outputs:
 * PulseAudio (also work with PipeWire via PipeWire PulseAudio plugin)
 * ALSA
@@ -35,6 +39,7 @@ Features:
   * Automatic cue name generation
   * Custom per-cue colours
 * List of active cues with per-channel levels and times
+* Additional cue triggers
 * Remote control via a (currently undocumented) protobuf-based protocol
 
 ## Building
