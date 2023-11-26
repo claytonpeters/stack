@@ -1017,7 +1017,10 @@ extern "C" void saw_cue_trigger_edit_clicked(void *widget, gpointer user_data)
 	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawTriggersTreeView"));
 	GtkTreeSelection *selection = gtk_tree_view_get_selection(treeview);
 	GtkTreeIter iter;
-	gtk_tree_selection_get_selected(selection, NULL, &iter);
+	if (!gtk_tree_selection_get_selected(selection, NULL, &iter))
+	{
+		return;
+	}
 
 	// Get the StackTrigger pointer stored in the item
 	StackTrigger *trigger = NULL;
@@ -1073,7 +1076,10 @@ extern "C" void saw_cue_trigger_delete_clicked(void *widget, gpointer user_data)
 	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(window->builder, "sawTriggersTreeView"));
 	GtkTreeSelection *selection = gtk_tree_view_get_selection(treeview);
 	GtkTreeIter iter;
-	gtk_tree_selection_get_selected(selection, NULL, &iter);
+	if (!gtk_tree_selection_get_selected(selection, NULL, &iter))
+	{
+		return;
+	}
 
 	// Get the StackTrigger pointer stored in the item
 	StackTrigger *trigger = NULL;
