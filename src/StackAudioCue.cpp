@@ -365,7 +365,6 @@ static StackProperty *stack_audio_cue_get_channel_volume_property(StackAudioCue 
 	// If the property does not yet exist, create it
 	if (property == NULL && create)
 	{
-		stack_log("stack_audio_cue_get_channel_volume_property(): Creating property %s\n", property_name);
 		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
 		stack_property_set_changed_callback(property, stack_audio_cue_ccb_volume, (void*)cue);
 		stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
