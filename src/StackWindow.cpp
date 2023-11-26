@@ -1722,6 +1722,10 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Object set up:
 	window->selected_cue = NULL;
 	window->use_custom_style = true;
+	if (getenv("STACK_UNSTYLED") != NULL && strcmp(getenv("STACK_UNSTYLED"), "1") == 0)
+	{
+		window->use_custom_style = false;
+	}
 	window->active_cue_widgets = stack_cue_widget_map_t();
 
 	// Set up window signal handlers
