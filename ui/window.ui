@@ -606,6 +606,7 @@
                           <object class="GtkEntry" id="sawCueName">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
+                            <property name="tooltip-text" translatable="yes">An arbitrary name for the cue</property>
                             <property name="hexpand">True</property>
                             <property name="width-chars">1</property>
                             <property name="caps-lock-warning">False</property>
@@ -629,6 +630,7 @@
                               <object class="GtkEntry" id="sawCueNumber">
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
+                                <property name="tooltip-text" translatable="yes">An arbitrary number for the cue as would be labelled in a script</property>
                                 <property name="hexpand">True</property>
                                 <property name="width-chars">1</property>
                                 <property name="placeholder-text" translatable="yes">The cue number for the script</property>
@@ -667,6 +669,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">True</property>
+                                <property name="tooltip-text" translatable="yes">The background colour for the cue in the cue list</property>
                                 <property name="hexpand">True</property>
                                 <signal name="color-set" handler="saw_cue_color_changed" swapped="no"/>
                                 <accessibility>
@@ -719,6 +722,7 @@
                                 <property name="height-request">1</property>
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
+                                <property name="tooltip-text" translatable="yes">Any custom notes you want to add to the cue</property>
                                 <property name="hexpand">True</property>
                                 <property name="vexpand">True</property>
                                 <property name="border-width">7</property>
@@ -787,6 +791,7 @@
                               <object class="GtkEntry" id="sawPreWait">
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
+                                <property name="tooltip-text" translatable="yes">Delay after triggering the cue that they action is performed</property>
                                 <property name="hexpand">True</property>
                                 <property name="width-chars">1</property>
                                 <property name="placeholder-text" translatable="yes">Delay after triggering to run the cue</property>
@@ -826,6 +831,7 @@
                               <object class="GtkEntry" id="sawPostWait">
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
+                                <property name="tooltip-text" translatable="yes">Delay before automatically triggering the next cue (depends on the Post-wait Trigger)</property>
                                 <property name="hexpand">True</property>
                                 <property name="width-chars">1</property>
                                 <property name="placeholder-text" translatable="yes">Delay after finishing the cue to perform actions</property>
@@ -1062,6 +1068,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
+                                <property name="tooltip-text" translatable="yes">The post-wait timer will not be triggered</property>
                                 <property name="halign">start</property>
                                 <property name="active">True</property>
                                 <property name="draw-indicator">True</property>
@@ -1078,6 +1085,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
+                                <property name="tooltip-text" translatable="yes">The post-wait timer will be started as soon as the cue is triggered</property>
                                 <property name="halign">start</property>
                                 <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
@@ -1094,6 +1102,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
+                                <property name="tooltip-text" translatable="yes">The post-wait timer will be started as soon as the pre-wait timer has elapsed</property>
                                 <property name="halign">start</property>
                                 <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>
@@ -1110,6 +1119,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
+                                <property name="tooltip-text" translatable="yes">The post-wait timer will be started as soon as the cue action has finished</property>
                                 <property name="halign">start</property>
                                 <property name="draw-indicator">True</property>
                                 <property name="group">sawPostWaitTrigger1</property>

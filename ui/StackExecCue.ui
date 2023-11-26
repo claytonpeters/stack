@@ -20,10 +20,11 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">_Command:</property>
+            <property name="label" translatable="yes">Co_mmand:</property>
             <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
+            <property name="mnemonic-widget">ecpCommand</property>
           </object>
           <packing>
             <property name="left-attach">0</property>
@@ -34,9 +35,10 @@
           <object class="GtkEntry" id="ecpCommand">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
+            <property name="tooltip-text" translatable="yes">The path and any arguments of the program to run</property>
             <property name="hexpand">True</property>
             <property name="caps-lock-warning">False</property>
-            <property name="primary-icon-tooltip-text" translatable="yes">The command and any arguments of the program to run</property>
+            <property name="tooltip-text" translatable="yes">The command and any arguments of the program to run</property>
             <property name="placeholder-text" translatable="yes">Path and arguments</property>
             <signal name="focus-out-event" handler="ecp_command_changed" swapped="no"/>
           </object>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <object class="GtkAdjustment" id="fcpVolumeAdjust">
@@ -16,8 +16,8 @@
       <object class="GtkGrid" id="fcpGrid">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
-        <property name="margin-left">10</property>
-        <property name="margin-right">10</property>
+        <property name="margin-start">10</property>
+        <property name="margin-end">10</property>
         <property name="margin-top">10</property>
         <property name="margin-bottom">10</property>
         <property name="row-spacing">8</property>
@@ -60,7 +60,7 @@
             <property name="can-focus">False</property>
             <property name="halign">end</property>
             <property name="valign">start</property>
-            <property name="margin-top">6</property>
+            <property name="margin-top">4</property>
             <property name="label" translatable="yes">Fade Type:</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
@@ -76,6 +76,7 @@
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="receives-default">True</property>
+            <property name="tooltip-text" translatable="yes">Click to choose the cue that will be acted upon by this cue</property>
             <signal name="clicked" handler="fcp_cue_changed" swapped="no"/>
           </object>
           <packing>
@@ -94,6 +95,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">False</property>
+                <property name="tooltip-text" translatable="yes">The fade will occur linearly</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
                 <property name="draw-indicator">True</property>
@@ -111,6 +113,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">False</property>
+                <property name="tooltip-text" translatable="yes">The fade will be a quadratic (x^2) curve</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
                 <property name="draw-indicator">True</property>
@@ -129,6 +132,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">False</property>
+                <property name="tooltip-text" translatable="yes">The fade will occur exponentially (most useful for fading out)</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
                 <property name="draw-indicator">True</property>
@@ -147,6 +151,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">False</property>
+                <property name="tooltip-text" translatable="yes">The fade will occur inverse exponentially (most useful for fading in)</property>
                 <property name="halign">start</property>
                 <property name="active">True</property>
                 <property name="draw-indicator">True</property>
@@ -194,8 +199,8 @@
                 <property name="tooltip-text" translatable="yes">Use arrow keys for 0.01dB changes. Use Page Up / Page Down for 0.1 dB changes</property>
                 <property name="hexpand">True</property>
                 <property name="adjustment">fcpVolumeAdjust</property>
-                <property name="fill-level">21</property>
                 <property name="show-fill-level">True</property>
+                <property name="fill-level">21</property>
                 <property name="digits">2</property>
                 <property name="draw-value">False</property>
                 <property name="value-pos">right</property>
@@ -235,6 +240,7 @@
               <object class="GtkEntry" id="fcpFadeTime">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">The duration of the fade</property>
                 <property name="hexpand">True</property>
                 <property name="width-chars">1</property>
                 <signal name="focus-out-event" handler="fcp_fade_time_changed" swapped="no"/>
@@ -251,6 +257,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">False</property>
+                <property name="tooltip-text" translatable="yes">Tick to stop the target cue once the fade has finished</property>
                 <property name="halign">start</property>
                 <property name="draw-indicator">True</property>
                 <signal name="toggled" handler="fcp_stop_target_changed" swapped="no"/>

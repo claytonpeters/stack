@@ -32,7 +32,7 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">_File:</property>
+            <property name="label" translatable="yes">F_ile:</property>
             <property name="use-underline">True</property>
             <property name="mnemonic-widget">acpFile</property>
           </object>
@@ -222,7 +222,7 @@
             <property name="use-underline">True</property>
             <property name="justify">right</property>
             <property name="wrap">True</property>
-            <property name="mnemonic-widget">acpTrimStart</property>
+            <property name="mnemonic-widget">acpRate</property>
             <property name="ellipsize">end</property>
           </object>
           <packing>

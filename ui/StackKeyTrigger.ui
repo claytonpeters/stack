@@ -45,6 +45,7 @@
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_Description:</property>
                 <property name="use-underline">True</property>
+                <property name="mnemonic-widget">ktdDescriptionEntry</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
@@ -56,6 +57,7 @@
               <object class="GtkEntry" id="ktdDescriptionEntry">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">A description to show in the trigger list</property>
                 <property name="hexpand">True</property>
                 <property name="width-chars">50</property>
                 <property name="placeholder-text" translatable="yes">Descriptive text for the trigger</property>
@@ -71,7 +73,7 @@
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">_Key:</property>
                 <property name="use-underline">True</property>
-                <property name="justify">right</property>
+                <property name="mnemonic-widget">ktdKeyButton</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
@@ -101,6 +103,7 @@
                 <property name="label" translatable="yes">Cue _Action:</property>
                 <property name="use-underline">True</property>
                 <property name="justify">right</property>
+                <property name="mnemonic-widget">ktdActionPlay</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
@@ -173,6 +176,7 @@
                 <property name="can-focus">False</property>
                 <property name="label" translatable="yes">Key _Event:</property>
                 <property name="use-underline">True</property>
+                <property name="mnemonic-widget">ktdEventPress</property>
                 <property name="xalign">1</property>
               </object>
               <packing>
