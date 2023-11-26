@@ -109,5 +109,5 @@ make
 This will compile all the plugins and binaries. You can run Stack by running
 
 ```shell
-./runstack
+./stack
 ```
