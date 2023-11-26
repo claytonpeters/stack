@@ -223,9 +223,19 @@ char *stack_trigger_to_json(StackTrigger *trigger)
 	return strdup(writer.write(trigger_root).c_str());
 }
 
-void stack_trigger_free_json(char *json_data)
+void stack_trigger_free_json(StackTrigger *trigger, char *json_data)
 {
-	free(json_data);
+	// Get the class name
+	const char *class_name = trigger->_class_name;
+
+	// Look for a free_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && trigger_class_map[class_name]->free_json_func == NULL)
+	{
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	trigger_class_map[string(class_name)]->free_json_func(trigger, json_data);
 }
 
 // Generates the trigger from JSON data
@@ -297,16 +307,31 @@ StackTriggerAction stack_trigger_get_action_base(StackTrigger *trigger)
 
 char* stack_trigger_to_json_base(StackTrigger *trigger)
 {
-	return strdup("");
+	Json::Value trigger_root;
+
+	trigger_root["action"] = (Json::UInt64)trigger->action;
+
+	Json::FastWriter writer;
+	return strdup(writer.write(trigger_root).c_str());
 }
 
-void stack_trigger_free_json_base(char *json_data)
+void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data)
 {
 	free(json_data);
 }
 
 void stack_trigger_from_json_base(StackTrigger *trigger, const char *json_data)
 {
+	Json::Value trigger_root;
+	Json::Reader reader;
+
+	// Parse JSON data
+	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+
+	// Get the data that's pertinent to us
+	Json::Value& stack_trigger_data = trigger_root["StackTrigger"];
+
+	trigger->action = (StackTriggerAction)stack_trigger_data["action"].asUInt64();
 }
 
 bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent, bool new_trigger)

@@ -289,6 +289,24 @@ char *stack_cue_to_json_base(StackCue *cue)
 	// Write out everything else that isn't a property
 	cue_root["id"] = cue->id;
 	cue_root["uid"] = (Json::UInt64)cue->uid;
+	cue_root["triggers"] = Json::Value(Json::ValueType::arrayValue);
+
+	void *iter = stack_cue_trigger_iter_front(cue);
+	while (!stack_cue_trigger_iter_at_end(cue, iter))
+	{
+		Json::Value trigger_root;
+		Json::Reader reader;
+		char *trigger_json_data = stack_trigger_to_json(stack_cue_trigger_iter_get(iter));
+		reader.parse(trigger_json_data, trigger_root);
+		stack_trigger_free_json(stack_cue_trigger_iter_get(iter), trigger_json_data);
+
+		// Add it to the entry
+		cue_root["triggers"].append(trigger_root);
+
+		// Iterate
+		stack_cue_trigger_iter_next(iter);
+	}
+	stack_cue_trigger_iter_free(iter);
 
 	// Write out the JSON string and return it (to be free'd by
 	// stack_cue_free_json_base)
@@ -323,6 +341,54 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 	stack_cue_set_post_time(cue, stack_cue_data["post_time"].asInt64());
 	stack_cue_set_action_time(cue, stack_cue_data["action_time"].asInt64());
 	stack_cue_set_post_trigger(cue, (StackCueWaitTrigger)stack_cue_data["post_trigger"].asInt());
+
+	// If we have some triggers...
+	if (stack_cue_data.isMember("triggers"))
+	{
+		Json::Value& triggers_root = stack_cue_data["triggers"];
+
+		if (triggers_root.isArray())
+		{
+			for (auto iter = triggers_root.begin(); iter != triggers_root.end(); ++iter)
+			{
+				Json::Value& trigger_json = *iter;
+
+				// Make sure we hae a class parameter
+				if (!trigger_json.isMember("class"))
+				{
+					stack_log("stack_cue_from_json_base(): Trigger missing 'class' parameter, skipping\n");
+					continue;
+				}
+
+				// Make sure we have a base class
+				if (!trigger_json.isMember("StackTrigger"))
+				{
+					stack_log("stack_cue_from_json_base(): Trigger missing 'StackTrigger' class, skipping\n");
+					continue;
+				}
+
+				// Create a new trigger of the correct type
+				const char *class_name = trigger_json["class"].asString().c_str();
+				StackTrigger *trigger = stack_trigger_new(class_name, cue);
+				if (trigger == NULL)
+				{
+					stack_log("stack_cue_from_json_base(): Failed to create trigger of type '%s', skipping\n", class_name);
+
+					// TODO: It would be nice if we have some sort of 'error
+					// trigger' which contained the JSON for the cue, so we
+					// didn't just drop the trigger from thh cue
+
+					continue;
+				}
+
+				// Call constructor
+				stack_trigger_from_json(trigger, trigger_json.toStyledString().c_str());
+
+				// Append the trigger to the cue
+				stack_cue_add_trigger(cue, trigger);
+			}
+		}
+	}
 }
 
 // Sets the cue number / ID

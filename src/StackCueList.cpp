@@ -665,7 +665,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		{
 			if (callback)
 			{
-				callback(NULL, 0.1, "Preparing cue list...", user_data);
+				callback(cue_list, 0.1, "Preparing cue list...", user_data);
 			}
 
 			// Iterate over the cues, creating their instances, and populating
@@ -777,7 +777,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 
 	if (callback)
 	{
-		callback(NULL, 1.0, "Ready", user_data);
+		callback(cue_list, 1.0, "Ready", user_data);
 	}
 
 	return cue_list;

@@ -36,6 +36,7 @@ static void saw_open_file_callback(StackCueList *cue_list, double progress, cons
 	ShowLoadingData *sld = (ShowLoadingData*)data;
 
 	// Update our show loading data
+	sld->window->loading_cue_list = cue_list;
 	sld->message = message;
 	sld->progress = progress;
 
@@ -2131,6 +2132,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 		// Store the new cue list
 		window->cue_list = sld.new_cue_list;
+		window->loading_cue_list = NULL;
 		stack_cue_list_widget_set_cue_list(window->sclw, window->cue_list);
 
 		// Refresh the cue list

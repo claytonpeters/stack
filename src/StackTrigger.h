@@ -35,7 +35,7 @@ typedef const char*(*stack_trigger_get_event_text_t)(StackTrigger*);
 typedef const char*(*stack_trigger_get_description_t)(StackTrigger*);
 typedef StackTriggerAction(*stack_trigger_get_action_t)(StackTrigger*);
 typedef char*(*stack_trigger_to_json_t)(StackTrigger*);
-typedef void(*stack_trigger_free_json_t)(char*);
+typedef void(*stack_trigger_free_json_t)(StackTrigger*, char*);
 typedef void(*stack_trigger_from_json_t)(StackTrigger*, const char*);
 typedef bool(*stack_trigger_show_config_ui_t)(StackTrigger*, GtkWidget*, bool);
 
@@ -80,7 +80,7 @@ const char* stack_trigger_get_event_text(StackTrigger *trigger);
 const char* stack_trigger_get_description(StackTrigger *trigger);
 StackTriggerAction stack_trigger_get_action(StackTrigger *trigger);
 char* stack_trigger_to_json(StackTrigger *trigger);
-void stack_trigger_free_json(char *json_data);
+void stack_trigger_free_json(StackTrigger *trigger, char *json_data);
 void stack_trigger_from_json(StackTrigger *trigger, const char *json_data);
 bool stack_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, bool new_trigger);
 
@@ -93,7 +93,7 @@ const char* stack_trigger_get_event_text_base(StackTrigger *trigger);
 const char* stack_trigger_get_description_base(StackTrigger *trigger);
 StackTriggerAction stack_trigger_get_action_base(StackTrigger *trigger);
 char* stack_trigger_to_json_base(StackTrigger *trigger);
-void stack_trigger_free_json_base(char *json_data);
+void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data);
 void stack_trigger_from_json_base(StackTrigger *trigger, const char *json_data);
 bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent, bool new_trigger);
 

@@ -42,6 +42,9 @@ struct StackAppWindow
 	// Our cue list
 	StackCueList *cue_list;
 
+	// A cue list that's currently loading
+	StackCueList *loading_cue_list;
+
 	// Our cue list widget
 	StackCueListWidget *sclw;
 

@@ -61,13 +61,23 @@ void stack_key_trigger_set_handler(StackKeyTrigger *trigger, guint event_type, g
 
 	// Get the application windows
 	GtkApplication *gtk_app = GTK_APPLICATION(g_application_get_default());
+	if (gtk_app == NULL)
+	{
+		stack_log("stack_key_trigger_set_handler(): Failed to get application instance\n");
+	}
 	GList *windows = gtk_application_get_windows(gtk_app);
+	if (windows == NULL)
+	{
+		stack_log("stack_key_trigger_set_handler(): Failed to enumerate Stack windows\n");
+	}
+
+	StackCueList *parent = STACK_TRIGGER(trigger)->cue->parent;
 
 	// Find the window running the cue list for this cue
 	while (windows != NULL)
 	{
 		StackAppWindow *window = (StackAppWindow*)windows->data;
-		if (window != NULL && window->cue_list == STACK_TRIGGER(trigger)->cue->parent)
+		if (window != NULL && (window->cue_list == parent || window->loading_cue_list == parent))
 		{
 			// Remove any existing handlers we set
 			stack_key_trigger_remove_handler(trigger);
@@ -88,8 +98,15 @@ void stack_key_trigger_set_handler(StackKeyTrigger *trigger, guint event_type, g
 				trigger->handler_id = g_signal_connect(window->sclw, "key-release-event", G_CALLBACK(stack_key_trigger_run_action), (gpointer)trigger);
 				stack_log("stack_key_trigger_set_handler(): Key release signal attached, handler %d\n", trigger->handler_id);
 			}
+			else
+			{
+				stack_log("stack_key_trigger_set_handler(): Unknown event type\n");
+			}
+
 			break;
 		}
+
+		// Iterate
 		windows = windows->next;
 	}
 }
@@ -166,12 +183,55 @@ const char* stack_key_trigger_get_event_text(StackTrigger *trigger)
 	}
 }
 
-// Currently returns nothing
+// Returns the user-specified description
 const char* stack_key_trigger_get_description(StackTrigger *trigger)
 {
 	return STACK_KEY_TRIGGER(trigger)->description;
 }
 
+char *stack_key_trigger_to_json(StackTrigger *trigger)
+{
+	Json::Value trigger_root;
+
+	trigger_root["description"] = STACK_KEY_TRIGGER(trigger)->description;
+	trigger_root["keyval"] = STACK_KEY_TRIGGER(trigger)->keyval;
+	trigger_root["event_type"] = STACK_KEY_TRIGGER(trigger)->event_type;
+
+	Json::FastWriter writer;
+	return strdup(writer.write(trigger_root).c_str());
+}
+
+void stack_key_trigger_free_json(StackTrigger *trigger, char *json_data)
+{
+	free(json_data);
+}
+
+void stack_key_trigger_from_json(StackTrigger *trigger, const char *json_data)
+{
+	Json::Value trigger_root;
+	Json::Reader reader;
+
+	// Call the superclass version
+	stack_trigger_from_json_base(trigger, json_data);
+
+	// Parse JSON data
+	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+
+	// Get the data that's pertinent to us
+	Json::Value& stack_trigger_data = trigger_root["StackKeyTrigger"];
+
+	StackKeyTrigger *key_trigger = STACK_KEY_TRIGGER(trigger);
+	if (key_trigger->description != NULL)
+	{
+		free(key_trigger->description);
+	}
+	key_trigger->description = strdup(stack_trigger_data["description"].asString().c_str());
+	key_trigger->keyval = stack_trigger_data["keyval"].asUInt64();
+	key_trigger->event_type = stack_trigger_data["event_type"].asUInt64();
+
+	// Set up the handler
+	stack_key_trigger_set_handler(key_trigger, key_trigger->event_type, key_trigger->keyval);
+}
 ////////////////////////////////////////////////////////////////////////////////
 // CONFIGURATION USER INTERFACE
 
@@ -371,9 +431,9 @@ void stack_key_trigger_register()
 		stack_key_trigger_get_event_text,
 		stack_key_trigger_get_description,
 		NULL, //get_action
-		NULL, //to_json
-		NULL, //free_json,
-		NULL, //from_json
+		stack_key_trigger_to_json,
+		stack_key_trigger_free_json,
+		stack_key_trigger_from_json,
 		stack_key_trigger_show_config_ui
 	};
 	stack_register_trigger_class(key_trigger_class);
