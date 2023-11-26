@@ -1083,7 +1083,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 				*write_pointer += value;
 
 				// Check for clipping
-				if (*write_pointer > 1.0)
+				if (value > 1.0)
 				{
 					new_clipped[dest_channel] = true;
 				}
