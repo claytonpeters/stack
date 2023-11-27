@@ -19,6 +19,7 @@ gboolean stack_key_trigger_run_action(GtkWidget* self, GdkEventKey *event, gpoin
 		StackTriggerAction action = stack_trigger_get_action(STACK_TRIGGER(trigger));
 
 		// Run the correct action
+		stack_cue_list_lock(cue->parent);
 		switch (action)
 		{
 			case STACK_TRIGGER_ACTION_STOP:
@@ -31,6 +32,7 @@ gboolean stack_key_trigger_run_action(GtkWidget* self, GdkEventKey *event, gpoin
 				stack_cue_play(cue);
 				break;
 		}
+		stack_cue_list_unlock(cue->parent);
 	}
 
 	// Always allow other handlers to trigger
