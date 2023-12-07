@@ -518,3 +518,8 @@ scale marks mark label
 	padding-left: 4px;
 	font-size: 75%
 }
+
+.cue_description
+{
+	font-size: 150%;
+}
