@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.40.0 -->
+<interface>
+  <requires lib="gtk+" version="3.24"/>
+  <object class="GtkListStore" id="ttdUnitListStore">
+    <columns>
+      <!-- column-name Unit -->
+      <column type="gchararray"/>
+      <!-- column-name ID -->
+      <column type="gchararray"/>
+    </columns>
+    <data>
+      <row>
+        <col id="0" translatable="yes">second(s)</col>
+        <col id="1" translatable="yes">1</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">minute(s)</col>
+        <col id="1" translatable="yes">60</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">hour(s)</col>
+        <col id="1" translatable="yes">3600</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">day(s)</col>
+        <col id="1" translatable="yes">86400</col>
+      </row>
+    </data>
+  </object>
+  <object class="GtkDialog" id="timeTriggerDialog">
+    <property name="can-focus">False</property>
+    <property name="title" translatable="yes">Key Trigger Settings</property>
+    <property name="type-hint">dialog</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="margin-start">6</property>
+        <property name="margin-end">6</property>
+        <property name="margin-top">6</property>
+        <property name="margin-bottom">6</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="can-focus">False</property>
+            <property name="layout-style">end</property>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <!-- n-columns=2 n-rows=4 -->
+          <object class="GtkGrid" id="ttdBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="row-spacing">8</property>
+            <property name="column-spacing">8</property>
+            <child>
+              <object class="GtkLabel" id="ttdDescriptionLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">D_escription:</property>
+                <property name="use-underline">True</property>
+                <property name="mnemonic-widget">ttdDescriptionEntry</property>
+                <property name="xalign">1</property>
+              </object>
+              <packing>
+                <property name="left-attach">0</property>
+                <property name="top-attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="ttdDescriptionEntry">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">A description to show in the trigger list</property>
+                <property name="hexpand">True</property>
+                <property name="width-chars">50</property>
+                <property name="placeholder-text" translatable="yes">Descriptive text for the trigger</property>
+              </object>
+              <packing>
+                <property name="left-attach">1</property>
+                <property name="top-attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="ttdActionLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Cue _Action:</property>
+                <property name="use-underline">True</property>
+                <property name="justify">right</property>
+                <property name="mnemonic-widget">ttdActionPlay</property>
+                <property name="xalign">1</property>
+              </object>
+              <packing>
+                <property name="left-attach">0</property>
+                <property name="top-attach">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="ktdActionBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkRadioButton" id="ttdActionPlay">
+                    <property name="label" translatable="yes">Play</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">False</property>
+                    <property name="tooltip-text" translatable="yes">Play the cue when the trigger is activated</property>
+                    <property name="active">True</property>
+                    <property name="draw-indicator">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="ttdActionPause">
+                    <property name="label" translatable="yes">Pause</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">False</property>
+                    <property name="tooltip-text" translatable="yes">Pause the cue when the trigger is activated</property>
+                    <property name="draw-indicator">True</property>
+                    <property name="group">ttdActionPlay</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="ttdActionStop">
+                    <property name="label" translatable="yes">Stop</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">False</property>
+                    <property name="tooltip-text" translatable="yes">Stop the cue when the trigger is activated</property>
+                    <property name="draw-indicator">True</property>
+                    <property name="group">ttdActionPlay</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="left-attach">1</property>
+                <property name="top-attach">3</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="ttdDateTimeBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkEntry" id="ttdDateEntry">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="tooltip-text" translatable="yes">Date of trigger activation (or leave blank for "today")</property>
+                    <property name="placeholder-text" translatable="yes">YYYY-MM-DD</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="ttdTimeLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">_Time:</property>
+                    <property name="use-underline">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="ttdTimeEntry">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="tooltip-text" translatable="yes">Time of trigger activation</property>
+                    <property name="placeholder-text" translatable="yes">HH:MM:SS</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="left-attach">1</property>
+                <property name="top-attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="ttdDateLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">_Date:</property>
+                <property name="use-underline">True</property>
+                <property name="xalign">1</property>
+              </object>
+              <packing>
+                <property name="left-attach">0</property>
+                <property name="top-attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="ttdRepeatLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">_Repeat Every:</property>
+                <property name="use-underline">True</property>
+                <property name="xalign">1</property>
+              </object>
+              <packing>
+                <property name="left-attach">0</property>
+                <property name="top-attach">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="ttdRepeatBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkEntry" id="ttdRepeatEntry">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="tooltip-text" translatable="yes">How often to repeat the trigger. Leave blank to not repeat</property>
+                    <property name="width-chars">8</property>
+                    <property name="input-purpose">number</property>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBox" id="ttdRepeatUnitCombo">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="tooltip-text" translatable="yes">The unit of how often to repeat the trigger</property>
+                    <property name="model">ttdUnitListStore</property>
+                    <property name="active">0</property>
+                    <property name="id-column">1</property>
+                    <child>
+                      <object class="GtkCellRendererText"/>
+                      <attributes>
+                        <attribute name="text">0</attribute>
+                      </attributes>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="left-attach">1</property>
+                <property name="top-attach">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

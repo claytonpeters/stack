@@ -919,7 +919,7 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20231126-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20231207-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1864,16 +1864,16 @@ StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 	void *citer = stack_trigger_class_iter_front();
 	while (!stack_trigger_class_iter_at_end(citer))
 	{
-		// Append a row to the dialog
-		GtkTreeIter iter;
-		gtk_list_store_append(liststore, &iter);
-
 		// Get the class name
 		const char *class_name = stack_trigger_class_iter_get(citer)->class_name;
 
 		// Skip the base class
 		if (strcmp(class_name, "StackTrigger") != 0)
 		{
+			// Append a row to the dialog
+			GtkTreeIter iter;
+			gtk_list_store_append(liststore, &iter);
+
 			// Update iterator (TODO: Add in friendly name)
 			gtk_list_store_set(liststore, &iter,
 				0, class_name,

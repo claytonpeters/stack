@@ -396,8 +396,8 @@ bool stack_key_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, 
 			if (key_trigger->description != NULL)
 			{
 				free(key_trigger->description);
-				key_trigger->description = strdup(gtk_entry_get_text(ktdDescriptionEntry));
 			}
+			key_trigger->description = strdup(gtk_entry_get_text(ktdDescriptionEntry));
 
 			result = true;
 			break;
