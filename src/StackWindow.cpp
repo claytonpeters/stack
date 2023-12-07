@@ -1608,6 +1608,24 @@ extern "C" void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointe
 	// No need to update the UI on this one (currently)
 }
 
+extern "C" void saw_escape_pressed(void* widget, gpointer user_data)
+{
+	// Last time escape was pressed (note: static!)
+	static stack_time_t last_escape_time = 0;
+
+	// Only run if Escape is pressed twice within a short time (350ms)
+	if (last_escape_time > 0 && stack_get_clock_time() - last_escape_time < 350000000)
+	{
+		// Call Stop All
+		saw_cue_stop_all_clicked(widget, user_data);
+	}
+
+	// Keep track of the last time escape was pressed
+	last_escape_time = stack_get_clock_time();
+
+	return;
+}
+
 // Key event whilst treeview has focus
 static gboolean saw_cue_list_key_event(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
@@ -1622,25 +1640,6 @@ static gboolean saw_cue_list_key_event(GtkWidget *widget, GdkEvent *event, gpoin
 		{
 			// Call Edit -> Delete
 			saw_edit_delete_clicked(widget, user_data);
-			return true;
-		}
-
-		// If Escape was hit
-		if (((GdkEventKey*)event)->keyval == GDK_KEY_Escape)
-		{
-			// Last time escape was pressed (note: static!)
-			static stack_time_t last_escape_time = 0;
-
-			// Only run if Escape is pressed twice within a short time (350ms)
-			if (last_escape_time > 0 && stack_get_clock_time() - last_escape_time < 350000000)
-			{
-				// Call Stop All
-				saw_cue_stop_all_clicked(widget, user_data);
-			}
-
-			// Keep track of the last time escape was pressed
-			last_escape_time = stack_get_clock_time();
-
 			return true;
 		}
 
@@ -1813,6 +1812,8 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
 	gtk_accel_group_connect(ag, '4', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_exec_clicked), window, NULL));
 	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
+	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
+	gtk_accel_group_connect(ag, GDK_KEY_Escape, (GdkModifierType)0, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_escape_pressed), window, NULL));
 
 	// Apply some input validation
 	stack_limit_gtk_entry_float(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueNumber")), false);
