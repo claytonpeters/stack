@@ -734,6 +734,9 @@
                                 <accessibility>
                                   <relation type="labelled-by" target="sawCueNoteLabels"/>
                                 </accessibility>
+                                <style>
+                                  <class name="cue_description"/>
+                                </style>
                               </object>
                             </child>
                           </object>
