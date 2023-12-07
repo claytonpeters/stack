@@ -52,7 +52,6 @@ gboolean stack_time_trigger_timer(void *user_data)
 			// Calculate the next trigger time if we don't have one
 			if (time_trigger->next_trigger_ts == 0)
 			{
-				// TODO: CALCULATE NEXT TRIGGER TIME IN UTC
 				struct tm next_time_struct;
 
 				if (time_trigger->year == 0 && time_trigger->month == 0 && time_trigger->day == 0)
@@ -177,6 +176,7 @@ StackTrigger* stack_time_trigger_create(StackCue *cue)
 	trigger->last_trigger_ts = 0;
 	trigger->next_trigger_ts = 0;
 	trigger->configured = false;
+	strncpy(trigger->event_text, "", 128);
 
 	// Add us to the list of triggers
 	list_mutex.lock();
@@ -226,7 +226,49 @@ const char* stack_time_trigger_get_name(StackTrigger *trigger)
 // Returns the name of the key we're triggered off
 const char* stack_time_trigger_get_event_text(StackTrigger *trigger)
 {
-	return "TODO";
+	StackTimeTrigger *time_trigger = STACK_TIME_TRIGGER(trigger);
+
+	uint32_t scale = 1;
+	const char *unit = "seconds";
+	if (time_trigger->repeat % 86400 == 0)
+	{
+		unit = "day(s)";
+		scale = 86400;
+	}
+	else if (time_trigger->repeat % 3600 == 0)
+	{
+		unit = "hour(s)";
+		scale = 3600;
+	}
+	else if (time_trigger->repeat % 60 == 0)
+	{
+		unit = "minute(s)";
+		scale = 60;
+	}
+
+	if (time_trigger->repeat == 0)
+	{
+		if (time_trigger->year == 0 && time_trigger->month == 0 && time_trigger->day == 0)
+		{
+			snprintf(time_trigger->event_text, 128, "At %02d:%02d:%02d", time_trigger->hour, time_trigger->minute, time_trigger->second);
+		}
+		else
+		{
+			snprintf(time_trigger->event_text, 128, "At %d-%02d-%02d %02d:%02d:%02d", time_trigger->year, time_trigger->month, time_trigger->day, time_trigger->hour, time_trigger->minute, time_trigger->second);
+		}
+	}
+	else
+	{
+		if (time_trigger->year == 0 && time_trigger->month == 0 && time_trigger->day == 0)
+		{
+			snprintf(time_trigger->event_text, 128, "Every %d %s after %02d:%02d:%02d", time_trigger->repeat / scale, unit, time_trigger->hour, time_trigger->minute, time_trigger->second);
+		}
+		else
+		{
+			snprintf(time_trigger->event_text, 128, "Every %d %s after %d-%02d-%02d %02d:%02d:%02d", time_trigger->repeat / scale, unit, time_trigger->year, time_trigger->month, time_trigger->day, time_trigger->hour, time_trigger->minute, time_trigger->second);
+		}
+	}
+	return time_trigger->event_text;
 }
 
 // Returns the user-specified description
@@ -409,7 +451,7 @@ bool stack_time_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent,
 			{
 				sscanf(gtk_entry_get_text(ttdDateEntry), "%hu-%02hhu-%02hhu", &time_trigger->year, &time_trigger->month, &time_trigger->day);
 			}
-			sscanf(gtk_entry_get_text(ttdTimeEntry), "%02hhu:%02hhu/%02hhu", &time_trigger->hour, &time_trigger->minute, &time_trigger->second);
+			sscanf(gtk_entry_get_text(ttdTimeEntry), "%02hhu:%02hhu:%02hhu", &time_trigger->hour, &time_trigger->minute, &time_trigger->second);
 
 			// Reset the trigger timestamps so the timer recalculates the trigger time
 			time_trigger->next_trigger_ts = 0;

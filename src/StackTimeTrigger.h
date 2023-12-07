@@ -33,6 +33,9 @@ typedef struct StackTimeTrigger
 
 	// Configured flag (i.e. are the date/time valid)
 	bool configured;
+
+	// Buffer for our event text
+	char event_text[128];
 } StackKeyTrigger;
 
 // Defines:
