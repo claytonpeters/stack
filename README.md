@@ -21,6 +21,7 @@ Cues:
 Cue Triggers:
 * Spacebar to play next cue in playlist
 * Custom key triggers to play/pause/stop cues when a key is pressed/released
+* Timed cue triggers to fire at a given date/time, optionally repeatng
 
 Outputs:
 * PulseAudio (also work with PipeWire via PipeWire PulseAudio plugin)
@@ -109,5 +110,5 @@ make
 This will compile all the plugins and binaries. You can run Stack by running
 
 ```shell
-./stack
+./runstack
 ```
