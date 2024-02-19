@@ -26,7 +26,7 @@ struct PulseAudioSinkEnumData
 };
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
-void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
+void stack_pulse_audio_notify_callback(pa_context* context, void* user_data)
 {
 	pa_context_state_t state = pa_context_get_state(context);
 
@@ -43,19 +43,19 @@ void stack_pulse_audio_notify_callback(pa_context* context, void* userdata)
 			break;
 		case PA_CONTEXT_READY:
 			stack_log("stack_pulse_audio_notify_callback(): PulseAudio context ready\n");
-			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
+			if (user_data != NULL) { ((semaphore*)user_data)->notify(); }
 			break;
 		case PA_CONTEXT_FAILED:
 			stack_log("stack_pulse_audio_notify_callback(): PulseAudio connection failed\n");
-			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
+			if (user_data != NULL) { ((semaphore*)user_data)->notify(); }
 			break;
 		case PA_CONTEXT_TERMINATED:
 			stack_log("stack_pulse_audio_notify_callback(): PulseAudio connection terminated\n");
-			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
+			if (user_data != NULL) { ((semaphore*)user_data)->notify(); }
 			break;
 		default:
 			stack_log("stack_pulse_audio_notify_callback(): Unknown state!\n");
-			if (userdata != NULL) { ((semaphore*)userdata)->notify(); }
+			if (user_data != NULL) { ((semaphore*)user_data)->notify(); }
 			break;
 	}
 }
@@ -127,31 +127,31 @@ static void stack_pulse_audio_device_output_thread(void *user_data)
 }
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio on state change
-void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* userdata)
+void stack_pulse_audio_stream_underflow_callback(pa_context* context, void* user_data)
 {
 	stack_log("stack_pulse_audio_stream_underflow_callback(): Device buffer underflow!\n");
 }
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio when counting sinks
-void stack_pulse_audio_sink_info_count_callback(pa_context* context, pa_sink_info* sinkinfo, int eol, void* userdata)
+void stack_pulse_audio_sink_info_count_callback(pa_context* context, pa_sink_info* sinkinfo, int eol, void* user_data)
 {
-	if (userdata != NULL)
+	if (user_data != NULL)
 	{
 		if (sinkinfo == NULL && eol != 0)
 		{
-			((PulseAudioSinkCountData*)userdata)->sink_semaphore.notify();
+			((PulseAudioSinkCountData*)user_data)->sink_semaphore.notify();
 			return;
 		}
 
-		((PulseAudioSinkCountData*)userdata)->count++;
+		((PulseAudioSinkCountData*)user_data)->count++;
 	}
 }
 
 // PULSEAUDIO CALLBACK: Called by PulseAudio when collecting sink info
-void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sinkinfo, int eol, void* userdata)
+void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sinkinfo, int eol, void* user_data)
 {
 	// For easiness:
-	PulseAudioSinkEnumData* pased = (PulseAudioSinkEnumData*)userdata;
+	PulseAudioSinkEnumData* pased = (PulseAudioSinkEnumData*)user_data;
 
 	if (pased != NULL)
 	{
@@ -181,10 +181,10 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 }
 
 // PULSEAUDIO CALLBACK: Stream state change
-void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *userdata)
+void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *user_data)
 {
 	// Get the device
-	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(userdata);
+	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(user_data);
 
 	// We don't do a great deal if we haven't got a device
 	if (device == NULL)
@@ -223,10 +223,10 @@ void stack_pulse_audio_stream_notify_callback(pa_stream* stream, void *userdata)
 }
 
 // PULSEAUDIO CALLBACK: Server info callback
-void stack_pulse_audio_server_info_callback(pa_context *context, const pa_server_info *info, void *userdata)
+void stack_pulse_audio_server_info_callback(pa_context *context, const pa_server_info *info, void *user_data)
 {
 	// Get the device
-	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(userdata);
+	StackPulseAudioDevice *device = STACK_PULSE_AUDIO_DEVICE(user_data);
 
 	// We don't do a great deal if we haven't got a device
 	if (device == NULL)

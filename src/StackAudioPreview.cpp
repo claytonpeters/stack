@@ -14,7 +14,6 @@ GtkWidget *stack_audio_preview_new()
 {
 	// Create the new object
 	GtkWidget *widget = GTK_WIDGET(g_object_new(stack_audio_preview_get_type(), NULL, NULL));
-	StackAudioPreview *preview = STACK_AUDIO_PREVIEW(widget);
 
 	return widget;
 }
@@ -183,9 +182,6 @@ static void stack_audio_preview_render_thread(StackAudioPreview *preview)
 	float *read_buffer = new float[samples];
 	bool no_more_data = false;
 	uint64_t sample = preview_start_samples;
-
-	// Calculate the width of a single sample on the surface
-	uint64_t samples_in_file = (uint64_t)((double)file->length / 1.0e9 * (double)file->sample_rate);
 
 	while (preview->thread_running && !no_more_data && sample < preview_end_samples)
 	{

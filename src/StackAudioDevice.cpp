@@ -7,8 +7,7 @@
 using namespace std;
 
 // Map of classes
-static map<string, const StackAudioDeviceClass*> adev_class_map;
-typedef map<string, const StackAudioDeviceClass*>::iterator sadc_iter_t;
+static StackAudioDeviceClassMap adev_class_map;
 
 StackAudioDevice *stack_audio_device_create_base(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
@@ -139,30 +138,7 @@ const StackAudioDeviceClass *stack_audio_device_get_class(const char *name)
 	return iter->second;
 }
 
-void *stack_audio_device_class_iter_front()
+const StackAudioDeviceClassMap *stack_audio_device_class_get_map()
 {
-	sadc_iter_t* result = new sadc_iter_t;
-	*result = adev_class_map.begin();
-	return result;
+	return &adev_class_map;
 }
-
-void *stack_audio_device_class_iter_next(void *iter)
-{
-	return (void*)&(++(*(sadc_iter_t*)(iter)));
-}
-
-const StackAudioDeviceClass *stack_audio_device_class_iter_get(void *iter)
-{
-	return (*(sadc_iter_t*)(iter))->second;
-}
-
-void stack_audio_device_class_iter_free(void *iter)
-{
-	delete (sadc_iter_t*)iter;
-}
-
-bool stack_audio_device_class_iter_at_end(void *iter)
-{
-	return (*(sadc_iter_t*)(iter)) == adev_class_map.end();
-}
-

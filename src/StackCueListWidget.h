@@ -45,6 +45,7 @@ struct StackCueListWidget
 
 	// The cue that is currently appearing first in the list
 	cue_uid_t top_cue;
+	bool top_cue_is_placeholder;
 
 	// Some additional data about the cue
 	SCLWCueFlagsMap cue_flags;
@@ -53,6 +54,8 @@ struct StackCueListWidget
 	GdkPixbuf *icon_play;
 	GdkPixbuf *icon_pause;
 	GdkPixbuf *icon_error;
+	GdkPixbuf *icon_open;
+	GdkPixbuf *icon_closed;
 
 	// Cairo objects for cached items
 	cairo_t *header_cr;
@@ -70,6 +73,9 @@ struct StackCueListWidget
 	int32_t drop_index;
 	double drag_start_x;
 	double drag_start_y;
+
+	// Redraw pending optimisation
+	bool redraw_pending;
 };
 
 struct StackCueListWidgetClass
@@ -96,6 +102,7 @@ void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue, i
 void stack_cue_list_widget_list_modified(StackCueListWidget *sclw);
 bool stack_cue_list_widget_expand_cue(StackCueListWidget *sclw, cue_uid_t new_uid, bool expand);
 bool stack_cue_list_widget_is_cue_selected(StackCueListWidget *sclw, cue_uid_t uid);
+bool stack_cue_list_widget_is_cue_expanded(StackCueListWidget *sclw, cue_uid_t uid);
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);

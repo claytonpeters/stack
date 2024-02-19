@@ -272,45 +272,30 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	GtkListStore *liststore = GTK_LIST_STORE(gtk_builder_get_object(window->builder, "sawTriggersListStore"));
 	gtk_list_store_clear(liststore);
 
-	void *iter = stack_cue_trigger_iter_front(cue);
-	while (!stack_cue_trigger_iter_at_end(cue, iter))
+	for (auto trigger : *cue->triggers)
 	{
-		saw_add_trigger_to_liststore(window, stack_cue_trigger_iter_get(iter));
-		stack_cue_trigger_iter_next(iter);
+		saw_add_trigger_to_liststore(window, trigger);
 	}
-	stack_cue_trigger_iter_free(iter);
 }
 
 // Selects the first cue on the list
 static void saw_select_first_cue(StackAppWindow *window)
 {
-	void *iter = stack_cue_list_iter_front(window->cue_list);
-	StackCue *cue = stack_cue_list_iter_get(iter);
+	StackCue *cue = *(window->cue_list->cues->begin());
 	if (cue != NULL)
 	{
 		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
 	}
-	stack_cue_list_iter_free(iter);
 }
 
 // Selects the last cue on the list
 static void saw_select_last_cue(StackAppWindow *window)
 {
-	void *iter = stack_cue_list_iter_front(window->cue_list);
-	StackCue *cue = NULL;
-
-	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
-	{
-		cue = stack_cue_list_iter_get(iter);
-		stack_cue_list_iter_next(iter);
-	}
-
+	StackCue *cue = *(--(window->cue_list->cues->end()));
 	if (cue != NULL)
 	{
 		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
 	}
-
-	stack_cue_list_iter_free(iter);
 }
 
 // Selects the next cue in the list
@@ -325,12 +310,12 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 		StackCue *old_cue = stack_cue_get_by_uid(old_uid);
 
 		// Get an iterator into the cue list at that point
-		void *iter = stack_cue_list_iter_at(window->cue_list, old_uid, NULL);
+		StackCueStdList::iterator iter = stack_cue_list_iter_at(window->cue_list, old_uid, NULL);
 
 		// Move the iterator forward one
-		stack_cue_list_iter_next(iter);
+		iter++;
 
-		if (!stack_cue_list_iter_at_end(window->cue_list, iter))
+		if (iter != window->cue_list->cues->end())
 		{
 			// If we're skipping past cues that are triggered by auto-
 			// continue/follow on the cue before them
@@ -351,10 +336,10 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 						// We need to keep searching forward. Get the "next" cue, so
 						// the loop can check to see if we need to skip again on the
 						// next ieration
-						old_cue = stack_cue_list_iter_get(iter);
-						stack_cue_list_iter_next(iter);
+						old_cue = *iter;
+						++iter;
 
-						if (stack_cue_list_iter_at_end(window->cue_list, iter))
+						if (iter == window->cue_list->cues->end())
 						{
 							// If we can't move any further forward, stop searching
 							searching = false;
@@ -376,17 +361,14 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 				}
 				else
 				{
-					stack_cue_list_widget_select_single_cue(window->sclw, stack_cue_list_iter_get(iter)->uid);
+					stack_cue_list_widget_select_single_cue(window->sclw, (*iter)->uid);
 				}
 			}
 			else
 			{
-				stack_cue_list_widget_select_single_cue(window->sclw, stack_cue_list_iter_get(iter)->uid);
+				stack_cue_list_widget_select_single_cue(window->sclw, (*iter)->uid);
 			}
 		}
-
-		// Tidy up
-		stack_cue_list_iter_free(iter);
 	}
 }
 
@@ -643,13 +625,10 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	// been deleted. This is the cue after the bottom-most selected cue
 	cue_uid_t new_selection = STACK_CUE_UID_NONE;
 	bool previous_was_selected = false;
-	cue_uid_t previous_cue = STACK_CUE_UID_NONE;
 
 	// Iterate over the cue list
-	void *iter = stack_cue_list_iter_front(window->cue_list);
-	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+	for (auto cue : *window->cue_list->cues)
 	{
-		StackCue *cue = stack_cue_list_iter_get(iter);
 		bool is_selected = stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid);
 
 		// If the current cue is not selected, and the previous cue was, mark
@@ -665,24 +644,17 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 		{
 			previous_was_selected = true;
 		}
-		previous_cue = cue->uid;
-
-		// Iterate
-		stack_cue_list_iter_next(iter);
 	}
 
 	// It is possible here (for example if we've selected the last items in the
 	// list) that the new selection is still nothing, but we account for that
 	// later
-	//
-	// Tidy up
-	stack_cue_list_iter_free(iter);
 
 	// Iterate over all the cues and delete the ones that are selected
-	iter = stack_cue_list_iter_front(window->cue_list);
-	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+	StackCueStdList::iterator iter = window->cue_list->cues->begin();
+	while (iter != window->cue_list->cues->end())
 	{
-		StackCue *cue = stack_cue_list_iter_get(iter);
+		StackCue *cue = *iter;
 
 		// If the cue is selected
 		if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
@@ -695,7 +667,7 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 			}
 
 			// Iterate to the next cue now or the iterator will become invalid
-			stack_cue_list_iter_next(iter);
+			++iter;
 
 			// Remove the cue from the cue list
 			stack_cue_list_lock(window->cue_list);
@@ -708,12 +680,9 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 		else
 		{
 			// Iterate
-			stack_cue_list_iter_next(iter);
+			++iter;
 		}
 	}
-
-	// Tidy up
-	stack_cue_list_iter_free(iter);
 
 	// Redraw the whole list widget
 	stack_cue_list_widget_list_modified(window->sclw);
@@ -739,12 +708,10 @@ extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data
 	// Only do this if the cue list has focus
 	if (gtk_window_get_focus(GTK_WINDOW(window)) == GTK_WIDGET(window->sclw))
 	{
-		auto iter = stack_cue_list_iter_front(window->cue_list);
-		for (; !stack_cue_list_iter_at_end(window->cue_list, iter); stack_cue_list_iter_next(iter))
+		for (auto cue : *window->cue_list->cues)
 		{
-			stack_cue_list_widget_add_to_selection(window->sclw, stack_cue_list_iter_get(iter)->uid);
+			stack_cue_list_widget_add_to_selection(window->sclw, cue->uid);
 		}
-		stack_cue_list_iter_free(iter);
 
 		// Don't let GTK pass on the event
 		return true;
@@ -852,27 +819,15 @@ extern "C" void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 		// Lock the cue list
 		stack_cue_list_lock(window->cue_list);
 
-		// Get an iterator over the cue list
-		void *citer = stack_cue_list_iter_front(window->cue_list);
-
 		// Iterate over the cue list
-		while (!stack_cue_list_iter_at_end(window->cue_list, citer))
+		for (auto cue : *window->cue_list->cues)
 		{
-			// Get the cue
-			StackCue *cue = stack_cue_list_iter_get(citer);
-
 			// Update the row
 			stack_cue_list_widget_update_cue(window->sclw, cue->uid, 0);
-
-			// Iterate
-			citer = stack_cue_list_iter_next(citer);
 		}
 
 		// Unlock the cue list
 		stack_cue_list_unlock(window->cue_list);
-
-		// Free the iterator
-		stack_cue_list_iter_free(citer);
 
 		// The selected cue is in bounds of the selection, so update the cue
 		// properties panel too
@@ -919,8 +874,8 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20231207-1");
-	gtk_about_dialog_set_copyright(about, "Copyright (c) 2023 Clayton Peters");
+	gtk_about_dialog_set_version(about, "Version 0.1.20240211-1");
+	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
 	gtk_about_dialog_set_logo(about, STACK_APP_WINDOW(user_data)->icon);
@@ -1120,11 +1075,8 @@ static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
 	// Get the UI item to remov the cue from
 	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
 
-	auto iter = stack_cue_list_iter_front(window->cue_list);
-	while (!stack_cue_list_iter_at_end(window->cue_list, iter))
+	for (auto cue : *window->cue_list->cues)
 	{
-		StackCue *cue = stack_cue_list_iter_get(iter);
-
 		// We're looking for cues that are stopped but have widgets
 		if (cue->state == STACK_CUE_STATE_STOPPED)
 		{
@@ -1144,13 +1096,7 @@ static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
 				window->active_cue_widgets.erase(find_widget);
 			}
 		}
-
-		// Iterate to next cue
-		stack_cue_list_iter_next(iter);
 	}
-
-	// Tidy up
-	stack_cue_list_iter_free(iter);
 }
 
 static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue *cue)
@@ -1302,15 +1248,9 @@ static gboolean saw_ui_timer(gpointer user_data)
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
-	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(window->cue_list);
-
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
+	for (auto cue : *window->cue_list->cues)
 	{
-		// Get the cue
-		StackCue *cue = stack_cue_list_iter_get(citer);
-
 		if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
 		{
 			// Update the row (times only)
@@ -1319,9 +1259,6 @@ static gboolean saw_ui_timer(gpointer user_data)
 			// Update active cue panel
 			saw_add_or_update_active_cue_widget(window, cue);
 		}
-
-		// Iterate
-		citer = stack_cue_list_iter_next(citer);
 	}
 
 	// Remove any inactive cues
@@ -1348,9 +1285,6 @@ static gboolean saw_ui_timer(gpointer user_data)
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
-
-	// Free the iterator
-	stack_cue_list_iter_free(citer);
 
 	return true;
 }
@@ -1862,11 +1796,10 @@ StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 	GtkListStore *liststore = GTK_LIST_STORE(gtk_tree_view_get_model(treeview));
 
 	// Populate the list
-	void *citer = stack_trigger_class_iter_front();
-	while (!stack_trigger_class_iter_at_end(citer))
+	for (auto citer : *stack_trigger_class_map_get())
 	{
 		// Get the class name
-		const char *class_name = stack_trigger_class_iter_get(citer)->class_name;
+		const char *class_name = citer.second->class_name;
 
 		// Skip the base class
 		if (strcmp(class_name, "StackTrigger") != 0)
@@ -1880,8 +1813,6 @@ StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 				0, class_name,
 				1, class_name, -1);
 		}
-
-		stack_trigger_class_iter_next(citer);
 	}
 
 	// Run the dialog
@@ -1943,15 +1874,9 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
-	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(window->cue_list);
-
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(window->cue_list, citer))
+	for (auto cue : *window->cue_list->cues)
 	{
-		// Get the cue
-		StackCue *cue = stack_cue_list_iter_get(citer);
-
 		if (cue != hide)
 		{
 			// Append a row to the dialog
@@ -1974,13 +1899,7 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 				1, stack_cue_get_rendered_name(cue),
 				2, (gpointer)cue, -1);
 		}
-
-		// Iterate
-		citer = stack_cue_list_iter_next(citer);
 	}
-
-	// Free the iterator
-	stack_cue_list_iter_free(citer);
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
@@ -2086,7 +2005,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 	gtk_dialog_set_default_response(sld.dialog, 1);
 
 	// Start the thread, dialog update timer, and show the dialog
-	guint id = g_timeout_add(20, saw_open_file_timer, (gpointer)&sld);
+	g_timeout_add(20, saw_open_file_timer, (gpointer)&sld);
 	std::thread thread = std::thread(saw_open_file_thread, &sld);
 
 	// This call blocks until the dialog goes away

@@ -5,6 +5,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <gtk/gtk.h>
+#include <map>
+#include <vector>
+#include <string>
 
 // Things defined in this file:
 struct StackCue;
@@ -36,6 +39,10 @@ typedef uint64_t cue_uid_t;
 #include "StackProperty.h"
 #include "StackCueList.h"
 #include "StackTrigger.h"
+
+typedef std::map<std::string, StackProperty*> StackPropertyMap;
+typedef std::vector<StackTrigger*> StackTriggerVector;
+typedef std::vector<StackTrigger*>::iterator *StackTriggerVectorIter;
 
 // Cue state
 enum StackCueState
@@ -103,10 +110,10 @@ struct StackCue
 
 	// The properties for the cue (this is a std::map internally). Any
 	// properties stored in here will automatically be written to JSON
-	void *properties;
+	StackPropertyMap *properties;
 
 	// The additional triggers for the cue (this is a std::vector internally)
-	void *triggers;
+	StackTriggerVector *triggers;
 };
 
 // Typedefs for create/delete functions
@@ -126,6 +133,7 @@ typedef size_t(*stack_cue_get_active_channels_t)(StackCue*, bool*);
 typedef size_t(*stack_cue_get_audio_t)(StackCue*, float*, size_t);
 typedef const char*(*stack_cue_get_field_t)(StackCue*, const char *);
 typedef GdkPixbuf*(*stack_cue_get_icon_t)(StackCue*);
+typedef StackCueStdList*(*stack_cue_get_children_t)(StackCue*);
 
 // Defines information about a class
 struct StackCueClass
@@ -148,6 +156,7 @@ struct StackCueClass
 	stack_cue_get_audio_t get_audio_func;
 	stack_cue_get_field_t get_field_func;
 	stack_cue_get_icon_t get_icon_func;
+	stack_cue_get_children_t get_children_func;
 };
 
 // Functions: Helpers
@@ -200,12 +209,8 @@ GdkPixbuf* stack_cue_get_icon(StackCue *cue);
 void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger);
 void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger);
 void stack_cue_clear_triggers(StackCue *cue);
-void *stack_cue_trigger_iter_front(StackCue *cue);
-void *stack_cue_trigger_iter_next(void *iter);
-void *stack_cue_trigger_iter_prev(void *iter);
-StackTrigger *stack_cue_trigger_iter_get(void *iter);
-void stack_cue_trigger_iter_free(void *iter);
-bool stack_cue_trigger_iter_at_end(StackCue *cue, void *iter);
+const char* stack_cue_get_field(StackCue *cue, const char *field);
+StackCueStdList *stack_cue_get_children(StackCue *cue);
 
 // Base stack cue operations. These should not be called directly except from
 // within subclasses of StackCue
@@ -225,7 +230,7 @@ size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active);
 size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples);
 const char* stack_cue_get_field_base(StackCue *cue, const char *field);
 GdkPixbuf* stack_cue_get_icon_base(StackCue *cue);
-const char* stack_cue_get_field(StackCue *cue, const char *field);
+StackCueStdList *stack_cue_get_children_base(StackCue *cue);
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

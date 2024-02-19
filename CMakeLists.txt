@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(runstack)
-list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -O3 -Werror=return-type")
+set(CMAKE_CXX_FLAGS_DEBUG_INIT "-ggdb")
+set(CMAKE_CXX_FLAGS_RELEASE_INIT "-O3 -Wall")
+list(APPEND CMAKE_CXX_FLAGS "-std=c++23 -Werror=return-type")
 
 # Add in program for compiling resources
 find_program(GLIB_COMPILE_RESOURCES NAMES glib-compile-resources REQUIRED)
@@ -13,7 +15,7 @@ add_custom_command(
 	ARGS --generate-source --target=src/resources.c src/resources.xml
 	VERBATIM
 	MAIN_DEPENDENCY src/resources.xml
-	DEPENDS ui/SelectTriggerType.ui ui/SelectCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css
+	DEPENDS ui/SelectTriggerType.ui ui/SelectCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/window.ui ui/stack.css icons/stack-icon-256.png icons/cuelist-open.png icons/cuelist-closed.png
 )
 add_custom_target(resources-target DEPENDS src/resources.c)
 set_source_files_properties(src/resources.c PROPERTIES GENERATED TRUE)

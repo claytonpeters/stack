@@ -9,8 +9,7 @@
 using namespace std;
 
 // Map of classes
-static map<string, const StackTriggerClass*> trigger_class_map;
-typedef map<string, const StackTriggerClass*>::iterator stc_iter_t;
+static StackTriggerClassMap trigger_class_map;
 
 void stack_trigger_init(StackTrigger *trigger, StackCue *cue)
 {
@@ -369,29 +368,7 @@ const StackTriggerClass *stack_trigger_get_class(const char *name)
 	return iter->second;
 }
 
-void *stack_trigger_class_iter_front()
+const StackTriggerClassMap *stack_trigger_class_map_get()
 {
-	stc_iter_t* result = new stc_iter_t;
-	*result = trigger_class_map.begin();
-	return result;
-}
-
-void *stack_trigger_class_iter_next(void *iter)
-{
-	return (void*)&(++(*(stc_iter_t*)(iter)));
-}
-
-const StackTriggerClass *stack_trigger_class_iter_get(void *iter)
-{
-	return (*(stc_iter_t*)(iter))->second;
-}
-
-void stack_trigger_class_iter_free(void *iter)
-{
-	delete (stc_iter_t*)iter;
-}
-
-bool stack_trigger_class_iter_at_end(void *iter)
-{
-	return (*(stc_iter_t*)(iter)) == trigger_class_map.end();
+	return &trigger_class_map;
 }

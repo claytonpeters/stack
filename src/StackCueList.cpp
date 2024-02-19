@@ -8,14 +8,6 @@
 #include <json/json.h>
 using namespace std;
 
-typedef list<StackCue*> stackcue_list_t;
-typedef list<StackCue*>::iterator stackcue_list_iterator_t;
-typedef map<cue_uid_t, cue_uid_t> uid_remap_t;
-typedef map<cue_uid_t, StackChannelRMSData*> rms_map_t;
-
-#define SCL_GET_LIST(_scl) ((stackcue_list_t*)(((StackCueList*)(_scl))->cues))
-#define SCL_UID_REMAP(_scl) (*((uid_remap_t*)(_scl)))
-
 // Pre-definitions:
 static void stack_cue_list_pulse_thread(StackCueList *cue_list);
 
@@ -39,7 +31,7 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->rms_cache = new float[cue_list->channels];
 
 	// Initialise a list
-	cue_list->cues = (void*)new stackcue_list_t();
+	cue_list->cues = new StackCueStdList();
 
 	// Initialise the ring buffers
 	cue_list->buffers = new StackRingBuffer*[channels];
@@ -49,10 +41,10 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	}
 
 	// Initialise a remap map
-	cue_list->uid_remap = (void*)new uid_remap_t();
+	cue_list->uid_remap = new map<cue_uid_t, cue_uid_t>();
 
 	// Initialise a map for storing RMS data
-	cue_list->rms_data = (void*)new rms_map_t();
+	cue_list->rms_data = new map<cue_uid_t, StackChannelRMSData*>();
 
 	// Initialise master RMS data
 	cue_list->master_rms_data = new StackChannelRMSData[channels];
@@ -106,28 +98,18 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	// Lock the cue list
 	stack_cue_list_lock(cue_list);
 
-	// Get an iterator over the cue list
-	void *citer = stack_cue_list_iter_front(cue_list);
-
 	// Iterate over the cue list
-	while (!stack_cue_list_iter_at_end(cue_list, citer))
+	while (cue_list->cues->size() != 0)
 	{
 		// Get the cue
-		StackCue *cue = stack_cue_list_iter_get(citer);
+		StackCue *cue = *cue_list->cues->begin();
 
 		// Remove it from the cue list
 		stack_cue_list_remove(cue_list, cue);
 
 		// Destroy the cue
 		stack_cue_destroy(cue);
-
-		// Iterate by repeatedly grabbing the top of the list
-		stack_cue_list_iter_free(citer);
-		citer = stack_cue_list_iter_front(cue_list);
 	}
-
-	// Free the iterator
-	stack_cue_list_iter_free(citer);
 
 	// If we've got a URI, free that
 	if (cue_list->uri)
@@ -157,15 +139,15 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	delete [] cue_list->buffers;
 
 	// Tidy up rms data
-	for (auto iter : *(rms_map_t*)cue_list->rms_data)
+	for (auto iter : *cue_list->rms_data)
 	{
 		delete [] iter.second;
 	}
 
 	// Tidy up memory
-	delete (stackcue_list_t*)cue_list->cues;
-	delete (uid_remap_t*)cue_list->uid_remap;
-	delete (rms_map_t*)cue_list->rms_data;
+	delete cue_list->cues;
+	delete cue_list->uid_remap;
+	delete cue_list->rms_data;
 
 	// Tidy up caches
 	delete [] cue_list->active_channels_cache;
@@ -257,7 +239,7 @@ void stack_cue_list_set_audio_device(StackCueList *cue_list, StackAudioDevice *a
 /// @param cue_list The cue list
 size_t stack_cue_list_count(StackCueList *cue_list)
 {
-	return SCL_GET_LIST(cue_list)->size();
+	return cue_list->cues->size();
 }
 
 /// Appends a cue in the cue list
@@ -266,67 +248,192 @@ size_t stack_cue_list_count(StackCueList *cue_list)
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue)
 {
 	cue_list->changed = true;
-	SCL_GET_LIST(cue_list)->push_back(cue);
+	cue_list->cues->push_back(cue);
 }
 
 /// Moves an existing cue within the stack
 /// @param cue_list The cue list
 /// @param cue The cue to be moved
-/// @param index The new position of the cue within the cue list. If greater than the length of the list, it will be put at the end
-void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, size_t index)
+/// @param dest The cue that represents the location of the new cue
+/// @param before Whether to insert the cue before (true) or after (false) the cue given by dest
+/// @param dest_in_child Whether the destination will make the cue a child
+void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, bool before, bool dest_in_child)
 {
-	stackcue_list_t* cues = SCL_GET_LIST(cue_list);
-	bool found = false;
+	StackCueStdList* cues = cue_list->cues;
+	bool found_src = false, found_dest = false;
 
-	// Search for the cue to move
-	for (auto iter = cues->begin(); iter != cues->end(); ++iter)
+	if (cue_list == NULL || cue == NULL || dest == NULL)
 	{
-		if (*iter == cue)
-		{
-			// If found, erase it from the list temporarily and stop searching
-			cue_list->changed = true;
-			cues->erase(iter);
-			found = true;
-			break;
-		}
+		stack_log("stack_cue_list_move(): NULL pointer passed!");
+		return;
 	}
 
-	// If we found the cue, but it back in at it's new location
-	if (found)
+	// Don't allow group cues inside group cues
+	if (cue->can_have_children && dest_in_child)
 	{
-		// If it's past the end of the list, the append it
-		if (index >= cues->size())
+		stack_log("stack_cue_list_move(): Cues with children can't be nested\n");
+		return;
+	}
+
+	// Lock
+	stack_cue_list_lock(cue_list);
+
+	if (cue->parent_cue != NULL)
+	{
+		StackCueStdList *children = stack_cue_get_children(cue->parent_cue);
+
+		// Search for the cue to move
+		for (auto iter = children->begin(); iter != children->end(); ++iter)
 		{
-			stack_cue_list_append(cue_list, cue);
-		}
-		else
-		{
-			// std::list requires an iterator for postion, so find one
-			size_t i = 0;
-			for (auto iter = cues->begin(); iter != cues->end(); ++iter)
+			if (*iter == cue)
 			{
-				if (i == index)
-				{
-					cues->insert(iter, cue);
-					break;
-				}
-				else
-				{
-					i++;
-				}
+				// If found, erase it from the list temporarily and stop searching
+				cue_list->changed = true;
+				children->erase(iter);
+				found_src = true;
+
+				// Cue is no longer a child
+				cue->parent_cue = NULL;
+				break;
 			}
 		}
 	}
-}
+	else
+	{
+		// Search for the cue to move
+		for (auto iter = cues->begin(); iter != cues->end(); ++iter)
+		{
+			if (*iter == cue)
+			{
+				// If found, erase it from the list temporarily and stop searching
+				cue_list->changed = true;
+				cues->erase(iter);
+				found_src = true;
+				break;
+			}
+		}
+	}
 
-/// Returns an iterator to the front of the cue list
-/// @param cue_list The cue list
-/// @returns An iterator
-void *stack_cue_list_iter_front(StackCueList *cue_list)
-{
-	stackcue_list_iterator_t* result = new stackcue_list_iterator_t;
-	*result	= (SCL_GET_LIST(cue_list)->begin());
-	return result;
+	// If we found the cue, put it back in at it's new location
+	if (found_src)
+	{
+		for (auto iter = cues->recursive_begin(); iter != cues->recursive_end(); ++iter)
+		{
+			if (*iter == dest)
+			{
+				found_dest = true;
+
+				if (iter.is_child())
+				{
+					// If we're not expecting the destination to be in a child,
+					// leave the child list in the appropriate direction
+					if (!dest_in_child)
+					{
+						iter.leave_child(!before);
+					}
+				}
+
+				// Our destination cue could have changed by the above logic, so
+				// update it
+				dest = *iter;
+
+				if (dest_in_child)
+				{
+					StackCueStdList *children = NULL;
+
+					// If we're expecting the destination to be a child, but the
+					// destination we've found is not a child, then move into the
+					// child and flip our before flag (i.e. after parent becomes
+					// before first child)
+					if (!iter.is_child())
+					{
+						children = stack_cue_get_children(dest);
+						cue->parent_cue = dest;
+
+						// Only move forward if the cue has children (as otherwise we'll
+						// move forward to the next cue)
+						if (children->size() != 0)
+						{
+							++iter;
+							before = true;
+							dest = *iter;
+						}
+					}
+					else
+					{
+						// The cue we're going to become a child of is the parent of the destination cue
+						children = stack_cue_get_children(dest->parent_cue);
+						cue->parent_cue = dest->parent_cue;
+					}
+
+
+					if (!before)
+					{
+						// If we're inserting after the destination cue, increment the
+						// iterator (as std::list::insert inserts before the iterator)
+						++iter;
+						if (!iter.is_child())
+						{
+							// If we're no longer in a child, which would be a mistake
+							// then go back and just append to the list instead
+							--iter;
+							children->push_back(cue);
+						}
+					}
+					else
+					{
+						if (children->size() == 0)
+						{
+							children->push_back(cue);
+						}
+						else
+						{
+							children->insert(iter.child_iterator(), cue);
+						}
+					}
+				}
+				else
+				{
+					// If we're inserting after the destination cue, increment the
+					// iterator (as std::list::insert inserts before the iterator)
+					if (!before)
+					{
+						++iter;
+						// If we're not expecting the destination to be in a child,
+						// leave the child list in the appropriate direction
+						if (iter.is_child() && !dest_in_child)
+						{
+							iter.leave_child(!before);
+						}
+					}
+
+					// Re-insert the cue in the main list
+					if (iter != cues->recursive_end())
+					{
+						cues->insert(iter.main_iterator(), cue);
+					}
+					else
+					{
+						stack_cue_list_append(cue_list, cue);
+					}
+				}
+
+				// Stop searching
+				break;
+			}
+		}
+	}
+
+	// This is an error condition, but just so we don't lose the cue, add it
+	// back to the end of the list if we didn't find the destination
+	if (!found_dest)
+	{
+		stack_log("stack_cue_list_move(): ERROR: Didn't find destination, re-adding to main cue list\n");
+		stack_cue_list_append(cue_list, cue);
+	}
+	
+	// Unlock
+	stack_cue_list_unlock(cue_list);
 }
 
 /// Returns an iterator to the cue list that is positioned on a certain cue, or
@@ -335,22 +442,21 @@ void *stack_cue_list_iter_front(StackCueList *cue_list)
 /// @param cue_uid The cue ID to jump to
 /// @param index A pointer to receive the index of the cue in the list. Can be NULL;
 /// @returns An iterator
-void *stack_cue_list_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *index)
+StackCueStdList::iterator stack_cue_list_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *index)
 {
 	size_t local_index = 0;
 
-	stackcue_list_iterator_t* result = new stackcue_list_iterator_t;
-	*result	= (SCL_GET_LIST(cue_list)->begin());
-	while (*result != SCL_GET_LIST(cue_list)->end() && (**result)->uid != cue_uid)
+	StackCueStdList::iterator result = cue_list->cues->begin();
+	while (result != cue_list->cues->end() && (*result)->uid != cue_uid)
 	{
 		local_index++;
-		(*result)++;
+		result++;
 	}
 
 	// Return the index
 	if (index != NULL)
 	{
-		if (*result == SCL_GET_LIST(cue_list)->end())
+		if (result == cue_list->cues->end())
 		{
 			*index = -1;
 		}
@@ -363,40 +469,37 @@ void *stack_cue_list_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *
 	return result;
 }
 
-/// Increments an iterator to the next cue
-/// @param iter A cue list iterator as returned by stack_cue_list_iter_front for example
-void *stack_cue_list_iter_next(void *iter)
-{
-	return (void*)&(++(*(stackcue_list_iterator_t*)(iter)));
-}
-
-/// Derements an iterator to the next cue
-/// @param iter A cue list iterator as returned by stack_cue_list_iter_front for example
-void *stack_cue_list_iter_prev(void *iter)
-{
-	return (void*)&(--(*(stackcue_list_iterator_t*)(iter)));
-}
-
-/// Gets the cue at the current location of the iterator
-/// @param iter A cue list iterator as returned by stack_cue_list_iter_front/next
-StackCue *stack_cue_list_iter_get(void *iter)
-{
-	return *(*(stackcue_list_iterator_t*)(iter));
-}
-
-/// Frees a cue list iterator as returned by stack_cue_list_iter_front
-/// @param iter A cue list iterator
-void stack_cue_list_iter_free(void *iter)
-{
-	delete (stackcue_list_iterator_t*)iter;
-}
-
-/// Determines if the iterator is currently at the end of the cue list
+/// Returns a recursive iterator to the cue list that is positioned on a
+/// certain cue, or at the end if the cue does not exist
 /// @param cue_list The cue list
-/// @param iter A cue list iterator
-bool stack_cue_list_iter_at_end(StackCueList *cue_list, void *iter)
+/// @param cue_uid The cue ID to jump to
+/// @param index A pointer to receive the index of the cue in the list. Can be NULL;
+/// @returns A recursive iterator
+StackCueStdList::recursive_iterator stack_cue_list_recursive_iter_at(StackCueList *cue_list, cue_uid_t cue_uid, size_t *index)
 {
-	return (*(stackcue_list_iterator_t*)(iter)) == SCL_GET_LIST(cue_list)->end();
+	size_t local_index = 0;
+
+	StackCueStdList::recursive_iterator result = cue_list->cues->recursive_begin();
+	while (result != cue_list->cues->recursive_end() && (*result)->uid != cue_uid)
+	{
+		local_index++;
+		result++;
+	}
+
+	// Return the index
+	if (index != NULL)
+	{
+		if (result == cue_list->cues->recursive_end())
+		{
+			*index = -1;
+		}
+		else
+		{
+			*index = local_index;
+		}
+	}
+
+	return result;
 }
 
 // Callback for cue pulsing timer
@@ -418,7 +521,6 @@ static void stack_cue_list_pulse_thread(StackCueList *cue_list)
 	return;
 }
 
-
 /// Pulses all the cues in the cue list so that they may do their time-based operations
 /// @param cue_list The cue list
 void stack_cue_list_pulse(StackCueList *cue_list)
@@ -432,7 +534,7 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	stack_time_t clocktime = stack_get_clock_time();
 
 	// Iterate over all the cues
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		// If the cue is in one of the playing states
 		auto cue_state = cue->state;
@@ -474,7 +576,7 @@ void stack_cue_list_stop_all(StackCueList *cue_list)
 	stack_cue_list_lock(cue_list);
 
 	// Iterate over all the cues
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		if ((cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST) || cue->state == STACK_CUE_STATE_PAUSED)
 		{
@@ -518,7 +620,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
 
 	// Iterate over all the cues
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
@@ -554,7 +656,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 /// @returns A new cue list or NULL on error
 StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback, void* user_data)
 {
-	if (callback)
+	if (callback != NULL)
 	{
 		callback(NULL, 0, "Opening file...", user_data);
 	}
@@ -717,7 +819,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				// Get the UID of the newly created cue and put a mapping from
 				// the old UID to the new UID. Also store it in the JSON object
 				// so that we can re-use it on the second loop
-				SCL_UID_REMAP(cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
+				(*cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
 				cue_json["_new_uid"] = (Json::UInt64)cue->uid;
 
 				// Call base constructor
@@ -788,7 +890,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 /// @param old_uid The old UID that exists in the file we opened
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid)
 {
-	return SCL_UID_REMAP(cue_list->uid_remap)[old_uid];
+	return (*cue_list->uid_remap)[old_uid];
 }
 
 /// Called by child cues to let us know that something about them has changed
@@ -814,14 +916,13 @@ void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue)
 	// If the cue has stopped, remove any RMS data
 	if (cue->state == STACK_CUE_STATE_STOPPED)
 	{
-		rms_map_t* rms_map = (rms_map_t*)(cue_list->rms_data);
 		// Create or update RMS data
-		auto rms_iter = rms_map->find(cue->uid);
-		if (rms_iter != rms_map->end())
+		auto rms_iter = cue_list->rms_data->find(cue->uid);
+		if (rms_iter != cue_list->rms_data->end())
 		{
 			StackChannelRMSData *rms_data = rms_iter->second;
 			delete [] rms_data;
-			rms_map->erase(rms_iter);
+			cue_list->rms_data->erase(rms_iter);
 		}
 	}
 }
@@ -832,13 +933,13 @@ void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue)
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
 {
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto iter = cue_list->cues->begin(); iter != cue_list->cues->end(); ++iter)
 	{
 		// If we've found the cue
 		if (*iter == cue)
 		{
 			// Erase it
-			SCL_GET_LIST(cue_list)->erase(iter);
+			cue_list->cues->erase(iter);
 
 			// Note that the cue list has been modified
 			stack_cue_list_changed(cue_list, cue, NULL);
@@ -855,7 +956,7 @@ void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 {
 	// Iterate over all the cues
-	for (auto iter = SCL_GET_LIST(cue_list)->begin(); iter != SCL_GET_LIST(cue_list)->end(); ++iter)
+	for (auto iter = cue_list->cues->begin(); iter != cue_list->cues->end(); ++iter)
 	{
 		// If we've found the cue
 		if (*iter == cue)
@@ -864,7 +965,7 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 			++iter;
 
 			// If we're now past the end of the cue list
-			if (iter == SCL_GET_LIST(cue_list)->end())
+			if (iter == cue_list->cues->end())
 			{
 				return NULL;
 			}
@@ -881,7 +982,7 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
 {
 	// Iterate over all the cues
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		if (cue->uid == uid)
 		{
@@ -897,7 +998,7 @@ StackCue *stack_cue_list_get_cue_by_index(StackCueList *cue_list, size_t index)
 	size_t count = 0;
 
 	// Iterate over all the cues
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		if (count == index)
 		{
@@ -916,7 +1017,7 @@ cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list)
 	cue_id_t max_cue_id = 0;
 
 	// Iterate over all the cues, seraching for the maximum cue ID
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		if (cue->id > max_cue_id)
 		{
@@ -1011,8 +1112,6 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 {
 	stack_cue_list_lock(cue_list);
 
-	rms_map_t* rms_data = (rms_map_t*)cue_list->rms_data;
-
 	// TODO: Determine a more appropriate size for this
 	size_t request_samples = samples;
 
@@ -1026,7 +1125,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	size_t cue_data_size = 0;
 
 	// Allocate a buffer for new cue data
-	for (auto cue : *SCL_GET_LIST(cue_list))
+	for (auto cue : *cue_list->cues)
 	{
 		// Get the list of active_channels
 		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
@@ -1101,8 +1200,8 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 		}
 
 		// Create or update RMS data
-		auto rms_iter = rms_data->find(cue->uid);
-		if (rms_iter == rms_data->end())
+		auto rms_iter = cue_list->rms_data->find(cue->uid);
+		if (rms_iter == cue_list->rms_data->end())
 		{
 			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
 			for (size_t i = 0; i < active_channel_count; i++)
@@ -1112,7 +1211,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 				new_rms_data[i].peak_time = stack_get_clock_time();
 				new_rms_data[i].clipped = new_clipped[i];
 			}
-			(*rms_data)[cue->uid] = new_rms_data;
+			(*cue_list->rms_data)[cue->uid] = new_rms_data;
 		}
 		else
 		{
@@ -1200,12 +1299,82 @@ void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samp
 
 StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid)
 {
-	rms_map_t* rms_data = (rms_map_t*)cue_list->rms_data;
-	auto rms_iter = rms_data->find(uid);
-	if (rms_iter != rms_data->end())
+	auto rms_iter = cue_list->rms_data->find(uid);
+	if (rms_iter != cue_list->rms_data->end())
 	{
 		return rms_iter->second;
 	}
 
 	return NULL;
+}
+
+StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_child(bool forward)
+{
+	if (in_child)
+	{
+		in_child = false;
+
+		if (forward)
+		{
+			main_iter++;
+		}
+		
+		child_iter = cue_list.end();
+	}
+
+	return *this;
+}
+
+StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::operator++()
+{
+	if (in_child)
+	{
+		child_iter++;
+		if (child_iter == stack_cue_get_children(*main_iter)->end())
+		{
+			in_child = false;
+			main_iter++;
+			child_iter = cue_list.end();
+		}
+	}
+	else
+	{
+		if ((*main_iter)->can_have_children && stack_cue_get_children(*main_iter)->size() > 0)
+		{
+			child_iter = stack_cue_get_children(*main_iter)->begin();
+			in_child = true;
+		}
+		else
+		{
+			main_iter++;
+		}
+	}
+
+	return *this;
+}
+
+StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::operator--()
+{
+	if (in_child)
+	{
+		child_iter--;
+		if (child_iter == stack_cue_get_children(*main_iter)->end())
+		{
+			in_child = false;
+			child_iter = cue_list.end();
+		}
+	}
+	else
+	{
+		main_iter--;
+
+		if (main_iter != cue_list.end() && (*main_iter)->can_have_children && stack_cue_get_children(*main_iter)->size() > 0)
+		{
+			child_iter = stack_cue_get_children(*main_iter)->end();
+			child_iter--;
+			in_child = true;
+		}
+	}
+
+	return *this;
 }

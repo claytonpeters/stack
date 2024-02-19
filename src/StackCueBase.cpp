@@ -291,22 +291,17 @@ char *stack_cue_to_json_base(StackCue *cue)
 	cue_root["uid"] = (Json::UInt64)cue->uid;
 	cue_root["triggers"] = Json::Value(Json::ValueType::arrayValue);
 
-	void *iter = stack_cue_trigger_iter_front(cue);
-	while (!stack_cue_trigger_iter_at_end(cue, iter))
+	for (auto trigger : *cue->triggers)
 	{
 		Json::Value trigger_root;
 		Json::Reader reader;
-		char *trigger_json_data = stack_trigger_to_json(stack_cue_trigger_iter_get(iter));
+		char *trigger_json_data = stack_trigger_to_json(trigger);
 		reader.parse(trigger_json_data, trigger_root);
-		stack_trigger_free_json(stack_cue_trigger_iter_get(iter), trigger_json_data);
+		stack_trigger_free_json(trigger, trigger_json_data);
 
 		// Add it to the entry
 		cue_root["triggers"].append(trigger_root);
-
-		// Iterate
-		stack_cue_trigger_iter_next(iter);
 	}
-	stack_cue_trigger_iter_free(iter);
 
 	// Write out the JSON string and return it (to be free'd by
 	// stack_cue_free_json_base)
@@ -512,6 +507,13 @@ const char *stack_cue_get_field_base(StackCue *cue, const char *field)
 /// Returns the icon for a cue
 /// @param cue The cue to get the icon of
 GdkPixbuf *stack_cue_get_icon_base(StackCue *cue)
+{
+	return NULL;
+}
+
+/// Returns the list of child cues
+/// @param cue The cue to get the child cues of
+StackCueStdList *stack_cue_get_children_base(StackCue *cue)
 {
 	return NULL;
 }

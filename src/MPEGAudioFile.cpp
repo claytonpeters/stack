@@ -140,6 +140,7 @@ size_t mpeg_audio_file_skip_id3v2(GInputStream *stream)
 bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint32_t *sample_rate, uint32_t *frames, uint64_t *samples, std::vector<MP3FrameInfo> *frame_info, uint16_t *delay, uint16_t *padding)
 {
 	size_t total_read = 0, frame_idx = 0, total_samples = 0;
+	uint16_t local_delay = 0;
 
 	// Get the size of the ID3 header and skip past it in the stream
 	size_t id3_size = mpeg_audio_file_skip_id3v2(stream);
@@ -154,9 +155,8 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 	total_read += id3_size;
 
 	// Scan through the file
-	bool scanning = true;
 	bool lost_sync = false;
-	while (scanning)
+	while (true)
 	{
 		// Keep track of the offset in the file where this frame started
 		size_t frame_start = total_read;
@@ -167,7 +167,6 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		if (read < 4)
 		{
 			// Stop scanning if we fail to read a whole 4 bytes
-			scanning = false;
 			break;
 		}
 
@@ -298,11 +297,12 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 				if (get_delay && bytes_in_buffer > 0xb4)
 				{
 					unsigned char *d = &buffer[*channels == 2 ? 0xad : 0x9e];
+					local_delay = (((uint16_t)d[0] << 4) | ((uint16_t)d[1] & 0xf0) >> 4) + DEFAULT_DECODER_DELAY;
 
 					// Grab the first 12 bits at 'd' for the delay
 					if (delay != NULL)
 					{
-						*delay = (((uint16_t)d[0] << 4) | ((uint16_t)d[1] & 0xf0) >> 4) + DEFAULT_DECODER_DELAY;
+						*delay = local_delay;
 					}
 
 					// Grab the next 12 bits for the padding
@@ -322,7 +322,7 @@ bool mpeg_audio_file_find_frames(GInputStream *stream, uint16_t *channels, uint3
 		{
 			if (frame_idx == 1)
 			{
-				uint16_t real_frame_samples = samples_per_frame - *delay;
+				uint16_t real_frame_samples = samples_per_frame - local_delay;
 				frame_info->push_back(MP3FrameInfo{ total_read, frame_size, total_samples, real_frame_samples });
 				total_samples += real_frame_samples;
 			}

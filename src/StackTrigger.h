@@ -6,6 +6,8 @@ struct StackTrigger;
 struct StackTriggerClass;
 
 // Includes:
+#include <map>
+#include <string>
 #include "StackCue.h"
 
 typedef enum StackTriggerAction
@@ -56,10 +58,8 @@ typedef struct StackTriggerClass
 	stack_trigger_show_config_ui_t show_config_ui_func;
 } StackTriggerClass;
 
-// get_trigger_name (e.g. Keyboard, Time, MIDI, etc.)
-// get_event_text (e.g. "G", "18:30", "Note C4 On")
-// get_trigger_action (e.g. StackTriggerAction [Stop/Pause/Play])
-// get_description (e.g. "Play cue when G is pressed", "Runs soundcheck at half-to-open")
+// Typedefs:
+typedef std::map<std::string, const StackTriggerClass*> StackTriggerClassMap;
 
 // Functions: Trigger type registration
 int stack_register_trigger_class(const StackTriggerClass *trigger_class);
@@ -99,11 +99,7 @@ bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent,
 
 // Class functions
 const StackTriggerClass *stack_trigger_get_class(const char *name);
-void *stack_trigger_class_iter_front();
-void *stack_trigger_class_iter_next(void *iter);
-const StackTriggerClass *stack_trigger_class_iter_get(void *iter);
-void stack_trigger_class_iter_free(void *iter);
-bool stack_trigger_class_iter_at_end(void *iter);
+const StackTriggerClassMap *stack_trigger_class_map_get();
 
 // Defines:
 #define STACK_TRIGGER(_t) ((StackTrigger*)(_t))

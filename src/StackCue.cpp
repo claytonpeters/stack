@@ -9,14 +9,6 @@
 #include <json/json.h>
 using namespace std;
 
-// Typedef Map of properties
-typedef map<string, StackProperty*> cue_properties_map;
-#define STACK_CUE_PROPERTIES(c) ((cue_properties_map*)(((StackCue*)c)->properties))
-
-// Typedef vector of triggers
-typedef vector<StackTrigger*> cue_triggers_vector;
-#define STACK_CUE_TRIGGERS(c) ((cue_triggers_vector*)(((StackCue*)c)->triggers))
-
 // Map of classes
 static map<string, const StackCueClass*> cue_class_map;
 
@@ -82,8 +74,8 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	cue->pause_time = 0;
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
-	cue->properties = (void*)new cue_properties_map;
-	cue->triggers = (void*)new cue_triggers_vector;
+	cue->properties = new StackPropertyMap();
+	cue->triggers = new StackTriggerVector();
 
 	// Store the UID in our map
 	cue_uid_map[cue->uid] = cue;
@@ -133,19 +125,19 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 
 void stack_cue_add_property(StackCue *cue, StackProperty *property)
 {
-	(*STACK_CUE_PROPERTIES(cue))[string(property->name)] = property;
+	(*cue->properties)[string(property->name)] = property;
 }
 
 void stack_cue_remove_property(StackCue *cue, const char *property)
 {
-	STACK_CUE_PROPERTIES(cue)->erase(string(property));
+	cue->properties->erase(string(property));
 }
 
 StackProperty *stack_cue_get_property(StackCue *cue, const char *property)
 {
 	// Find the property
-	auto property_iter = STACK_CUE_PROPERTIES(cue)->find(property);
-	if (property_iter == STACK_CUE_PROPERTIES(cue)->end())
+	auto property_iter = cue->properties->find(property);
+	if (property_iter == cue->properties->end())
 	{
 		return NULL;
 	}
@@ -411,18 +403,18 @@ void stack_cue_destroy(StackCue *cue)
 	cue_uid_t uid = cue->uid;
 
 	// Tidy up properties
-	for (auto iter = STACK_CUE_PROPERTIES(cue)->begin(); iter != STACK_CUE_PROPERTIES(cue)->end(); iter++)
+	for (auto iter = cue->properties->begin(); iter != cue->properties->end(); iter++)
 	{
 		stack_property_destroy(iter->second);
 	}
-	delete STACK_CUE_PROPERTIES(cue);
+	delete cue->properties;
 
 	// Tidy up triggers
-	for (auto iter : *STACK_CUE_TRIGGERS(cue))
+	for (auto iter : *cue->triggers)
 	{
 		stack_trigger_destroy(iter);
 	}
-	delete STACK_CUE_TRIGGERS(cue);
+	delete cue->triggers;
 
 	// No need to iterate up through superclasses - we can't be NULL
 	iter->second->destroy_func(cue);
@@ -768,20 +760,36 @@ GdkPixbuf *stack_cue_get_icon(StackCue *cue)
 	return cue_class_map[string(class_name)]->get_icon_func(cue);
 }
 
+
+// Gets the children for the cue
+StackCueStdList *stack_cue_get_children(StackCue *cue)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_children function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_children_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_children_func(cue);
+}
 // Add a trigger to the list of triggers
 void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger)
 {
-	STACK_CUE_TRIGGERS(cue)->push_back(trigger);
+	cue->triggers->push_back(trigger);
 }
 
 // Remove a trigger from the list of triggers and destroys it
 void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger)
 {
-	for (auto iter = STACK_CUE_TRIGGERS(cue)->begin(); iter != STACK_CUE_TRIGGERS(cue)->end(); iter++)
+	for (auto iter = cue->triggers->begin(); iter != cue->triggers->end(); iter++)
 	{
 		if (*iter == trigger)
 		{
-			STACK_CUE_TRIGGERS(cue)->erase(iter);
+			cue->triggers->erase(iter);
 			stack_trigger_destroy(trigger);
 			break;
 		}
@@ -792,57 +800,22 @@ void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger)
 void stack_cue_clear_triggers(StackCue *cue)
 {
 	// Destroy all the triggers
-	for (auto iter : *STACK_CUE_TRIGGERS(cue))
+	for (auto iter : *cue->triggers)
 	{
 		stack_trigger_destroy(iter);
 	}
 
 	// Clear the vector
-	STACK_CUE_TRIGGERS(cue)->clear();
-}
-
-void *stack_cue_trigger_iter_front(StackCue *cue)
-{
-	cue_triggers_vector::iterator *result = new cue_triggers_vector::iterator;
-	*result = (STACK_CUE_TRIGGERS(cue)->begin());
-	return result;
-}
-
-void *stack_cue_trigger_iter_next(void *iter)
-{
-	++(*(cue_triggers_vector::iterator*)(iter));
-	return iter;
-}
-
-void *stack_cue_trigger_iter_prev(void *iter)
-{
-	--(*(cue_triggers_vector::iterator*)(iter));
-	return iter;
-}
-
-StackTrigger *stack_cue_trigger_iter_get(void *iter)
-{
-	return *(*(cue_triggers_vector::iterator*)(iter));
-}
-
-void stack_cue_trigger_iter_free(void *iter)
-{
-	delete (cue_triggers_vector::iterator*)iter;
-}
-
-bool stack_cue_trigger_iter_at_end(StackCue *cue, void *iter)
-{
-	return (*(cue_triggers_vector::iterator*)(iter)) == STACK_CUE_TRIGGERS(cue)->end();
+	cue->triggers->clear();
 }
 
 // Initialise the StackCue system
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base, stack_cue_get_icon_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base, stack_cue_get_icon_base, stack_cue_get_children_base };
 	stack_register_cue_class(stack_cue_class);
 
 	// Group cues are built-in, not plugins
 	stack_group_cue_register();
 }
-

@@ -39,7 +39,7 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 {
 	static const float INT16_SCALAR = 3.051757812e-5f;
 
-	/*sample += (1L << (MAD_F_FRACBITS - 16));
+	sample += (1L << (MAD_F_FRACBITS - 16));
 	if (sample >= MAD_F_ONE)
 	{
 		sample = MAD_F_ONE - 1;
@@ -47,7 +47,7 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 	else if (sample < -MAD_F_ONE)
 	{
 		sample = -MAD_F_ONE;
-	}/
+	}
 
 	return (float)(sample >> (MAD_F_FRACBITS + 1 - 16)) * INT16_SCALAR;
 }*/

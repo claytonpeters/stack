@@ -5,6 +5,8 @@
 #include "StackError.h"
 #include <cstdint>
 #include <cstdlib>
+#include <string>
+#include <map>
 
 // Early typedef required by StackAudioDevice
 typedef size_t(*stack_audio_device_audio_request_t)(size_t, float *, void *);
@@ -61,6 +63,9 @@ struct StackAudioDeviceClass
 	stack_audio_device_get_friendly_name_t get_friendly_name_func; // Static function
 };
 
+// Typedefs:
+typedef std::map<std::string, const StackAudioDeviceClass*> StackAudioDeviceClassMap;
+
 // Functions: Cue Type Registration
 int stack_register_audio_device_class(StackAudioDeviceClass *adev_class);
 
@@ -76,12 +81,8 @@ StackAudioDevice *stack_audio_device_new(const char *type, const char *name, uin
 void stack_audio_device_destroy(StackAudioDevice *adev);
 const StackAudioDeviceClass *stack_audio_device_get_class(const char *name);
 
-// Functions: Iterate over available providers
-void *stack_audio_device_class_iter_front();
-void *stack_audio_device_class_iter_next(void *iter);
-const StackAudioDeviceClass *stack_audio_device_class_iter_get(void *iter);
-void stack_audio_device_class_iter_free(void *iter);
-bool stack_audio_device_class_iter_at_end(void *iter);
+// Functions: Get map of classes
+const StackAudioDeviceClassMap *stack_audio_device_class_get_map();
 
 // Defines:
 #define STACK_AUDIO_DEVICE(_d) ((StackAudioDevice*)(_d))

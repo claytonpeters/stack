@@ -112,8 +112,6 @@ double stack_scalar_to_db(double scalar)
 // "ss.ss" (i.e. no minute part) and "ss" (i.e. just seconds)
 stack_time_t stack_time_string_to_ns(const char *s)
 {
-	size_t len = strlen(s);
-
 	const char *min_sep = strchr(s, ':');
 	const char *sec_sep = strchr(s, '.');
 

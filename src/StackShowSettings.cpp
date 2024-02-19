@@ -148,22 +148,17 @@ void sss_show_dialog(StackAppWindow *window)
 	GtkComboBox *channels_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssChannelsCombo"));
 
 	// Iterate over audio providers
-	auto class_iter = stack_audio_device_class_iter_front();
-	while (!stack_audio_device_class_iter_at_end(class_iter))
+	for (auto class_iter : *stack_audio_device_class_get_map())
 	{
 		// Get the next class in the iteration
-		const StackAudioDeviceClass *c = stack_audio_device_class_iter_get(class_iter);
+		const StackAudioDeviceClass *c = class_iter.second;
 
 		// If it's not the base class (as that can't output audio)
 		if (strcmp(c->class_name, "StackAudioDevice") != 0)
 		{
 			gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(audio_providers_combo), c->class_name, c->get_friendly_name_func());
 		}
-
-		// Iterate
-		stack_audio_device_class_iter_next(class_iter);
 	}
-	stack_audio_device_class_iter_free(class_iter);
 
 	if (window->cue_list && window->cue_list->audio_device)
 	{

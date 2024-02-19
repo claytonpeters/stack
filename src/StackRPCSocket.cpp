@@ -145,15 +145,12 @@ static void stack_rpc_socket_handle_list_cues(StackRPCSocketClient *client, Stac
 	list_cues_response.cue_uid = new int64_t[list_cues_response.n_cue_uid];
 
 	stack_cue_list_lock(client->rpc_socket->cue_list);
-	void *iter = stack_cue_list_iter_front(client->rpc_socket->cue_list);
 	size_t index = 0;
-	while (!stack_cue_list_iter_at_end(client->rpc_socket->cue_list, iter))
+	for (auto cue : *client->rpc_socket->cue_list->cues)
 	{
-		list_cues_response.cue_uid[index] = stack_cue_list_iter_get(iter)->uid;
-		stack_cue_list_iter_next(iter);
+		list_cues_response.cue_uid[index] = cue->uid;
 		index++;
 	}
-	stack_cue_list_iter_free(iter);
 	stack_cue_list_unlock(client->rpc_socket->cue_list);
 
 	// Send the response

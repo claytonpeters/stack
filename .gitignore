@@ -36,6 +36,11 @@ Makefile
 CMakeCache.txt
 cmake_install.cmake
 CMakeFiles/*
+.cmake/*
+
+# VScode bits
+.vscode/*
+compile_commands.json
 
 # Temporary files
 *~
@@ -46,3 +51,6 @@ CMakeFiles/*
 
 # Ignore our generated resources file
 src/*resources.c
+
+# Backup Glade files
+ui/#*.ui#

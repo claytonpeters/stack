@@ -10,5 +10,7 @@
 	<file>ui/window.ui</file>
 	<file>ui/stack.css</file>
 	<file>icons/stack-icon-256.png</file>
+	<file>icons/cuelist-open.png</file>
+	<file>icons/cuelist-closed.png</file>
   </gresource>
 </gresources>

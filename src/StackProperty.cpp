@@ -89,6 +89,8 @@ void stack_property_destroy(StackProperty *property)
 	// Typed tidy up
 	switch (property->type)
 	{
+		case STACK_PROPERTY_TYPE_NONE:
+			break;
 		case STACK_PROPERTY_TYPE_BOOL:
 			delete (StackPropertyBool*)property;
 			break;
@@ -162,6 +164,8 @@ void stack_property_set_validator(StackProperty *property, stack_property_valida
 	// Typed tidy up
 	switch (property->type)
 	{
+		case STACK_PROPERTY_TYPE_NONE:
+			break;
 		case STACK_PROPERTY_TYPE_BOOL:
 			((StackPropertyBool*)property)->validator = (stack_property_validator_bool_t)validator;
 			((StackPropertyBool*)property)->validator_user_data = user_data;
@@ -393,6 +397,8 @@ void stack_property_write_json(StackProperty *property, Json::Value* json_root)
 
 	switch (property->type)
 	{
+		case STACK_PROPERTY_TYPE_NONE:
+			break;
 		case STACK_PROPERTY_TYPE_BOOL:
 			(*json_root)[property->name] = ((StackPropertyBool*)property)->defined;
 			break;
@@ -442,6 +448,8 @@ void stack_property_copy_defined_to_live(StackProperty *property)
 {
 	switch (property->type)
 	{
+		case STACK_PROPERTY_TYPE_NONE:
+			break;
 		CASE_PROPERTY_DEFLIVE(bool, bool, STACK_PROPERTY_TYPE_BOOL, StackPropertyBool)
 		CASE_PROPERTY_DEFLIVE(int8, int8_t, STACK_PROPERTY_TYPE_INT8, StackPropertyInt8)
 		CASE_PROPERTY_DEFLIVE(uint8, uint8_t, STACK_PROPERTY_TYPE_UINT8, StackPropertyUInt8)

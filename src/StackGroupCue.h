@@ -10,11 +10,8 @@ struct StackGroupCue
 	// Superclass
 	StackCue super;
 
-	// The array of cues (this is a std::list internally)
-	void *cues;
-
-	// The GtkBuilder instance
-	GtkBuilder *builder;
+	// The array of cues
+	StackCueStdList *cues;
 
 	// The group tab
 	GtkWidget *group_tab;
