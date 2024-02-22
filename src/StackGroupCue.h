@@ -4,7 +4,17 @@
 // Includes:
 #include "StackCue.h"
 
-// An audio cue
+// Supported actions
+enum StackGroupCueAction
+{
+	STACK_GROUP_CUE_ENTER = 0,
+	STACK_GROUP_CUE_TRIGGER_ALL = 1,
+	STACK_GROUP_CUE_TRIGGER_RANDOM = 2,
+	STACK_GROUP_CUE_TRIGGER_PLAYLIST = 3,
+	STACK_GROUP_CUE_TRIGGER_SHUFFLED_PLAYLIST = 4
+};
+
+// A group cue
 struct StackGroupCue
 {
 	// Superclass

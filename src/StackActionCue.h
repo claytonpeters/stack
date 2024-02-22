@@ -4,7 +4,7 @@
 // Includes:
 #include "StackCue.h"
 
-// Supported file formats
+// Supported actions
 enum StackActionCueAction
 {
 	STACK_ACTION_CUE_PLAY = 0,

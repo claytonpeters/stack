@@ -13,6 +13,33 @@
 // it every time we change the selected cue
 static GtkBuilder *sgc_builder = NULL;
 
+static void stack_group_cue_ccb_action(StackProperty *property, StackPropertyVersion version, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackGroupCue* cue = STACK_GROUP_CUE(user_data);
+
+		// Notify cue list that we've changed
+		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
+
+		// Fire an updated-selected-cue signal to signal the UI to change (we might
+		// have changed state)
+		if (cue->group_tab)
+		{
+			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->group_tab));
+			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+		}
+	}
+}
+
+/// Pause or resumes change callbacks on variables
+static void stack_group_cue_pause_change_callbacks(StackCue *cue, bool pause)
+{
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "action"), pause);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // CREATION AND DESTRUCTION
 
@@ -36,6 +63,11 @@ static StackCue* stack_group_cue_create(StackCueList *cue_list)
 	// Initialise superclass variables
 	stack_cue_set_name(STACK_CUE(cue), "Group");
 
+	StackProperty *action = stack_property_create("action", STACK_PROPERTY_TYPE_INT32);
+	stack_cue_add_property(STACK_CUE(cue), action);
+	stack_property_set_int32(action, STACK_PROPERTY_VERSION_DEFINED, STACK_GROUP_CUE_ENTER);
+	stack_property_set_changed_callback(action, stack_group_cue_ccb_action, (void*)cue);
+
 	return STACK_CUE(cue);
 }
 
@@ -56,8 +88,34 @@ static void stack_group_cue_destroy(StackCue *cue)
 ////////////////////////////////////////////////////////////////////////////////
 // PROPERTY SETTERS
 
+// Sets the performed action of an action cue
+void stack_group_cue_set_action(StackGroupCue *cue, StackGroupCueAction action)
+{
+	stack_property_set_int32(stack_cue_get_property(STACK_CUE(cue), "action"), STACK_PROPERTY_VERSION_DEFINED, action);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // UI CALLBACKS
+
+/// Called when the action changes
+static void gcp_action_changed(GtkToggleButton *widget, gpointer user_data)
+{
+	StackGroupCue *cue = STACK_GROUP_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
+
+	// Get pointers to the four radio button options
+	GtkToggleButton* r1 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeEnter"));
+	GtkToggleButton* r2 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerAll"));
+	GtkToggleButton* r3 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerRandom"));
+	GtkToggleButton* r4 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerPlaylist"));
+	GtkToggleButton* r5 = GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerShuffledPlaylist"));
+
+	// Determine which one is toggled on
+	if (widget == r1 && gtk_toggle_button_get_active(r1)) { stack_group_cue_set_action(cue, STACK_GROUP_CUE_ENTER); }
+	if (widget == r2 && gtk_toggle_button_get_active(r2)) { stack_group_cue_set_action(cue, STACK_GROUP_CUE_TRIGGER_ALL); }
+	if (widget == r3 && gtk_toggle_button_get_active(r3)) { stack_group_cue_set_action(cue, STACK_GROUP_CUE_TRIGGER_RANDOM); }
+	if (widget == r4 && gtk_toggle_button_get_active(r4)) { stack_group_cue_set_action(cue, STACK_GROUP_CUE_TRIGGER_PLAYLIST); }
+	if (widget == r5 && gtk_toggle_button_get_active(r5)) { stack_group_cue_set_action(cue, STACK_GROUP_CUE_TRIGGER_SHUFFLED_PLAYLIST); }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // BASE CUE OPERATIONS
@@ -97,10 +155,16 @@ static void stack_group_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		sgc_builder = gtk_builder_new_from_resource("/org/stack/ui/StackGroupCue.ui");
 
+		// Set up callbacks
+		gtk_builder_add_callback_symbol(sgc_builder, "gcp_action_changed", G_CALLBACK(gcp_action_changed));
+
 		// Connect the signals
 		gtk_builder_connect_signals(sgc_builder, NULL);
 	}
 	gcue->group_tab = GTK_WIDGET(gtk_builder_get_object(sgc_builder, "gcpGrid"));
+
+	// Pause change callbacks on the properties
+	stack_group_cue_pause_change_callbacks(cue, true);
 
 	// Add an extra reference to the action tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
@@ -112,6 +176,31 @@ static void stack_group_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Append the tab (and show it, because it starts off hidden...)
 	gtk_notebook_append_page(notebook, gcue->group_tab, label);
 	gtk_widget_show(gcue->group_tab);
+
+	// Update action option
+	int32_t action = STACK_GROUP_CUE_ENTER;
+	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
+	switch (action)
+	{
+		case STACK_GROUP_CUE_ENTER:
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeEnter")), true);
+			break;
+		case STACK_GROUP_CUE_TRIGGER_ALL:
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerAll")), true);
+			break;
+		case STACK_GROUP_CUE_TRIGGER_RANDOM:
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerRandom")), true);
+			break;
+		case STACK_GROUP_CUE_TRIGGER_PLAYLIST:
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerPlaylist")), true);
+			break;
+		case STACK_GROUP_CUE_TRIGGER_SHUFFLED_PLAYLIST:
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(sgc_builder, "gcpActionTypeTriggerShuffledPlaylist")), true);
+			break;
+	}
+
+	// Resume change callbacks on the properties
+	stack_group_cue_pause_change_callbacks(cue, false);
 }
 
 /// Removes the properties tabs for a action cue
@@ -157,6 +246,9 @@ static char *stack_group_cue_to_json(StackCue *cue)
 		root["cues"].append(cue_root);
 	}
 
+	// Write out properties
+	stack_property_write_json(stack_cue_get_property(cue, "action"), &root);
+
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
 	Json::FastWriter writer;
@@ -186,6 +278,9 @@ void stack_group_cue_from_json(StackCue *cue, const char *json_data)
 	}
 
 	Json::Value& cue_data = cue_root["StackGroupCue"];
+
+	// Read our properties
+	stack_group_cue_set_action(STACK_GROUP_CUE(cue), (StackGroupCueAction)cue_data["action"].asInt());
 
 	// If we have some cues...
 	if (cue_data.isMember("cues"))
