@@ -509,7 +509,7 @@ void stack_action_cue_register()
 	icon_stop = gdk_pixbuf_new_from_resource("/org/stack/icons/stackactioncue-stop.png", NULL);
 
 	// Register built in cue types
-	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json, stack_action_cue_get_error, NULL, NULL, stack_action_cue_get_field, stack_audio_cue_get_icon, NULL };
+	StackCueClass* action_cue_class = new StackCueClass{ "StackActionCue", "StackCue", stack_action_cue_create, stack_action_cue_destroy, stack_action_cue_play, NULL, NULL, stack_action_cue_pulse, stack_action_cue_set_tabs, stack_action_cue_unset_tabs, stack_action_cue_to_json, stack_action_cue_free_json, stack_action_cue_from_json, stack_action_cue_get_error, NULL, NULL, stack_action_cue_get_field, stack_audio_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(action_cue_class);
 }
 

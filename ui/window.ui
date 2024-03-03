@@ -413,6 +413,21 @@
               </packing>
             </child>
             <child>
+              <object class="GtkToolButton" id="sawPauseTButton">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Pause Cue</property>
+                <property name="label" translatable="yes">Pause Cue</property>
+                <property name="use-underline">True</property>
+                <property name="stock-id">gtk-media-pause</property>
+                <signal name="clicked" handler="saw_cue_pause_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkToolButton" id="sawStopTButton">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>

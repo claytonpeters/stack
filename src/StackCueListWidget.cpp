@@ -331,8 +331,6 @@ int32_t stack_cue_list_widget_get_cue_y(StackCueListWidget *sclw, cue_uid_t cue_
 		++citer;
 	}
 
-	stack_log("stack_cue_list_widget_get_cue_y(): Returning -1\n");
-
 	return -1;
 }
 
@@ -912,19 +910,27 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 
 			// Format the times
 			stack_format_time_as_string(cue_pre_time - rpre, pre_buffer, 32);
-			stack_format_time_as_string(cue_action_time - raction, action_buffer, 32);
+			if (cue_action_time < 0)
+			{
+				// Cue never stops
+				stack_format_time_as_string(raction, action_buffer, 32);
+			}
+			else
+			{
+				stack_format_time_as_string(cue_action_time - raction, action_buffer, 32);
+			}
 			stack_format_time_as_string(cue_post_time - rpost, post_buffer, 32);
 
 			// Calculate fractions
-			if (cue_pre_time != 0)
+			if (cue_pre_time > 0)
 			{
 				pre_pct = double(rpre) / double(cue_pre_time);
 			}
-			if (cue_action_time != 0)
+			if (cue_action_time > 0)
 			{
 				action_pct = double(raction) / double(cue_action_time);
 			}
-			if (cue_post_time != 0)
+			if (cue_post_time > 0)
 			{
 				post_pct = double(rpost) / double(cue_post_time);
 			}
@@ -1163,10 +1169,20 @@ void stack_cue_list_widget_set_primary_selection(StackCueListWidget *sclw, cue_u
 	{
 		cue_uid_t old_uid = sclw->primary_selection;
 		sclw->primary_selection = new_uid;
+		StackCue *new_cue = stack_cue_get_by_uid(new_uid);
 
-		// Redraw both rows
-		stack_cue_list_widget_update_cue(sclw, old_uid, 0);
-		stack_cue_list_widget_update_cue(sclw, new_uid, 0);
+		// If the new cue is a child and the parent is not expanded, we should expand
+		if (new_cue != NULL && new_cue->parent_cue != NULL && !stack_cue_list_widget_is_cue_expanded(sclw, new_cue->parent_cue->uid))
+		{
+			// Expand the parent
+			stack_cue_list_widget_toggle_expansion(sclw, new_cue->parent_cue->uid);
+		}
+		else
+		{
+			// Redraw both rows
+			stack_cue_list_widget_update_cue(sclw, old_uid, 0);
+			stack_cue_list_widget_update_cue(sclw, new_uid, 0);
+		}
 
 		g_signal_emit(G_OBJECT(sclw), signal_primary_selection_changed, 0, new_uid);
 
@@ -1204,25 +1220,19 @@ void stack_cue_list_widget_add_to_selection(StackCueListWidget *sclw, cue_uid_t 
 
 void stack_cue_list_widget_remove_from_selection(StackCueListWidget *sclw, cue_uid_t new_uid)
 {
-	auto iter = sclw->cue_flags.find(new_uid);
-	if (iter != sclw->cue_flags.end())
+	if (stack_cue_list_widget_is_cue_selected(sclw, new_uid))
 	{
-		iter->second &= ~SCLW_FLAG_SELECTED;
-	}
-	else
-	{
-		sclw->cue_flags[new_uid] = 0;
-	}
+		stack_cue_list_widget_toggle_selection(sclw, new_uid);
+		stack_cue_list_widget_update_cue(sclw, new_uid, 0);
 
-	stack_cue_list_widget_update_cue(sclw, new_uid, 0);
+		// Signal that one or more selected items have changed
+		g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
 
-	// Signal that one or more selected items have changed
-	g_signal_emit(G_OBJECT(sclw), signal_selection_changed, 0);
-
-	// Redraw
-	if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
-	{
-		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+		// Redraw
+		if (!stack_cue_list_widget_ensure_cue_visible(sclw, new_uid))
+		{
+			gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+		}
 	}
 }
 

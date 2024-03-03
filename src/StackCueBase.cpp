@@ -67,7 +67,7 @@ bool stack_cue_play_base(StackCue *cue)
 		{
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_PRE);
 		}
-		else if (cue_elapsed < cue_pre_time + cue_action_time)
+		else if (cue_action_time < 0 || cue_elapsed < cue_pre_time + cue_action_time)
 		{
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
 		}
@@ -191,7 +191,7 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 	if (cue->state == STACK_CUE_STATE_PLAYING_PRE && run_pre_time == cue_pre_time)
 	{
 		// If we're still in action time
-		if (run_action_time < cue_action_time)
+		if (run_action_time < cue_action_time || cue_action_time < 0)
 		{
 			// Change us to the action state
 			stack_cue_set_state(cue, STACK_CUE_STATE_PLAYING_ACTION);
@@ -228,8 +228,8 @@ void stack_cue_pulse_base(StackCue *cue, stack_time_t clocktime)
 		}
 	}
 
-	// If we're in action, but action time has finished
-	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue_action_time)
+	// If we're in action, but action time has finished (and is not infinite)
+	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && cue_action_time >= 0 && run_action_time == cue_action_time)
 	{
 		// Check if we're still in post time
 		if (cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE && run_post_time < cue_post_time)
@@ -516,4 +516,56 @@ GdkPixbuf *stack_cue_get_icon_base(StackCue *cue)
 StackCueStdList *stack_cue_get_children_base(StackCue *cue)
 {
 	return NULL;
+}
+
+/// Returns the next cue to go to after this cue
+/// @param cue The cue to get the next cue of
+StackCue *stack_cue_get_next_cue_base(StackCue *cue)
+{
+	if (cue->parent_cue != NULL)
+	{
+		auto iter = stack_cue_list_recursive_iter_at(cue->parent, cue->uid, NULL);
+
+		// In case we're somehow not in the cue list, which shouldn't happen, just
+		// return ourselves
+		if (iter == cue->parent->cues->recursive_end())
+		{
+			return cue;
+		}
+
+		// Move to the next cue in the list
+		++iter;
+
+		// If we're now at the end of the list, which CAN happen, just return
+		// ourselves
+		if (iter == cue->parent->cues->recursive_end())
+		{
+			return cue;
+		}
+
+		return *iter;
+	}
+	else
+	{
+		auto iter = stack_cue_list_iter_at(cue->parent, cue->uid, NULL);
+
+		// In case we're somehow not in the cue list, which shouldn't happen, just
+		// return ourselves
+		if (iter == cue->parent->cues->end())
+		{
+			return cue;
+		}
+
+		// Move to the next cue in the list
+		++iter;
+
+		// If we're now at the end of the list, which CAN happen, just return
+		// ourselves
+		if (iter == cue->parent->cues->end())
+		{
+			return cue;
+		}
+
+		return *iter;
+	}
 }

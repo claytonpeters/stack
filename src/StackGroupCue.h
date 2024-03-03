@@ -25,6 +25,9 @@ struct StackGroupCue
 
 	// The group tab
 	GtkWidget *group_tab;
+
+	// Tracking of played cue UIDs
+	std::list<cue_uid_t> *played_cues;
 };
 
 // Functions: Group cue functions

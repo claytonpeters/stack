@@ -343,8 +343,8 @@ static bool stack_fade_cue_play(StackCue *cue)
 	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
 	StackCue *target = stack_cue_get_by_uid(target_uid);
 
-	// If we've found the target and it's a StackAudioCue...
-	if (target != NULL && strcmp(target->_class_name, "StackAudioCue") == 0)
+	// If we've found the target
+	if (target != NULL)
 	{
 		// Store the current volume of the target
 		stack_property_get_double(stack_cue_get_property(target, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_target_volume));
@@ -464,7 +464,6 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		}
 
 		// Set the new volume
-		// TODO: Once StackAudioCue uses properties, change this
 		stack_property_set_double(stack_cue_get_property(STACK_CUE(target), "play_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
 	}
 }
@@ -746,7 +745,7 @@ void stack_fade_cue_register()
 	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackfadecue.png", NULL);
 
 	// Register built in cue types
-	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error, NULL, NULL, stack_fade_cue_get_field, stack_fade_cue_get_icon, NULL };
+	StackCueClass* fade_cue_class = new StackCueClass{ "StackFadeCue", "StackCue", stack_fade_cue_create, stack_fade_cue_destroy, stack_fade_cue_play, NULL, NULL, stack_fade_cue_pulse, stack_fade_cue_set_tabs, stack_fade_cue_unset_tabs, stack_fade_cue_to_json, stack_fade_cue_free_json, stack_fade_cue_from_json, stack_fade_cue_get_error, NULL, NULL, stack_fade_cue_get_field, stack_fade_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(fade_cue_class);
 }
 

@@ -39,8 +39,6 @@ static void saw_open_file_callback(StackCueList *cue_list, double progress, cons
 	sld->window->loading_cue_list = cue_list;
 	sld->message = message;
 	sld->progress = progress;
-
-	stack_log("saw_open_file_callback: %s (%.2f%%)\n", message, progress * 100.0);
 }
 
 // Timer to update Show Loading dialog and close it when complete
@@ -309,13 +307,10 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 		// Get the current cue (before moving)
 		StackCue *old_cue = stack_cue_get_by_uid(old_uid);
 
-		// Get an iterator into the cue list at that point
-		StackCueStdList::iterator iter = stack_cue_list_iter_at(window->cue_list, old_uid, NULL);
+		// Get the cue that the current cue thinks should be the next cue
+		StackCue *next_cue = stack_cue_get_next_cue(window->selected_cue);
 
-		// Move the iterator forward one
-		iter++;
-
-		if (iter != window->cue_list->cues->end())
+		if (old_cue != next_cue)
 		{
 			// If we're skipping past cues that are triggered by auto-
 			// continue/follow on the cue before them
@@ -336,10 +331,10 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 						// We need to keep searching forward. Get the "next" cue, so
 						// the loop can check to see if we need to skip again on the
 						// next ieration
-						old_cue = *iter;
-						++iter;
+						old_cue = next_cue;
+						next_cue = stack_cue_get_next_cue(old_cue);
 
-						if (iter == window->cue_list->cues->end())
+						if (next_cue == old_cue)
 						{
 							// If we can't move any further forward, stop searching
 							searching = false;
@@ -361,12 +356,12 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 				}
 				else
 				{
-					stack_cue_list_widget_select_single_cue(window->sclw, (*iter)->uid);
+					stack_cue_list_widget_select_single_cue(window->sclw, next_cue->uid);
 				}
 			}
 			else
 			{
-				stack_cue_list_widget_select_single_cue(window->sclw, (*iter)->uid);
+				stack_cue_list_widget_select_single_cue(window->sclw, next_cue->uid);
 			}
 		}
 	}
@@ -874,7 +869,7 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20240211-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20240303-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -902,6 +897,21 @@ extern "C" void saw_cue_play_clicked(void* widget, gpointer user_data)
 		stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
 		// Select the next cue that isn't automatically triggered by a follow
 		saw_select_next_cue(window, true);
+	}
+}
+
+// Menu/toolbar callback
+extern "C" void saw_cue_pause_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (window->selected_cue != NULL)
+	{
+		stack_cue_list_lock(window->cue_list);
+		stack_cue_pause(window->selected_cue);
+		stack_cue_list_unlock(window->cue_list);
+		stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
 	}
 }
 
@@ -1075,8 +1085,9 @@ static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
 	// Get the UI item to remov the cue from
 	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
 
-	for (auto cue : *window->cue_list->cues)
+	for (auto citer = window->cue_list->cues->recursive_begin(); citer != window->cue_list->cues->recursive_end(); ++citer)
 	{
+		StackCue *cue = *citer;
 		// We're looking for cues that are stopped but have widgets
 		if (cue->state == STACK_CUE_STATE_STOPPED)
 		{
@@ -1218,7 +1229,14 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	}
 	stack_format_time_as_string(first_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 	strncat(time_text, " / ", 63);
-	stack_format_time_as_string(second_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
+	if (second_time >= 0)
+	{
+		stack_format_time_as_string(second_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
+	}
+	else
+	{
+		strncat(time_text, "Forever", 63);
+	}
 
 	// Update the contents
 	gtk_label_set_text(cue_widget->time, time_text);
@@ -1249,9 +1267,10 @@ static gboolean saw_ui_timer(gpointer user_data)
 	stack_cue_list_lock(window->cue_list);
 
 	// Iterate over the cue list
-	for (auto cue : *window->cue_list->cues)
+	for (auto citer = window->cue_list->cues->recursive_begin(); citer != window->cue_list->cues->recursive_end(); ++citer)
 	{
-		if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+		StackCue *cue = *citer;
+		if (cue->state == STACK_CUE_STATE_PAUSED || (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST))
 		{
 			// Update the row (times only)
 			stack_cue_list_widget_update_cue(window->sclw, cue->uid, 4);
@@ -1875,8 +1894,9 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 	stack_cue_list_lock(window->cue_list);
 
 	// Iterate over the cue list
-	for (auto cue : *window->cue_list->cues)
+	for (auto citer = window->cue_list->cues->recursive_begin(); citer != window->cue_list->cues->recursive_end(); ++citer)
 	{
+		StackCue *cue = *citer;
 		if (cue != hide)
 		{
 			// Append a row to the dialog

@@ -227,7 +227,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 		{
 			*action = 0;
 		}
-		else if (cue_elapsed < cue_pre_time + cue_action_time)
+		else if (cue_elapsed < cue_pre_time + cue_action_time || cue_action_time < 0)
 		{
 			// Calculate the action time. This is how long the cue has been runnng
 			// less the time we were in pre-wait
@@ -284,7 +284,7 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 
 			// If triggering after the action, we need to check if action is completed
 			case STACK_CUE_WAIT_TRIGGER_AFTERACTION:
-				if (cue_elapsed < cue_pre_time + cue_action_time)
+				if (cue_action_time < 0 || cue_elapsed < cue_pre_time + cue_action_time)
 				{
 					*post = 0;
 				}
@@ -760,7 +760,6 @@ GdkPixbuf *stack_cue_get_icon(StackCue *cue)
 	return cue_class_map[string(class_name)]->get_icon_func(cue);
 }
 
-
 // Gets the children for the cue
 StackCueStdList *stack_cue_get_children(StackCue *cue)
 {
@@ -776,6 +775,23 @@ StackCueStdList *stack_cue_get_children(StackCue *cue)
 	// Call the function
 	return cue_class_map[string(class_name)]->get_children_func(cue);
 }
+
+// Gets the next cue
+StackCue *stack_cue_get_next_cue(StackCue *cue)
+{
+	// Get the class name
+	const char *class_name = cue->_class_name;
+
+	// Look for a get_children function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && cue_class_map[class_name]->get_next_cue_func == NULL)
+	{
+		class_name = cue_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	return cue_class_map[string(class_name)]->get_next_cue_func(cue);
+}
+
 // Add a trigger to the list of triggers
 void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger)
 {
@@ -813,7 +829,7 @@ void stack_cue_clear_triggers(StackCue *cue)
 void stack_cue_initsystem()
 {
 	// Register base cue type
-	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base, stack_cue_get_icon_base, stack_cue_get_children_base };
+	StackCueClass* stack_cue_class = new StackCueClass{ "StackCue", NULL, stack_cue_create_base, stack_cue_destroy_base, stack_cue_play_base, stack_cue_pause_base, stack_cue_stop_base, stack_cue_pulse_base, stack_cue_set_tabs_base, stack_cue_unset_tabs_base, stack_cue_to_json_base, stack_cue_free_json_base, stack_cue_from_json_void, stack_cue_get_error_base, stack_cue_get_active_channels_base, stack_cue_get_audio_base, stack_cue_get_field_base, stack_cue_get_icon_base, stack_cue_get_children_base, stack_cue_get_next_cue_base };
 	stack_register_cue_class(stack_cue_class);
 
 	// Group cues are built-in, not plugins

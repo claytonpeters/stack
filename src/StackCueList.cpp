@@ -366,7 +366,6 @@ void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, 
 						cue->parent_cue = dest->parent_cue;
 					}
 
-
 					if (!before)
 					{
 						// If we're inserting after the destination cue, increment the
@@ -378,6 +377,10 @@ void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, 
 							// then go back and just append to the list instead
 							--iter;
 							children->push_back(cue);
+						}
+						else
+						{
+							children->insert(iter.child_iterator(), cue);
 						}
 					}
 					else
@@ -533,9 +536,13 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 	// Get a single clock time for all the cues
 	stack_time_t clocktime = stack_get_clock_time();
 
-	// Iterate over all the cues
-	for (auto cue : *cue_list->cues)
+	// Iterate over all the cues. Note that we do this recursively, so that:
+	// a) cues with children don't need to pulse their children
+	// b) child cues can be played irrespective of whether their parent is playing
+	for (auto citer = cue_list->cues->recursive_begin(); citer != cue_list->cues->recursive_end(); ++citer)
 	{
+		StackCue *cue = *citer;
+
 		// If the cue is in one of the playing states
 		auto cue_state = cue->state;
 		if (cue_state >= STACK_CUE_STATE_PLAYING_PRE && cue_state <= STACK_CUE_STATE_PLAYING_POST)
@@ -576,8 +583,9 @@ void stack_cue_list_stop_all(StackCueList *cue_list)
 	stack_cue_list_lock(cue_list);
 
 	// Iterate over all the cues
-	for (auto cue : *cue_list->cues)
+	for (auto citer = cue_list->cues->recursive_begin(); citer != cue_list->cues->recursive_end(); ++citer)
 	{
+		StackCue *cue = *citer;
 		if ((cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST) || cue->state == STACK_CUE_STATE_PAUSED)
 		{
 			// Stop the cue
@@ -1124,9 +1132,25 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	float *cue_data = NULL;
 	size_t cue_data_size = 0;
 
-	// Allocate a buffer for new cue data
-	for (auto cue : *cue_list->cues)
+	// Get audio data for cues recursively, with some exceptions. We iterate
+	// recursively so that child cues can be played outside of the context of
+	// their parent.
+	// TODO: I'm not sure I like this. Maybe we should call get_audio on any
+	// cue that has children.
+	for (auto citer = cue_list->cues->recursive_begin(); citer != cue_list->cues->recursive_end(); ++citer)
 	{
+		StackCue *cue = *citer;
+
+		// If the cue is a child and the parent is playing, don't get the audio
+		// as we'll have gotten it from the parent already
+		if (cue->parent_cue != NULL && cue->parent_cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+		{
+			continue;
+		}
+
+		// Reset clipping marker array (otherwise we'll set clipped on each subsequent cue)
+		memset(new_clipped, 0, cue_list->channels * sizeof(bool));
+
 		// Get the list of active_channels
 		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
 		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache);
@@ -1267,7 +1291,6 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	delete [] new_clipped;
 
 	stack_cue_list_unlock(cue_list);
-
 }
 
 void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels)
