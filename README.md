@@ -17,6 +17,11 @@ Cues:
   * Choice of fade profiles
 * Action Cues: Start/Stop/Pause other cues
 * Execute Cues: Run arbitrary programs/commands/scripts
+* Group Cues: various modes when playing:
+  * Trigger all child cues 
+  * Trigger random cchild cue
+  * Trigger children in order as a playlist
+  * Trigger children in random order as a shuffled playlist
 
 Cue Triggers:
 * Spacebar to play next cue in playlist
