@@ -12,5 +12,6 @@
 	<file>icons/stack-icon-256.png</file>
 	<file>icons/cuelist-open.png</file>
 	<file>icons/cuelist-closed.png</file>
+	<file>icons/stackgroupcue.png</file>
   </gresource>
 </gresources>

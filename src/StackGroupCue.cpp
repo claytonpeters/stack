@@ -14,6 +14,9 @@
 // it every time we change the selected cue
 static GtkBuilder *sgc_builder = NULL;
 
+// Global: A single instace of our icon
+static GdkPixbuf *icon = NULL;
+
 static void stack_group_cue_ccb_action(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	// If a defined-version property has changed, we should notify the cue list
@@ -281,10 +284,13 @@ static bool stack_group_cue_play(StackCue *cue)
 	stack_time_t pre_time = 0;
 	stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &pre_time);
 
-	// If the pre-wait time is zero, we should trigger the children now
-	if (pre_time == 0)
+	if (!(pre_state == STACK_CUE_STATE_PAUSED && cue->state == STACK_CUE_STATE_PLAYING_ACTION))
 	{
-		stack_group_cue_trigger_children(STACK_GROUP_CUE(cue));
+		// If the pre-wait time is zero, we should trigger the children now
+		if (pre_time == 0)
+		{
+			stack_group_cue_trigger_children(STACK_GROUP_CUE(cue));
+		}
 	}
 
 	return true;
@@ -847,7 +853,7 @@ void stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
 /// @param cue The cue to get the icon of
 GdkPixbuf *stack_group_cue_get_icon(StackCue *cue)
 {
-	return NULL;
+	return icon;
 }
 
 /// Returns the list of child cues for the cue
@@ -883,6 +889,9 @@ StackCue *stack_group_cue_get_next_cue(StackCue *cue)
 // Registers StackGroupCue with the application
 void stack_group_cue_register()
 {
+	// Load the icon
+	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackgroupcue.png", NULL);
+
 	// Register built in cue types
 	StackCueClass* action_cue_class = new StackCueClass{ "StackGroupCue", "StackCue", stack_group_cue_create, stack_group_cue_destroy, stack_group_cue_play, stack_group_cue_pause, stack_group_cue_stop, stack_group_cue_pulse, stack_group_cue_set_tabs, stack_group_cue_unset_tabs, stack_group_cue_to_json, stack_group_cue_free_json, stack_group_cue_from_json, stack_group_cue_get_error, stack_group_cue_get_active_channels, stack_group_cue_get_audio, NULL, stack_group_cue_get_icon, stack_group_cue_get_children, stack_group_cue_get_next_cue };
 	stack_register_cue_class(action_cue_class);
