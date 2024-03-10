@@ -9,8 +9,8 @@ RUN DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" \
   libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
 
 ARG RELEASE
-RUN echo "$RELEASE"; if [ "$RELEASE" = "focal" ]; then apt -y install libjsoncpp1 libjsoncpp-dev; else apt -y install libjsoncpp25 libjsoncpp-dev; fi
+RUN echo "$RELEASE"; if [ "$RELEASE" = "focal" ] || [ "$RELEASE" = "20.04" ]; then apt -y install libjsoncpp1 libjsoncpp-dev; else apt -y install libjsoncpp25 libjsoncpp-dev; fi
 
 COPY . /stack
 
-RUN cd /stack; cmake .; make
+RUN cd /stack; rm -rf CMakeCache.txt CMakeFiles; cmake .; make

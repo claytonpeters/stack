@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 project(runstack)
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "-ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE_INIT "-O3 -Wall")
-list(APPEND CMAKE_CXX_FLAGS "-std=c++23 -Werror=return-type")
+list(APPEND CMAKE_CXX_FLAGS "-std=c++17 -Werror=return-type")
 
 # Add in program for compiling resources
 find_program(GLIB_COMPILE_RESOURCES NAMES glib-compile-resources REQUIRED)
