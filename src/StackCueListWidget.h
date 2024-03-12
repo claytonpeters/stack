@@ -107,9 +107,5 @@ void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t 
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);
-// Set active cue
-// Set scroll
-// Keypress
-// Mouse action
 
 #endif

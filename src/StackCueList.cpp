@@ -275,9 +275,6 @@ void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, 
 		return;
 	}
 
-	// Lock
-	stack_cue_list_lock(cue_list);
-
 	if (cue->parent_cue != NULL)
 	{
 		StackCueStdList *children = stack_cue_get_children(cue->parent_cue);
@@ -434,9 +431,6 @@ void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, 
 		stack_log("stack_cue_list_move(): ERROR: Didn't find destination, re-adding to main cue list\n");
 		stack_cue_list_append(cue_list, cue);
 	}
-	
-	// Unlock
-	stack_cue_list_unlock(cue_list);
 }
 
 /// Returns an iterator to the cue list that is positioned on a certain cue, or
@@ -657,6 +651,68 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	return true;
 }
 
+StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Value &cue_json, bool construct)
+{
+	// Make sure we have a class parameter
+	if (!cue_json.isMember("class"))
+	{
+		stack_log("stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
+		return NULL;
+	}
+
+	// Make sure we have a base class
+	if (!cue_json.isMember("StackCue"))
+	{
+		stack_log("stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
+		return NULL;
+	}
+
+	// Make sure we have a UID
+	if (!cue_json["StackCue"].isMember("uid"))
+	{
+		stack_log("stack_cue_list_from_file(): Cue missing UID, skipping\n");
+		return NULL;
+	}
+
+	// Create a new cue of the correct type
+	const char *class_name = cue_json["class"].asString().c_str();
+	StackCue *cue = stack_cue_new(class_name, cue_list);
+	if (cue == NULL)
+	{
+		stack_log("stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
+		return NULL;
+	}
+
+	// Get the UID of the newly created cue and put a mapping from
+	// the old UID to the new UID. Also store it in the JSON object
+	// so that we can re-use it on the second loop
+	(*cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
+	cue_json["_new_uid"] = (Json::UInt64)cue->uid;
+
+	// Call base constructor
+	stack_cue_from_json_base(cue, cue_json.toStyledString().c_str());
+
+	if (construct)
+	{
+		stack_cue_from_json(stack_cue_get_by_uid(cue_json["_new_uid"].asUInt64()), cue_json.toStyledString().c_str());
+	}
+
+	return cue;
+}
+
+StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct)
+{
+	Json::Reader reader;
+	Json::Value cue_root;
+	if (!reader.parse(json, cue_root))
+	{
+		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
+		return NULL;
+	}
+
+	return stack_cue_list_create_cue_from_json(cue_list, cue_root, construct);
+}
+
 /// Creates a new cue list using the contents of a file
 /// @param uri The URI of the path to read from (e.g. file:///home/blah/test.stack)
 /// @param callback The callback function to notify on progress
@@ -733,7 +789,11 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	}
 	Json::Reader reader;
 	Json::Value cue_list_root;
-	reader.parse(&json_buffer[0], cue_list_root);
+	if (!reader.parse(&json_buffer[0], cue_list_root))
+	{
+		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
+		return NULL;
+	}
 
 	// Validation: check we have 'channels'
 	if (!cue_list_root.isMember("channels"))
@@ -785,53 +845,16 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 			{
 				Json::Value& cue_json = *iter;
 
-				// Make sure we have a class parameter
-				if (!cue_json.isMember("class"))
-				{
-					cue_json["_skip"] = 1;
-					stack_log("stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
-					continue;
-				}
-
-				// Make sure we have a base class
-				if (!cue_json.isMember("StackCue"))
-				{
-					cue_json["_skip"] = 1;
-					stack_log("stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
-					continue;
-				}
-
-				// Make sure we have a UID
-				if (!cue_json["StackCue"].isMember("uid"))
-				{
-					cue_json["_skip"] = 1;
-					stack_log("stack_cue_list_from_file(): Cue missing UID, skipping\n");
-					continue;
-				}
-
 				// Create a new cue of the correct type
-				const char *class_name = cue_json["class"].asString().c_str();
-				StackCue *cue = stack_cue_new(class_name, cue_list);
+				StackCue *cue = stack_cue_list_create_cue_from_json(cue_list, cue_json, false);
 				if (cue == NULL)
 				{
-					stack_log("stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
-					cue_json["_skip"] = 1;
-
 					// TODO: It would be nice if we have some sort of "error cue" which
 					// contained the JSON for the cue, so we didn't just drop cues from
 					// the stack
-
+					cue_json["_skip"] = 1;
 					continue;
 				}
-
-				// Get the UID of the newly created cue and put a mapping from
-				// the old UID to the new UID. Also store it in the JSON object
-				// so that we can re-use it on the second loop
-				(*cue_list->uid_remap)[cue_json["StackCue"]["uid"].asUInt64()] = cue->uid;
-				cue_json["_new_uid"] = (Json::UInt64)cue->uid;
-
-				// Call base constructor
-				stack_cue_from_json_base(cue, cue_json.toStyledString().c_str());
 
 				// Append the cue to the cue list
 				stack_cue_list_append(cue_list, cue);
@@ -865,7 +888,6 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 					double progress = 0.2 + ((double)prepared_cues * 0.8 / (double)cue_count);
 					callback(cue_list, progress, "Initialising cues...", user_data);
 				}
-
 			}
 		}
 		else
@@ -1024,9 +1046,10 @@ cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list)
 {
 	cue_id_t max_cue_id = 0;
 
-	// Iterate over all the cues, seraching for the maximum cue ID
-	for (auto cue : *cue_list->cues)
+	// Iterate over all the cues, searching for the maximum cue ID
+	for (auto iter = cue_list->cues->recursive_begin(); iter != cue_list->cues->recursive_end(); ++iter)
 	{
+		const StackCue* cue = *iter;
 		if (cue->id > max_cue_id)
 		{
 			max_cue_id = cue->id;

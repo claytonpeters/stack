@@ -68,6 +68,9 @@ struct StackAppWindow
 
 	// Map for active cue widgets
 	stack_cue_widget_map_t active_cue_widgets;
+
+	// GtkTargetEntry for our clipboard data
+	GtkTargetEntry *clipboard_target;
 };
 
 struct StackAppWindowClass

@@ -857,8 +857,12 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 	// Render the cue number
 	if (fields == 0 || fields == 2)
 	{
-		stack_cue_id_to_string(cue->id, buffer, 32);
-		stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->cue_x, row_y, sclw->cue_width, sclw->row_height, buffer, true, false, style_context);
+		// Cue ID 0 is a placeholder for "unset"
+		if (cue->id != 0)
+		{
+			stack_cue_id_to_string(cue->id, buffer, 32);
+			stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->cue_x, row_y, sclw->cue_width, sclw->row_height, buffer, true, false, style_context);
+		}
 	}
 
 	// Render the cue name
@@ -1517,7 +1521,9 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				}
 				else
 				{
+					stack_cue_list_lock(sclw->cue_list);
 					stack_cue_list_move(sclw->cue_list, stack_cue_get_by_uid(sclw->dragged_cue), dest_cue, before, dest_is_child);
+					stack_cue_list_unlock(sclw->cue_list);
 				}
 			}
 
