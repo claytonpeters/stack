@@ -389,7 +389,7 @@ void stack_cue_destroy(StackCue *cue)
 		return;
 	}
 
-	stack_log("stack_cue_destroy(0x%p): Destroying cue %lx\n", (void*)cue, cue->uid);
+	stack_log("stack_cue_destroy(0x%p): Destroying cue %016lx\n", (void*)cue, cue->uid);
 
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));
@@ -423,7 +423,7 @@ void stack_cue_destroy(StackCue *cue)
 	auto uid_iter = cue_uid_map.find(uid);
 	if (uid_iter == cue_uid_map.end())
 	{
-		stack_log("stack_cue_destroy(): Assertion warning: Cue UID %lx not in map!\n", uid);
+		stack_log("stack_cue_destroy(): Assertion warning: Cue UID %016lx not in map!\n", uid);
 		return;
 	}
 	else

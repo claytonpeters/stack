@@ -11,6 +11,8 @@
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
 #define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
+static const gchar* stack_cue_data_atom_name = "org.stack.cue-data";
+
 // Structure used to contain show opening data
 struct ShowLoadingData
 {
@@ -203,7 +205,15 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 
 	// Update cue number
 	char cue_number[32];
-	stack_cue_id_to_string(cue->id, cue_number, 32);
+	if (cue->id == 0)
+	{
+		// Cue ID 0 is a placeholder for "unset"
+		cue_number[0] = '\0';
+	}
+	else
+	{
+		stack_cue_id_to_string(cue->id, cue_number, 32);
+	}
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueNumber")), cue_number);
 
 	// Update cue color
@@ -593,24 +603,6 @@ extern "C" void saw_file_quit_clicked(void* item, gpointer user_data)
 }
 
 // Menu callback
-extern "C" void saw_edit_cut_clicked(void* widget, gpointer user_data)
-{
-	stack_log("Edit -> Cut clicked\n");
-}
-
-// Menu callback
-extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
-{
-	stack_log("Edit -> Copy clicked\n");
-}
-
-// Menu callback
-extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
-{
-	stack_log("Edit -> Paste clicked\n");
-}
-
-// Menu callback
 extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
@@ -694,6 +686,127 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	}
 }
 
+// Gets the data for the clipboard
+void saw_clipboard_get_func(GtkClipboard *clipboard, GtkSelectionData *data, guint info, gpointer user_data)
+{
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (user_data != NULL)
+	{
+		gtk_selection_data_set(data, gdk_atom_intern(stack_cue_data_atom_name, true), 8, (const guchar*)user_data, strlen((const char*)user_data));
+	}
+	else
+	{
+		stack_log("saw_clipboard_get_func(): Data was NULL\n");
+	}
+}
+
+// Frees data associated with our clipboard
+void saw_clipboard_clear_func(GtkClipboard *clipboard, gpointer user_data)
+{
+	stack_log("saw_clipboard_clear_func(): Called\n");
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	if (user_data != NULL)
+	{
+		stack_log("saw_clipboard_clear_func(): Freeing buffer\n");
+		free((char*)user_data);
+	}
+}
+
+// Menu callback
+extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (window->selected_cue != NULL)
+	{
+		// Get the clipboard
+		GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+
+		// Set the contents of the clipboard
+		//saw_clipboard_clear_func(clipboard, (gpointer)window);
+		char *json = stack_cue_to_json(window->selected_cue);
+		char *buffer = strdup(json);
+		stack_cue_free_json(window->selected_cue, json);
+		if (!gtk_clipboard_set_with_data(clipboard, window->clipboard_target, 1, saw_clipboard_get_func, saw_clipboard_clear_func, (gpointer)buffer))
+		{
+			stack_log("saw_edit_copy_clicked(): Failed to copy to clipboard\n");
+		}
+	}
+}
+
+// Menu callback
+extern "C" void saw_edit_cut_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	if (window->selected_cue != NULL)
+	{
+		// Copy the cue
+		saw_edit_copy_clicked(widget, user_data);
+
+		// Call delete on the cue(s)
+		saw_edit_delete_clicked(widget, user_data);
+	}
+}
+
+// Menu callback
+extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Get the clipboard
+	GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+	GtkSelectionData *data = gtk_clipboard_wait_for_contents(clipboard, gdk_atom_intern(stack_cue_data_atom_name, true));
+	if (data == NULL)
+	{
+		stack_log("saw_edit_paste_clicked(): No data on clipboard\n");
+		return;
+	}
+
+	const guchar *text = gtk_selection_data_get_data(data);
+	if (text == NULL)
+	{
+		stack_log("saw_edit_paste_clicked(): No cue data in clipboard contents\n");
+		return;
+	}
+
+	// Try and create the cue
+	StackCue *new_cue = stack_cue_list_create_cue_from_json_string(window->cue_list, (const char*)text, true);
+	if (new_cue != NULL)
+	{
+		// Remove the cue ID (so as not to have a duplicate ID)
+		stack_cue_set_id(new_cue, 0);
+
+		// Unlock the cue list
+		stack_cue_list_lock(window->cue_list);
+
+		// Append the new cue to the list
+		stack_cue_list_append(window->cue_list, new_cue);
+
+		// Move the cue to immediately after the selected cue
+		if (window->selected_cue != NULL)
+		{
+			stack_cue_list_move(window->cue_list, new_cue, window->selected_cue, false, window->selected_cue->parent_cue != NULL);
+		}
+
+		// Unlock the cue list
+		stack_cue_list_unlock(window->cue_list);
+
+		// Select the new cue
+		stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
+
+		// Tell the cue list to redraw
+		stack_cue_list_widget_list_modified(window->sclw);
+	}
+
+	// Free the selection
+	gtk_selection_data_free(data);
+}
+
 // Menu callback
 extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data)
 {
@@ -722,37 +835,6 @@ extern "C" void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 	sss_show_dialog(STACK_APP_WINDOW(user_data));
 }
 
-// Menu callback
-extern "C" void saw_cue_add_group_clicked(void* widget, gpointer user_data)
-{
-	// Get the window
-	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-
-	// Lock the cue list
-	stack_cue_list_lock(window->cue_list);
-
-	// Create the new cue
-	StackCue* new_cue = STACK_CUE(stack_cue_new("StackGroupCue", window->cue_list));
-	if (new_cue == NULL)
-	{
-		stack_cue_list_unlock(window->cue_list);
-		return;
-	}
-
-	// Add the list to our cue stack
-	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
-
-	// Unlock the cue list
-	stack_cue_list_unlock(window->cue_list);
-
-	// Update that last row in the list store with the basics of the cue
-	stack_cue_list_widget_update_cue(window->sclw, new_cue->uid, 0);
-
-	// Select the new cue
-	saw_select_last_cue(window);
-
-}
-
 static void saw_generic_add_cue(StackAppWindow *window, const char *type)
 {
 	// Lock the cue list
@@ -769,14 +851,26 @@ static void saw_generic_add_cue(StackAppWindow *window, const char *type)
 	// Add the list to our cue stack
 	stack_cue_list_append(window->cue_list, STACK_CUE(new_cue));
 
+	// Move the cue to immediately after the selected cue
+	if (window->selected_cue != NULL)
+	{
+		stack_cue_list_move(window->cue_list, new_cue, window->selected_cue, false, window->selected_cue->parent_cue != NULL);
+	}
+
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
 
-	// Update that last row in the list store with the basics of the cue
-	stack_cue_list_widget_update_cue(window->sclw, new_cue->uid, 0);
-
 	// Select the new cue
-	saw_select_last_cue(window);
+	stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
+
+	// Tell the cue list to redraw
+	stack_cue_list_widget_list_modified(window->sclw);
+}
+
+// Menu callback
+extern "C" void saw_cue_add_group_clicked(void* widget, gpointer user_data)
+{
+	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackGroupCue");
 }
 
 // Menu callback
@@ -869,7 +963,7 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20240303-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20240312-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1785,6 +1879,9 @@ static void stack_app_window_init(StackAppWindow *window)
 	// Set up a drop target to handle files being dropped
 	gtk_drag_dest_set(GTK_WIDGET(window->sclw), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
 	gtk_drag_dest_add_uri_targets(GTK_WIDGET(window->sclw));
+
+	// Set up clipboard
+	window->clipboard_target = gtk_target_entry_new(stack_cue_data_atom_name, 0, 1000);
 
 	// Set up a timer to periodically refresh the UI
 	window->timer_state = 0;
