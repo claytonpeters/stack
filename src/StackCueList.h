@@ -35,7 +35,7 @@ class StackCueStdList : public std::list<StackCue*>
 			public:
 				recursive_iterator(const recursive_iterator& other) = default;
 				recursive_iterator(StackCueStdList &cl) : cue_list(cl), main_iter(cl.begin()), child_iter(cl.end()), in_child(false) {}
-				
+
 				recursive_iterator begin() const
 				{
 					return recursive_iterator(cue_list);
@@ -195,6 +195,7 @@ struct StackCueList
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
 StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback = NULL, void *callback_user_data = NULL);
+StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Value &json, bool construct);
 StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct);
 bool stack_cue_list_save(StackCueList *cue_list, const char *uri);
 void stack_cue_list_destroy(StackCueList *cue_list);

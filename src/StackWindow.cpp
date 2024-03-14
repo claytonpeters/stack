@@ -613,9 +613,15 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	cue_uid_t new_selection = STACK_CUE_UID_NONE;
 	bool previous_was_selected = false;
 
-	// Iterate over the cue list
-	for (auto cue : *window->cue_list->cues)
+	// The set of cues to delete
+	std::vector<cue_uid_t> cues_to_delete;
+
+	// Iterate over the cue list working out both what should be selected after
+	// the deletion has taken place
+	for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 	{
+		StackCue *cue = *iter;
+
 		bool is_selected = stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid);
 
 		// If the current cue is not selected, and the previous cue was, mark
@@ -626,24 +632,33 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 			previous_was_selected = false;
 		}
 
-		// Keep track of the previous cue and its selection state
 		if (is_selected)
 		{
+			// Keep track of the previous cue and its selection state
 			previous_was_selected = true;
+
+			// If we're deleting a cue that has children, skip the children as
+			// they'll also be deleted
+			if (cue->can_have_children && stack_cue_get_children(cue)->size() > 0)
+			{
+				// Enter in to the child
+				++iter;
+
+				// Leave the child
+				iter.leave_child(true);
+
+				// The loop is about to increment, which would take us one past
+				// the cue after the parent, so decrement so we end up in hte
+				// right place
+				--iter;
+			}
 		}
 	}
 
-	// It is possible here (for example if we've selected the last items in the
-	// list) that the new selection is still nothing, but we account for that
-	// later
-
-	// Iterate over all the cues and delete the ones that are selected
-	StackCueStdList::iterator iter = window->cue_list->cues->begin();
-	while (iter != window->cue_list->cues->end())
+	// Iterate over the cue list working out both what should be deleted
+	for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 	{
 		StackCue *cue = *iter;
-
-		// If the cue is selected
 		if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
 		{
 			// If this is the currently primary selection, deselect it properly
@@ -653,9 +668,25 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 				window->selected_cue = NULL;
 			}
 
-			// Iterate to the next cue now or the iterator will become invalid
-			++iter;
+			cues_to_delete.push_back(cue->uid);
+		}
+	}
 
+	// It is possible here (for example if we've selected the last items in the
+	// list) that the new selection is still nothing, but we account for that
+	// later
+
+	// Iterate over all the cues marked for deletion and delete them
+	for (auto iter = cues_to_delete.begin(); iter != cues_to_delete.end(); ++iter)
+	{
+		cue_uid_t cue_uid = *iter;
+		StackCue *cue = stack_cue_get_by_uid(cue_uid);
+
+		// There is a possibility of cue being NULL if, for example, both a
+		// parent and child was marked for deletion as deleting the parent would
+		// also delete the child
+		if (cue != NULL)
+		{
 			// Remove the cue from the cue list
 			stack_cue_list_lock(window->cue_list);
 			stack_cue_list_remove(window->cue_list, cue);
@@ -663,11 +694,6 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 
 			// Destroy the cue
 			stack_cue_destroy(cue);
-		}
-		else
-		{
-			// Iterate
-			++iter;
 		}
 	}
 
@@ -724,11 +750,42 @@ extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
 		// Get the clipboard
 		GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
 
+		// The string contents
+		std::string total_json("[");
+
+		// Iterate over the cue list
+		bool first = true;
+		for (auto cue : *window->cue_list->cues)
+		{
+			// Skip past unselected cues
+			if (!stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+			{
+				continue;
+			}
+
+			// Join our array
+			if (first)
+			{
+				first = false;
+			}
+			else
+			{
+				total_json += ",";
+			}
+
+			// Add on the cue
+			char *json = stack_cue_to_json(cue);
+			total_json += json;
+			stack_cue_free_json(window->selected_cue, json);
+		}
+
+		// Finish off the string
+		total_json += "]";
+
+		// Generate a buffer of our entire string
+		char *buffer = strdup(total_json.c_str());
+
 		// Set the contents of the clipboard
-		//saw_clipboard_clear_func(clipboard, (gpointer)window);
-		char *json = stack_cue_to_json(window->selected_cue);
-		char *buffer = strdup(json);
-		stack_cue_free_json(window->selected_cue, json);
 		if (!gtk_clipboard_set_with_data(clipboard, window->clipboard_target, 1, saw_clipboard_get_func, saw_clipboard_clear_func, (gpointer)buffer))
 		{
 			stack_log("saw_edit_copy_clicked(): Failed to copy to clipboard\n");
@@ -767,40 +824,66 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 		return;
 	}
 
-	const guchar *text = gtk_selection_data_get_data(data);
-	if (text == NULL)
+	const guchar *json_text = gtk_selection_data_get_data(data);
+	if (json_text == NULL)
 	{
 		stack_log("saw_edit_paste_clicked(): No cue data in clipboard contents\n");
 		return;
 	}
 
-	// Try and create the cue
-	StackCue *new_cue = stack_cue_list_create_cue_from_json_string(window->cue_list, (const char*)text, true);
-	if (new_cue != NULL)
+	// Decode the JSON
+	Json::Value cues_root;
+	Json::Reader reader;
+	if (!reader.parse((const char*)json_text, cues_root))
 	{
-		// Remove the cue ID (so as not to have a duplicate ID)
-		stack_cue_set_id(new_cue, 0);
+		gtk_selection_data_free(data);
+		stack_log("saw_edit_paste_clicked(): Failed to parse clipboard data\n");
+		return;
+	}
 
-		// Unlock the cue list
-		stack_cue_list_lock(window->cue_list);
+	if (!cues_root.isArray())
+	{
+		gtk_selection_data_free(data);
+		stack_log("saw_edit_paste_clicked(): Clipboard data was not an array of cues\n");
+		return;
+	}
 
-		// Append the new cue to the list
-		stack_cue_list_append(window->cue_list, new_cue);
+	// Keep track of the cue we're inserting after
+	StackCue *insert_after = window->selected_cue;
 
-		// Move the cue to immediately after the selected cue
-		if (window->selected_cue != NULL)
+	for (auto iter : cues_root)
+	{
+		// Try and create the cue
+		StackCue *new_cue = stack_cue_list_create_cue_from_json(window->cue_list, iter, true);
+		if (new_cue != NULL)
 		{
-			stack_cue_list_move(window->cue_list, new_cue, window->selected_cue, false, window->selected_cue->parent_cue != NULL);
+			// Remove the cue ID (so as not to have a duplicate ID)
+			stack_cue_set_id(new_cue, 0);
+
+			// Unlock the cue list
+			stack_cue_list_lock(window->cue_list);
+
+			// Append the new cue to the list
+			stack_cue_list_append(window->cue_list, new_cue);
+
+			// Move the cue to immediately after the selected cue
+			if (insert_after != NULL)
+			{
+				stack_cue_list_move(window->cue_list, new_cue, insert_after, false, insert_after->parent_cue != NULL);
+			}
+
+			// Update the cue we're inserting after so we insert in order
+			insert_after = new_cue;
+
+			// Unlock the cue list
+			stack_cue_list_unlock(window->cue_list);
+
+			// Select the new cue
+			stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
+
+			// Tell the cue list to redraw
+			stack_cue_list_widget_list_modified(window->sclw);
 		}
-
-		// Unlock the cue list
-		stack_cue_list_unlock(window->cue_list);
-
-		// Select the new cue
-		stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
-
-		// Tell the cue list to redraw
-		stack_cue_list_widget_list_modified(window->sclw);
 	}
 
 	// Free the selection
@@ -816,8 +899,17 @@ extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data
 	// Only do this if the cue list has focus
 	if (gtk_window_get_focus(GTK_WINDOW(window)) == GTK_WIDGET(window->sclw))
 	{
-		for (auto cue : *window->cue_list->cues)
+		for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 		{
+			StackCue *cue = *iter;
+
+			// Skip unexpanded cues with children
+			if (cue->can_have_children && !stack_cue_list_widget_is_cue_expanded(window->sclw, cue->uid) && stack_cue_get_children(cue)->size() != 0)
+			{
+				++iter;
+				iter.leave_child(true);
+				--iter;
+			}
 			stack_cue_list_widget_add_to_selection(window->sclw, cue->uid);
 		}
 

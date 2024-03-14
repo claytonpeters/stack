@@ -1163,6 +1163,12 @@ static void stack_cue_list_widget_reset_selection(StackCueListWidget *sclw)
 
 void stack_cue_list_widget_select_single_cue(StackCueListWidget *sclw, cue_uid_t new_uid)
 {
+	if (stack_cue_get_by_uid(new_uid) == NULL)
+	{
+		stack_log("stack_cue_list_widget_select_single_cue(): Cue %016llx does not exist\n", new_uid);
+		new_uid = STACK_CUE_UID_NONE;
+	}
+
 	stack_cue_list_widget_set_primary_selection(sclw, new_uid);
 	stack_cue_list_widget_reset_selection(sclw);
 }

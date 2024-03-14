@@ -656,21 +656,21 @@ StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Valu
 	// Make sure we have a class parameter
 	if (!cue_json.isMember("class"))
 	{
-		stack_log("stack_cue_list_from_file(): Cue missing 'class' parameter, skipping\n");
+		stack_log("stack_cue_list_create_cue_from_json(): Cue missing 'class' parameter, skipping\n");
 		return NULL;
 	}
 
 	// Make sure we have a base class
 	if (!cue_json.isMember("StackCue"))
 	{
-		stack_log("stack_cue_list_from_file(): Cue missing 'StackCue' class, skipping\n");
+		stack_log("stack_cue_list_create_cue_from_json(): Cue missing 'StackCue' class, skipping\n");
 		return NULL;
 	}
 
 	// Make sure we have a UID
 	if (!cue_json["StackCue"].isMember("uid"))
 	{
-		stack_log("stack_cue_list_from_file(): Cue missing UID, skipping\n");
+		stack_log("stack_cue_list_create_cue_from_json(): Cue missing UID, skipping\n");
 		return NULL;
 	}
 
@@ -679,7 +679,7 @@ StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Valu
 	StackCue *cue = stack_cue_new(class_name, cue_list);
 	if (cue == NULL)
 	{
-		stack_log("stack_cue_list_from_file(): Failed to create cue of type '%s', skipping\n", class_name);
+		stack_log("stack_cue_list_create_cue_from_json(): Failed to create cue of type '%s', skipping\n", class_name);
 		return NULL;
 	}
 
@@ -963,13 +963,20 @@ void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue)
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue)
 {
 	// Iterate over all the cues
-	for (auto iter = cue_list->cues->begin(); iter != cue_list->cues->end(); ++iter)
+	for (auto iter = cue_list->cues->recursive_begin(); iter != cue_list->cues->recursive_end(); ++iter)
 	{
 		// If we've found the cue
 		if (*iter == cue)
 		{
-			// Erase it
-			cue_list->cues->erase(iter);
+			if (iter.is_child())
+			{
+				stack_cue_get_children(cue->parent_cue)->erase(iter.child_iterator());
+			}
+			else
+			{
+				// Erase it
+				cue_list->cues->erase(iter.main_iterator());
+			}
 
 			// Note that the cue list has been modified
 			stack_cue_list_changed(cue_list, cue, NULL);
