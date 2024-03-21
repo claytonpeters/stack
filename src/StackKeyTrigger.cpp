@@ -427,6 +427,7 @@ void stack_key_trigger_register()
 	StackTriggerClass* key_trigger_class = new StackTriggerClass{
 		"StackKeyTrigger",
 		"StackTrigger",
+		"Key Press / Release",
 		stack_key_trigger_create,
 		stack_key_trigger_destroy,
 		stack_key_trigger_get_name,

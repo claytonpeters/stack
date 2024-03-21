@@ -2016,9 +2016,9 @@ StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 			GtkTreeIter iter;
 			gtk_list_store_append(liststore, &iter);
 
-			// Update iterator (TODO: Add in friendly name)
+			// Update iterator
 			gtk_list_store_set(liststore, &iter,
-				0, class_name,
+				0, citer.second->friendly_name,
 				1, class_name, -1);
 		}
 	}

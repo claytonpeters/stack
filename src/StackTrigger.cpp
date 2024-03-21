@@ -353,7 +353,7 @@ bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent,
 void stack_trigger_initsystem()
 {
 	// Register base trigger type
-	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base };
+	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, "No-op abstract", stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base };
 	stack_register_trigger_class(stack_trigger_class);
 }
 

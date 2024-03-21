@@ -46,6 +46,7 @@ typedef struct StackTriggerClass
 {
 	const char *class_name;
 	const char *super_class_name;
+	const char *friendly_name;
 	stack_trigger_create_t create_func;
 	stack_trigger_destroy_t destroy_func;
 	stack_trigger_get_name_t get_name_func;

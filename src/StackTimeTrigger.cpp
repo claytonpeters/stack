@@ -485,6 +485,7 @@ void stack_time_trigger_register()
 	StackTriggerClass* time_trigger_class = new StackTriggerClass{
 		"StackTimeTrigger",
 		"StackTrigger",
+		"Wall-clock Time",
 		stack_time_trigger_create,
 		stack_time_trigger_destroy,
 		stack_time_trigger_get_name,
