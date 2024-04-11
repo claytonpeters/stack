@@ -11,6 +11,7 @@
 
 // Things defined in this file:
 struct StackCue;
+struct StackCueClass;
 
 // Generic type for time - in nanoseconds
 typedef int64_t stack_time_t;
@@ -43,6 +44,7 @@ typedef uint64_t cue_uid_t;
 typedef std::map<std::string, StackProperty*> StackPropertyMap;
 typedef std::vector<StackTrigger*> StackTriggerVector;
 typedef std::vector<StackTrigger*>::iterator *StackTriggerVectorIter;
+typedef std::map<std::string, const StackCueClass*> StackCueClassMap;
 
 // Cue state
 enum StackCueState
@@ -141,6 +143,7 @@ struct StackCueClass
 {
 	const char *class_name;
 	const char *super_class_name;
+	const char *friendly_name;
 	stack_create_cue_t create_func;
 	stack_destroy_cue_t destroy_func;
 	stack_play_cue_t play_func;
@@ -235,6 +238,9 @@ const char* stack_cue_get_field_base(StackCue *cue, const char *field);
 GdkPixbuf* stack_cue_get_icon_base(StackCue *cue);
 StackCueStdList *stack_cue_get_children_base(StackCue *cue);
 StackCue *stack_cue_get_next_cue_base(StackCue *cue);
+
+// Class functions
+const StackCueClassMap *stack_cue_class_map_get();
 
 // Defines:
 #define STACK_CUE(_c) ((StackCue*)(_c))

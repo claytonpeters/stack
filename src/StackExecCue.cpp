@@ -324,7 +324,7 @@ void stack_exec_cue_register()
 	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackexeccue.png", NULL);
 
 	// Register built in cue types
-	StackCueClass* exec_cue_class = new StackCueClass{ "StackExecCue", "StackCue", stack_exec_cue_create, stack_exec_cue_destroy, stack_exec_cue_play, NULL, NULL, stack_exec_cue_pulse, stack_exec_cue_set_tabs, stack_exec_cue_unset_tabs, stack_exec_cue_to_json, stack_exec_cue_free_json, stack_exec_cue_from_json, stack_exec_cue_get_error, NULL, NULL, NULL, stack_audio_cue_get_icon, NULL, NULL };
+	StackCueClass* exec_cue_class = new StackCueClass{ "StackExecCue", "StackCue", "Execution Cue", stack_exec_cue_create, stack_exec_cue_destroy, stack_exec_cue_play, NULL, NULL, stack_exec_cue_pulse, stack_exec_cue_set_tabs, stack_exec_cue_unset_tabs, stack_exec_cue_to_json, stack_exec_cue_free_json, stack_exec_cue_from_json, stack_exec_cue_get_error, NULL, NULL, NULL, stack_audio_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(exec_cue_class);
 }
 

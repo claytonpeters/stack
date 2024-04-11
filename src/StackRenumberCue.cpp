@@ -36,7 +36,7 @@ bool src_show_dialog(StackAppWindow *window)
 		for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 		{
 			StackCue *cue = *iter;
-			
+
 			// If the cue is selected
 			if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
 			{
