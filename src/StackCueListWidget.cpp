@@ -18,6 +18,7 @@ static guint signal_primary_selection_changed = 0;
 typedef struct SCLWColumnGeometry
 {
 	double cue_x;
+	double scriptref_x;
 	double name_x;
 	double name_width;
 	double post_x;
@@ -69,6 +70,7 @@ GtkWidget *stack_cue_list_widget_new()
 	sclw->pre_width = 85;
 	sclw->action_width = 85;
 	sclw->post_width = 85;
+	sclw->scriptref_width = 0;
 
 	sclw->cue_flags = SCLWCueFlagsMap();
 	stack_cue_list_widget_set_cue_list(sclw, NULL);
@@ -584,7 +586,8 @@ static void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWCol
 
 	// Caluclate positions and some widths
 	geom->cue_x = (double)sclw->row_height;  // First column is as wide as it is tall
-	geom->name_x = geom->cue_x + (double)sclw->cue_width;
+	geom->scriptref_x = geom->cue_x + (double)sclw->cue_width;
+	geom->name_x = geom->scriptref_x + (double)sclw->scriptref_width;
 	geom->post_x = (double)width - (double)sclw->post_width;
 	geom->action_x = geom->post_x - (double)sclw->action_width;
 	geom->pre_x = geom->action_x - (double)sclw->pre_width;
@@ -620,6 +623,10 @@ static void stack_cue_list_widget_update_header_cache(StackCueListWidget *sclw, 
 	// Render header
 	stack_cue_list_widget_render_header(sclw, sclw->header_cr, 0, geom.cue_x, "", false);
 	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.cue_x, sclw->cue_width, "Cue", true);
+	if (sclw->scriptref_width > 0)
+	{
+		stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.scriptref_x, sclw->scriptref_width, "Script Ref.", true);
+	}
 	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.name_x, geom.name_width, "Name", false);
 	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.pre_x, sclw->pre_width, "Pre-wait", true);
 	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.action_x, sclw->action_width, "Action", true);
@@ -761,6 +768,10 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 			rectangle_x = local_geom.pre_x;
 			rectangle_width = sclw->list_cache_width - local_geom.pre_x;
 			break;
+		case 5:
+			rectangle_x = local_geom.scriptref_x;
+			rectangle_width = sclw->scriptref_width;
+			break;
 	}
 
 	// Set the clip region to our rectangle
@@ -862,6 +873,16 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 		{
 			stack_cue_id_to_string(cue->id, buffer, 32);
 			stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->cue_x, row_y, sclw->cue_width, sclw->row_height, buffer, true, false, style_context);
+		}
+	}
+
+	if ((fields == 0 || fields == 5) && sclw->scriptref_width > 0)
+	{
+		char *scriptref_text = NULL;
+		stack_property_get_string(stack_cue_get_property(cue, "script_ref"), STACK_PROPERTY_VERSION_DEFINED, &scriptref_text);
+		if (scriptref_text != NULL)
+		{
+			stack_cue_list_widget_render_text(sclw, sclw->list_cr, geom->scriptref_x, row_y, sclw->scriptref_width, sclw->row_height, scriptref_text, true, false, style_context);
 		}
 	}
 
@@ -1040,7 +1061,7 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 		if (!found_first && cue->uid == sclw->top_cue)
 		{
 			found_first = true;
-		}		
+		}
 
 		if (found_first)
 		{
@@ -1291,6 +1312,24 @@ void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t 
 	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
 }
 
+void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw)
+{
+	if (sclw->scriptref_width == 0)
+	{
+		sclw->scriptref_width = 90;
+	}
+	else
+	{
+		sclw->scriptref_width = 0;
+	}
+
+	// Redraw the entire list
+	guint width = gtk_widget_get_allocated_width(GTK_WIDGET(sclw));
+	stack_cue_list_widget_update_header_cache(sclw, width);
+	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
+	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+}
+
 bool stack_cue_list_widget_has_flag(StackCueListWidget *sclw, cue_uid_t uid, uint32_t flag)
 {
 	auto iter = sclw->cue_flags.find(uid);
@@ -1508,7 +1547,7 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				}
 
 				// Determine if we're dropping the cue inside another cue to make it a child
-				// Two conditions: dropping on an existing child or dropping on the root of an 
+				// Two conditions: dropping on an existing child or dropping on the root of an
 				// expanded cue
 				if (dest_cue->parent_cue != NULL || (!before && stack_cue_list_widget_is_cue_expanded(sclw, dest_cue->uid)))
 				{
@@ -1733,7 +1772,7 @@ static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *
 			// Move the iterator backward
 			for (size_t i = 0; i < count; i++)
 			{
-				// If we reach past the front, move to the front 
+				// If we reach past the front, move to the front
 				if (iter == sclw->cue_list->cues->recursive_end() || *iter == NULL)
 				{
 					iter = sclw->cue_list->cues->recursive_begin();
