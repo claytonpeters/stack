@@ -18,7 +18,7 @@ Cues:
 * Action Cues: Start/Stop/Pause other cues
 * Execute Cues: Run arbitrary programs/commands/scripts
 * Group Cues: various modes when playing:
-  * Trigger all child cues 
+  * Trigger all child cues
   * Trigger random cchild cue
   * Trigger children in order as a playlist
   * Trigger children in random order as a shuffled playlist
@@ -29,7 +29,7 @@ Cue Triggers:
 * Timed cue triggers to fire at a given date/time, optionally repeatng
 
 Outputs:
-* PulseAudio (also work with PipeWire via PipeWire PulseAudio plugin)
+* PulseAudio (also works with PipeWire via PipeWire PulseAudio plugin)
 * ALSA
 
 PulseAudio is set as the default output device with a common 2-channel, 44.1kHz
@@ -44,6 +44,7 @@ Features:
   * Cue notes
   * Automatic cue name generation
   * Custom per-cue colours
+  * Cue script references
 * List of active cues with per-channel levels and times
 * Additional cue triggers
 * Remote control via a (currently undocumented) protobuf-based protocol
