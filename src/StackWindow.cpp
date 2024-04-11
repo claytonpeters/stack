@@ -959,34 +959,17 @@ static void saw_generic_add_cue(StackAppWindow *window, const char *type)
 	stack_cue_list_widget_list_modified(window->sclw);
 }
 
+// Menu callback via signal for adding any plugin cue type
+static void saw_generic_add_cue_clicked(GtkWidget* widget, gpointer user_data)
+{
+	const gchar *type = gtk_widget_get_name(GTK_WIDGET(widget));
+	saw_generic_add_cue(STACK_APP_WINDOW(user_data), type);
+}
+
 // Menu callback
 extern "C" void saw_cue_add_group_clicked(void* widget, gpointer user_data)
 {
 	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackGroupCue");
-}
-
-// Menu callback
-extern "C" void saw_cue_add_audio_clicked(void* widget, gpointer user_data)
-{
-	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackAudioCue");
-}
-
-// Menu callback
-extern "C" void saw_cue_add_fade_clicked(void* widget, gpointer user_data)
-{
-	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackFadeCue");
-}
-
-// Menu callback
-extern "C" void saw_cue_add_action_clicked(void* widget, gpointer user_data)
-{
-	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackActionCue");
-}
-
-// Menu callback
-extern "C" void saw_cue_add_exec_clicked(void* widget, gpointer user_data)
-{
-	saw_generic_add_cue(STACK_APP_WINDOW(user_data), "StackExecCue");
 }
 
 // Menu callback
@@ -1944,12 +1927,44 @@ static void stack_app_window_init(StackAppWindow *window)
 	GtkAccelGroup* ag = GTK_ACCEL_GROUP(gtk_builder_get_object(window->builder, "sawAccelGroup"));
 	gtk_window_add_accel_group(GTK_WINDOW(window), ag);
 
+	GtkMenu *cue_menu = GTK_MENU(gtk_builder_get_object(window->builder, "sawCueMenu"));
+	GtkMenu *cue_tool_menu = GTK_MENU(gtk_builder_get_object(window->builder, "sawAddTMenu"));
+	size_t cue_class_count = 0;
+	for (auto cue_class : *stack_cue_class_map_get())
+	{
+		// Skip the built-ins / bases
+		if (strcmp(cue_class.second->class_name, "StackGroupCue") == 0 || strcmp(cue_class.second->class_name, "StackCue") == 0)
+		{
+			continue;
+		}
+
+		// Create the menu items with the correct name. We use the widget name
+		// for the cue class
+		char item_name[256];
+		snprintf(item_name, 256, "Add %s", cue_class.second->friendly_name);
+		GtkWidget *menu_item = gtk_menu_item_new_with_label(item_name);
+		gtk_widget_set_name(menu_item, cue_class.second->class_name);
+		GtkWidget *tool_menu_item = gtk_menu_item_new_with_label(item_name);
+		gtk_widget_set_name(tool_menu_item, cue_class.second->class_name);
+
+		// Add the accelerator and signal
+		cue_class_count++;
+		if (cue_class_count <= 9)
+		{
+			g_signal_connect(tool_menu_item, "activate", G_CALLBACK(saw_generic_add_cue_clicked), (gpointer)window);
+			g_signal_connect(menu_item, "activate", G_CALLBACK(saw_generic_add_cue_clicked), (gpointer)window);
+			gtk_widget_add_accelerator(menu_item, "activate", ag, '0' + cue_class_count, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+		}
+
+		// Add the items to the menus
+		gtk_widget_set_visible(menu_item, true);
+		gtk_widget_set_visible(tool_menu_item, true);
+		gtk_container_add(GTK_CONTAINER(cue_menu), menu_item);
+		gtk_container_add(GTK_CONTAINER(cue_tool_menu), tool_menu_item);
+	}
+
 	// Add on the non-stock accelerators that we're using
 	gtk_accel_group_connect(ag, 'G', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_group_clicked), window, NULL));
-	gtk_accel_group_connect(ag, '1', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_audio_clicked), window, NULL));
-	gtk_accel_group_connect(ag, '2', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_fade_clicked), window, NULL));
-	gtk_accel_group_connect(ag, '3', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_action_clicked), window, NULL));
-	gtk_accel_group_connect(ag, '4', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_cue_add_exec_clicked), window, NULL));
 	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
 	gtk_accel_group_connect(ag, 'A', GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_edit_select_all_clicked), window, NULL));
 	gtk_accel_group_connect(ag, GDK_KEY_Escape, (GdkModifierType)0, GTK_ACCEL_VISIBLE, g_cclosure_new(G_CALLBACK(saw_escape_pressed), window, NULL));

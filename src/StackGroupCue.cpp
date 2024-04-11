@@ -893,6 +893,6 @@ void stack_group_cue_register()
 	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackgroupcue.png", NULL);
 
 	// Register built in cue types
-	StackCueClass* action_cue_class = new StackCueClass{ "StackGroupCue", "StackCue", stack_group_cue_create, stack_group_cue_destroy, stack_group_cue_play, stack_group_cue_pause, stack_group_cue_stop, stack_group_cue_pulse, stack_group_cue_set_tabs, stack_group_cue_unset_tabs, stack_group_cue_to_json, stack_group_cue_free_json, stack_group_cue_from_json, stack_group_cue_get_error, stack_group_cue_get_active_channels, stack_group_cue_get_audio, NULL, stack_group_cue_get_icon, stack_group_cue_get_children, stack_group_cue_get_next_cue };
+	StackCueClass* action_cue_class = new StackCueClass{ "StackGroupCue", "StackCue", "Group Cue", stack_group_cue_create, stack_group_cue_destroy, stack_group_cue_play, stack_group_cue_pause, stack_group_cue_stop, stack_group_cue_pulse, stack_group_cue_set_tabs, stack_group_cue_unset_tabs, stack_group_cue_to_json, stack_group_cue_free_json, stack_group_cue_from_json, stack_group_cue_get_error, stack_group_cue_get_active_channels, stack_group_cue_get_audio, NULL, stack_group_cue_get_icon, stack_group_cue_get_children, stack_group_cue_get_next_cue };
 	stack_register_cue_class(action_cue_class);
 }
