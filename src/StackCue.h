@@ -189,6 +189,7 @@ void stack_cue_remove_property(StackCue *cue, const char *property);
 StackProperty *stack_cue_get_property(StackCue *cue, const char *property);
 void stack_cue_set_id(StackCue *cue, cue_id_t id);
 void stack_cue_set_name(StackCue *cue, const char *name);
+void stack_cue_set_script_ref(StackCue *cue, const char *script_ref);
 void stack_cue_set_notes(StackCue *cue, const char *notes);
 void stack_cue_set_pre_time(StackCue *cue, stack_time_t pre_time);
 void stack_cue_set_action_time(StackCue *cue, stack_time_t action_time);

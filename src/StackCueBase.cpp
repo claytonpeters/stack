@@ -277,6 +277,7 @@ char *stack_cue_to_json_base(StackCue *cue)
 
 	// Write out all the properties
 	stack_property_write_json(stack_cue_get_property(cue, "name"), &cue_root);
+	stack_property_write_json(stack_cue_get_property(cue, "script_ref"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "notes"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "pre_time"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "action_time"), &cue_root);
@@ -331,6 +332,10 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 	stack_cue_set_color(cue, stack_cue_data["r"].asDouble(), stack_cue_data["g"].asDouble(), stack_cue_data["b"].asDouble());
 	stack_cue_set_id(cue, stack_cue_data["id"].asInt());
 	stack_cue_set_name(cue, stack_cue_data["name"].asString().c_str());
+	if (stack_cue_data.isMember("script_ref"))
+	{
+		stack_cue_set_script_ref(cue, stack_cue_data["script_ref"].asString().c_str());
+	}
 	stack_cue_set_notes(cue, stack_cue_data["notes"].asString().c_str());
 	stack_cue_set_pre_time(cue, stack_cue_data["pre_time"].asInt64());
 	stack_cue_set_post_time(cue, stack_cue_data["post_time"].asInt64());
@@ -404,6 +409,14 @@ void stack_cue_set_id(StackCue *cue, cue_id_t id)
 void stack_cue_set_name(StackCue *cue, const char *name)
 {
 	stack_property_set_string(stack_cue_get_property(cue, "name"), STACK_PROPERTY_VERSION_DEFINED, name);
+}
+
+// Sets the cue script reference
+// @param cue The cue to change
+// @param script_ref The new cue script reference
+void stack_cue_set_script_ref(StackCue *cue, const char *script_ref)
+{
+	stack_property_set_string(stack_cue_get_property(cue, "script_ref"), STACK_PROPERTY_VERSION_DEFINED, script_ref);
 }
 
 // Sets the cue notes

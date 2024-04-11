@@ -85,6 +85,10 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	stack_cue_add_property(cue, name);
 	stack_property_set_changed_callback(name, stack_cue_ccb, cue);
 
+	StackProperty *script_ref = stack_property_create("script_ref", STACK_PROPERTY_TYPE_STRING);
+	stack_cue_add_property(cue, script_ref);
+	stack_property_set_changed_callback(name, stack_cue_ccb, cue);
+
 	StackProperty *notes = stack_property_create("notes", STACK_PROPERTY_TYPE_STRING);
 	stack_cue_add_property(cue, notes);
 	stack_property_set_changed_callback(notes, stack_cue_ccb, cue);

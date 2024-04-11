@@ -30,6 +30,7 @@ struct StackCueListWidget
 	int32_t row_height;
 	int32_t header_height;
 	int32_t cue_width;
+	int32_t scriptref_width;
 	int32_t pre_width;
 	int32_t action_width;
 	int32_t post_width;
@@ -104,6 +105,7 @@ bool stack_cue_list_widget_is_cue_selected(StackCueListWidget *sclw, cue_uid_t u
 bool stack_cue_list_widget_is_cue_expanded(StackCueListWidget *sclw, cue_uid_t uid);
 void stack_cue_list_widget_toggle_selection(StackCueListWidget *sclw, cue_uid_t new_uid);
 void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t new_uid);
+void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw);
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);

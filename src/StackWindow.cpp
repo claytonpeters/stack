@@ -198,6 +198,7 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "g"), true);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "b"), true);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "name"), true);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "script_ref"), true);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "notes"), true);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "pre_time"), true);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_time"), true);
@@ -228,6 +229,11 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	char *cue_name = NULL;
 	stack_property_get_string(stack_cue_get_property(cue, "name"), STACK_PROPERTY_VERSION_DEFINED, &cue_name);
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueName")), cue_name);
+
+	// Update cue script ref
+	char *cue_script_ref = NULL;
+	stack_property_get_string(stack_cue_get_property(cue, "script_ref"), STACK_PROPERTY_VERSION_DEFINED, &cue_script_ref);
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(window->builder, "sawCueScriptRef")), cue_script_ref);
 
 	// Update cue notes
 	char *cue_notes = NULL;
@@ -271,6 +277,7 @@ static void saw_update_cue_properties(gpointer user_data, StackCue *cue)
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "g"), false);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "b"), false);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "name"), false);
+	stack_property_pause_change_callback(stack_cue_get_property(cue, "script_ref"), false);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "notes"), false);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "pre_time"), false);
 	stack_property_pause_change_callback(stack_cue_get_property(cue, "post_time"), false);
@@ -1032,13 +1039,21 @@ extern "C" void saw_view_active_cue_list_clicked(void* widget, gpointer user_dat
 	}
 }
 
+extern "C" void saw_view_script_ref_column(void* widget, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	stack_cue_list_widget_toggle_scriptref_column(window->sclw);
+}
+
 // Menu callback
 extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 {
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20240312-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20240411-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1615,6 +1630,27 @@ extern "C" gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpo
 }
 
 // Cue property change (done on focus-out)
+extern "C" gboolean saw_cue_script_ref_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// Only attempt to change if we have a selected cue
+	if (window->selected_cue == NULL)
+	{
+		return false;
+	}
+
+	// Set the name
+	stack_cue_set_script_ref(window->selected_cue, gtk_entry_get_text(GTK_ENTRY(widget)));
+
+	// Update the UI
+	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 5);
+
+	return false;
+}
+
+// Cue property change (done on focus-out)
 extern "C" gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the window
@@ -1921,7 +1957,7 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Set up the window
 	gtk_window_set_title(GTK_WINDOW(window), "Stack");
-	gtk_window_set_default_size(GTK_WINDOW(window), 950, 650);
+	gtk_window_set_default_size(GTK_WINDOW(window), 1024, 700);
 
 	// Set up accelerators
 	GtkAccelGroup* ag = GTK_ACCEL_GROUP(gtk_builder_get_object(window->builder, "sawAccelGroup"));
