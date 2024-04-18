@@ -4,15 +4,7 @@
 // Includes:
 #include "StackCue.h"
 
-// Supported file formats
-enum StackExecCueAction
-{
-	STACK_EXEC_CUE_PLAY = 0,
-	STACK_EXEC_CUE_PAUSE = 1,
-	STACK_EXEC_CUE_STOP = 2,
-};
-
-// An audio cue
+// StackExecCue is a cue type that executes an arbitrary command when triggered
 struct StackExecCue
 {
 	// Superclass

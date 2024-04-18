@@ -11,7 +11,7 @@
 
 // Global: A single instance of our builder so we don't have to keep reloading
 // it every time we change the selected cue
-static GtkBuilder *sac_builder = NULL;
+static GtkBuilder *sec_builder = NULL;
 
 // Global: A single instace of our icon
 static GdkPixbuf *icon = NULL;
@@ -46,7 +46,7 @@ static void stack_exec_cue_pause_change_callbacks(StackCue *cue, bool pause)
 ////////////////////////////////////////////////////////////////////////////////
 // CREATION AND DESTRUCTION
 
-/// Creates a action cue
+/// Creates an exec cue
 static StackCue* stack_exec_cue_create(StackCueList *cue_list)
 {
 	// Allocate the cue
@@ -76,7 +76,7 @@ static StackCue* stack_exec_cue_create(StackCueList *cue_list)
 	return STACK_CUE(cue);
 }
 
-/// Destroys a action cue
+/// Destroys an exec cue
 static void stack_exec_cue_destroy(StackCue *cue)
 {
 	// Call parent destructor
@@ -86,7 +86,7 @@ static void stack_exec_cue_destroy(StackCue *cue)
 ////////////////////////////////////////////////////////////////////////////////
 // PROPERTY SETTERS
 
-// Sets the performed action of an action cue
+// Sets the performed action of an exec cue
 void stack_exec_cue_set_command(StackExecCue *cue, const char *command)
 {
 	stack_property_set_string(stack_cue_get_property(STACK_CUE(cue), "command"), STACK_PROPERTY_VERSION_DEFINED, command);
@@ -180,7 +180,7 @@ static void stack_exec_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	}
 }
 
-/// Sets up the tabs for the action cue
+/// Sets up the tabs for the exec cue
 static void stack_exec_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	StackExecCue *acue = STACK_EXEC_CUE(cue);
@@ -189,22 +189,22 @@ static void stack_exec_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	GtkWidget *label = gtk_label_new("Execute");
 
 	// Load the UI (if we haven't already)
-	if (sac_builder == NULL)
+	if (sec_builder == NULL)
 	{
-		sac_builder = gtk_builder_new_from_resource("/org/stack/ui/StackExecCue.ui");
+		sec_builder = gtk_builder_new_from_resource("/org/stack/ui/StackExecCue.ui");
 
 		// Set up callbacks
-		gtk_builder_add_callback_symbol(sac_builder, "ecp_command_changed", G_CALLBACK(ecp_command_changed));
+		gtk_builder_add_callback_symbol(sec_builder, "ecp_command_changed", G_CALLBACK(ecp_command_changed));
 
 		// Connect the signals
-		gtk_builder_connect_signals(sac_builder, NULL);
+		gtk_builder_connect_signals(sec_builder, NULL);
 	}
-	acue->exec_tab = GTK_WIDGET(gtk_builder_get_object(sac_builder, "ecpGrid"));
+	acue->exec_tab = GTK_WIDGET(gtk_builder_get_object(sec_builder, "ecpGrid"));
 
 	// Pause change callbacks on the properties
 	stack_exec_cue_pause_change_callbacks(cue, true);
 
-	// Add an extra reference to the action tab - we're about to remove it's
+	// Add an extra reference to the exec tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
 	g_object_ref(acue->exec_tab);
 
@@ -220,13 +220,13 @@ static void stack_exec_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	stack_property_get_string(stack_cue_get_property(cue, "command"), STACK_PROPERTY_VERSION_DEFINED, &command);
 
 	// Set the button text
-	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "ecpCommand")), command != NULL ? command : "");
+	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sec_builder, "ecpCommand")), command != NULL ? command : "");
 
 	// Resume change callbacks on the properties
 	stack_exec_cue_pause_change_callbacks(cue, false);
 }
 
-/// Removes the properties tabs for a action cue
+/// Removes the properties tabs for a exec cue
 static void stack_exec_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 {
 	// Find our media page
@@ -238,7 +238,7 @@ static void stack_exec_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 		gtk_notebook_remove_page(notebook, page);
 	}
 
-	// Remove our reference to the action tab
+	// Remove our reference to the exec tab
 	g_object_unref(STACK_EXEC_CUE(cue)->exec_tab);
 
 	// Be tidy
@@ -309,7 +309,7 @@ void stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
 
 /// Returns the icon for a cue
 /// @param cue The cue to get the icon of
-GdkPixbuf *stack_audio_cue_get_icon(StackCue *cue)
+GdkPixbuf *stack_exec_cue_get_icon(StackCue *cue)
 {
 	return icon;
 }
@@ -324,7 +324,7 @@ void stack_exec_cue_register()
 	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackexeccue.png", NULL);
 
 	// Register built in cue types
-	StackCueClass* exec_cue_class = new StackCueClass{ "StackExecCue", "StackCue", "Execution Cue", stack_exec_cue_create, stack_exec_cue_destroy, stack_exec_cue_play, NULL, NULL, stack_exec_cue_pulse, stack_exec_cue_set_tabs, stack_exec_cue_unset_tabs, stack_exec_cue_to_json, stack_exec_cue_free_json, stack_exec_cue_from_json, stack_exec_cue_get_error, NULL, NULL, NULL, stack_audio_cue_get_icon, NULL, NULL };
+	StackCueClass* exec_cue_class = new StackCueClass{ "StackExecCue", "StackCue", "Execution Cue", stack_exec_cue_create, stack_exec_cue_destroy, stack_exec_cue_play, NULL, NULL, stack_exec_cue_pulse, stack_exec_cue_set_tabs, stack_exec_cue_unset_tabs, stack_exec_cue_to_json, stack_exec_cue_free_json, stack_exec_cue_from_json, stack_exec_cue_get_error, NULL, NULL, NULL, stack_exec_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(exec_cue_class);
 }
 
