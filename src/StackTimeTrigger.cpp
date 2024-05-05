@@ -280,8 +280,16 @@ const char* stack_time_trigger_get_description(StackTrigger *trigger)
 char *stack_time_trigger_to_json(StackTrigger *trigger)
 {
 	Json::Value trigger_root;
+	StackTimeTrigger *time_trigger = STACK_TIME_TRIGGER(trigger);
 
-	trigger_root["description"] = STACK_TIME_TRIGGER(trigger)->description;
+	trigger_root["description"] = time_trigger->description;
+	trigger_root["year"] = time_trigger->year;
+	trigger_root["month"] = time_trigger->month;
+	trigger_root["day"] = time_trigger->day;
+	trigger_root["hour"] = time_trigger->hour;
+	trigger_root["minute"] = time_trigger->minute;
+	trigger_root["second"] = time_trigger->second;
+	trigger_root["repeat"] = time_trigger->repeat;
 
 	Json::FastWriter writer;
 	return strdup(writer.write(trigger_root).c_str());
@@ -304,14 +312,49 @@ void stack_time_trigger_from_json(StackTrigger *trigger, const char *json_data)
 	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
 
 	// Get the data that's pertinent to us
-	Json::Value& stack_trigger_data = trigger_root["StackTimeTrigger"];
+	Json::Value& trigger_data = trigger_root["StackTimeTrigger"];
 
 	StackTimeTrigger *time_trigger = STACK_TIME_TRIGGER(trigger);
 	if (time_trigger->description != NULL)
 	{
 		free(time_trigger->description);
 	}
-	time_trigger->description = strdup(stack_trigger_data["description"].asString().c_str());
+	time_trigger->description = strdup(trigger_data["description"].asString().c_str());
+
+	if (trigger_data.isMember("year"))
+	{
+		time_trigger->year = trigger_data["year"].asInt();
+	}
+
+	if (trigger_data.isMember("month"))
+	{
+		time_trigger->month = trigger_data["month"].asInt();
+	}
+
+	if (trigger_data.isMember("day"))
+	{
+		time_trigger->day = trigger_data["day"].asInt();
+	}
+
+	if (trigger_data.isMember("hour"))
+	{
+		time_trigger->hour = trigger_data["hour"].asInt();
+	}
+
+	if (trigger_data.isMember("minute"))
+	{
+		time_trigger->minute = trigger_data["minute"].asInt();
+	}
+
+	if (trigger_data.isMember("second"))
+	{
+		time_trigger->second = trigger_data["second"].asInt();
+	}
+
+	if (trigger_data.isMember("repeat"))
+	{
+		time_trigger->repeat = trigger_data["repeat"].asInt();
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

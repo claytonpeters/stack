@@ -1479,7 +1479,7 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	return frames_to_return;
 }
 
-const char *stack_audio_cue_get_field_base(StackCue *cue, const char *field)
+const char *stack_audio_cue_get_field(StackCue *cue, const char *field)
 {
 	if (strcmp(field, "filepath") == 0)
 	{
@@ -1528,7 +1528,7 @@ void stack_audio_cue_register()
 	icon = gdk_pixbuf_new_from_resource("/org/stack/icons/stackaudiocue.png", NULL);
 
 	// Register cue types
-	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", "Audio Cue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field_base, stack_audio_cue_get_icon, NULL, NULL };
+	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", "Audio Cue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field, stack_audio_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(audio_cue_class);
 }
 

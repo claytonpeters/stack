@@ -368,11 +368,12 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 				}
 
 				// Create a new trigger of the correct type
-				const char *class_name = trigger_json["class"].asString().c_str();
+				char *class_name = strdup(trigger_json["class"].asString().c_str());
 				StackTrigger *trigger = stack_trigger_new(class_name, cue);
 				if (trigger == NULL)
 				{
 					stack_log("stack_cue_from_json_base(): Failed to create trigger of type '%s', skipping\n", class_name);
+					free(class_name);
 
 					// TODO: It would be nice if we have some sort of 'error
 					// trigger' which contained the JSON for the cue, so we
@@ -382,6 +383,7 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 				}
 
 				// Call constructor
+				free(class_name);
 				stack_trigger_from_json(trigger, trigger_json.toStyledString().c_str());
 
 				// Append the trigger to the cue
