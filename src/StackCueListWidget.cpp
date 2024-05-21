@@ -1628,7 +1628,7 @@ static void stack_cue_list_widget_scroll(GtkWidget *widget, GdkEventScroll *even
 	}
 }
 
-static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
 	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
 	cue_uid_t new_cue_uid = sclw->primary_selection;

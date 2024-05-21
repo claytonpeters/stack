@@ -6,12 +6,15 @@
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
+#include <list>
 
 // GTK stuff
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
 #define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
 static const gchar* stack_cue_data_atom_name = "org.stack.cue-data";
+
+std::list<StackAppWindow*> active_windows;
 
 // Structure used to contain show opening data
 struct ShowLoadingData
@@ -1530,6 +1533,9 @@ static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
 	stack_log("saw_destroy() called\n");
 
+	// Remove us from the list of active windows
+	active_windows.remove((StackAppWindow*)widget);
+
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -2226,6 +2232,19 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 	return return_cue;
 }
 
+StackAppWindow *saw_get_window_for_cue_list(StackCueList *cue_list)
+{
+	for (auto window : active_windows)
+	{
+		if (window->cue_list == cue_list)
+		{
+			return window;
+		}
+	}
+
+	return NULL;
+}
+
 // Initialises the StackAppWindow class
 static void stack_app_window_class_init(StackAppWindowClass *cls)
 {
@@ -2238,7 +2257,9 @@ static void stack_app_window_class_init(StackAppWindowClass *cls)
 // Creates a new StackAppWindow
 StackAppWindow* stack_app_window_new(StackApp *app)
 {
-	return (StackAppWindow*)g_object_new(stack_app_window_get_type(), "application", app, NULL);
+	StackAppWindow *window = (StackAppWindow*)g_object_new(stack_app_window_get_type(), "application", app, NULL);
+	active_windows.push_back(window);
+	return window;
 }
 
 // Opens a given file in the StackAppWindow

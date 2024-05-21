@@ -106,6 +106,7 @@ bool stack_cue_list_widget_is_cue_expanded(StackCueListWidget *sclw, cue_uid_t u
 void stack_cue_list_widget_toggle_selection(StackCueListWidget *sclw, cue_uid_t new_uid);
 void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t new_uid);
 void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw);
+gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);
