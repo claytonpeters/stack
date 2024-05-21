@@ -998,7 +998,7 @@ const ProtobufCMessageDescriptor stack_rpc__v1__get_show_response__descriptor =
   (ProtobufCMessageInit) stack_rpc__v1__get_show_response__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor stack_rpc__v1__cue_info__field_descriptors[11] =
+static const ProtobufCFieldDescriptor stack_rpc__v1__cue_info__field_descriptors[12] =
 {
   {
     "uid",
@@ -1132,6 +1132,18 @@ static const ProtobufCFieldDescriptor stack_rpc__v1__cue_info__field_descriptors
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "script_ref",
+    12,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(StackRPC__V1__CueInfo, script_ref),
+    NULL,
+    &protobuf_c_empty_string,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned stack_rpc__v1__cue_info__field_indices_by_name[] = {
   6,   /* field[6] = action_time */
@@ -1143,13 +1155,14 @@ static const unsigned stack_rpc__v1__cue_info__field_indices_by_name[] = {
   8,   /* field[8] = post_trigger */
   7,   /* field[7] = postwait_time */
   5,   /* field[5] = prewait_time */
+  11,   /* field[11] = script_ref */
   3,   /* field[3] = state */
   0,   /* field[0] = uid */
 };
 static const ProtobufCIntRange stack_rpc__v1__cue_info__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 11 }
+  { 0, 12 }
 };
 const ProtobufCMessageDescriptor stack_rpc__v1__cue_info__descriptor =
 {
@@ -1159,7 +1172,7 @@ const ProtobufCMessageDescriptor stack_rpc__v1__cue_info__descriptor =
   "StackRPC__V1__CueInfo",
   "StackRPC.v1",
   sizeof(StackRPC__V1__CueInfo),
-  11,
+  12,
   stack_rpc__v1__cue_info__field_descriptors,
   stack_rpc__v1__cue_info__field_indices_by_name,
   1,  stack_rpc__v1__cue_info__number_ranges,

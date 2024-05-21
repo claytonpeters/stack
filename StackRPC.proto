@@ -141,4 +141,7 @@ message CueInfo {
 
 	// Cue notes
 	string notes = 11;
+
+	// Script reference
+	string script_ref = 12;
 }
