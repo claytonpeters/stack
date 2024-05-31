@@ -2245,6 +2245,11 @@ StackAppWindow *saw_get_window_for_cue_list(StackCueList *cue_list)
 	return NULL;
 }
 
+StackAppWindow *saw_get_window_for_cue(StackCue *cue)
+{
+	return saw_get_window_for_cue_list(cue->parent);
+}
+
 // Initialises the StackAppWindow class
 static void stack_app_window_class_init(StackAppWindowClass *cls)
 {
