@@ -2,7 +2,7 @@
 #include "StackApp.h"
 #include "StackAudioDevice.h"
 #include "StackLog.h"
-#include "StackGtkEntryHelper.h"
+#include "StackGtkHelper.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
@@ -1606,9 +1606,9 @@ extern "C" void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data
 	}
 
 	// Set the color
-	GdkRGBA rgba;
-	gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(widget), &rgba);
-	stack_cue_set_color(window->selected_cue, (uint8_t)(rgba.red * 255.0), (uint8_t)(rgba.green * 255.0), (uint8_t)(rgba.blue * 255.0));
+	uint8_t r, g, b;
+	stack_gtk_color_chooser_get_rgb(GTK_COLOR_CHOOSER(widget), &r, &g, &b);
+	stack_cue_set_color(window->selected_cue, r, g, b);
 
 	// Update the UI
 	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);

@@ -2,7 +2,7 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackAudioCue.h"
-#include "StackGtkEntryHelper.h"
+#include "StackGtkHelper.h"
 #include "MPEGAudioFile.h"
 #include <cstring>
 #include <cstdlib>
