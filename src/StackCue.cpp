@@ -533,7 +533,7 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 }
 
 // Gets the error message
-void stack_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
@@ -545,7 +545,7 @@ void stack_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 
 	// Call the function
-	cue_class_map[string(class_name)]->get_error_func(cue, message, size);
+	return cue_class_map[string(class_name)]->get_error_func(cue, message, size);
 }
 
 char *stack_cue_to_json(StackCue *cue)

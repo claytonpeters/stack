@@ -844,9 +844,10 @@ void stack_group_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	strncpy(message, "", size);
+	return false;
 }
 
 /// Returns the icon for a cue

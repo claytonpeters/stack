@@ -2039,8 +2039,7 @@ static gboolean stack_cue_list_widget_query_tooltip(GtkWidget* widget, gint x, g
 	}
 
 	char error[512];
-	stack_cue_get_error(cue, error, 512);
-	if (strlen(error) == 0)
+	if (!stack_cue_get_error(cue, error, 512))
 	{
 		return false;
 	}

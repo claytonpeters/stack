@@ -291,7 +291,7 @@ void stack_exec_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	// Get the target
 	char *command = NULL;
@@ -300,11 +300,12 @@ void stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
 	if (command == NULL || strlen(command) == 0)
 	{
 		snprintf(message, size, "No command chosen");
+		return true;
 	}
-	else
-	{
-		strncpy(message, "", size);
-	}
+
+	// Default condition: no error
+	strncpy(message, "", size);
+	return false;
 }
 
 /// Returns the icon for a cue

@@ -1341,26 +1341,29 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	char *file = NULL;
 	stack_property_get_string(stack_cue_get_property(cue, "file"), STACK_PROPERTY_VERSION_DEFINED, &file);
 	if (file == NULL || strlen(file) == 0)
 	{
 		snprintf(message, size, "No audio file selected");
+		return true;
 	}
 	else if (STACK_AUDIO_CUE(cue)->playback_file == NULL)
 	{
 		snprintf(message, size, "Invalid audio file");
+		return true;
 	}
 	else if (cue->parent->audio_device == NULL)
 	{
 		snprintf(message, size, "No audio device");
+		return true;
 	}
-	else
-	{
-		strncpy(message, "", size);
-	}
+
+	// Default condition: no error
+	strncpy(message, "", size);
+	return false;
 }
 
 /// Returns which cuelist channels the cue is actively wanting to send audio to

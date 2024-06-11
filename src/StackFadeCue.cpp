@@ -673,7 +673,7 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	cue_uid_t target_uid = STACK_CUE_UID_NONE;
 	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
@@ -681,11 +681,12 @@ void stack_fade_cue_get_error(StackCue *cue, char *message, size_t size)
 	if (target_uid == STACK_CUE_UID_NONE)
 	{
 		snprintf(message, size, "No target cue chosen");
+		return true;
 	}
-	else
-	{
-		strncpy(message, "", size);
-	}
+
+	// Default condition: no error
+	strncpy(message, "", size);
+	return false;
 }
 
 const char *stack_fade_cue_get_field(StackCue *cue, const char *field)

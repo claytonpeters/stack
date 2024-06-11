@@ -486,9 +486,10 @@ void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 /// @param cue The cue to get the error for
 /// @param message The buffer to store the error message in
 /// @param size The size of the message buffer
-void stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
+bool stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
 {
 	snprintf(message, size, "The base cue implementation should not be used.");
+	return false;
 }
 
 /// Returns the number of active channels for the cue. For the base
