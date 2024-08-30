@@ -3,6 +3,7 @@
 #include "StackFadeCue.h"
 #include "StackGtkHelper.h"
 #include "StackAudioCue.h"
+#include "StackAudioLevelsTab.h"
 #include "StackLog.h"
 #include <cstring>
 #include <cstdlib>
@@ -78,28 +79,25 @@ static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVers
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
-static void stack_fade_cue_ccb_target_volume(StackProperty *property, StackPropertyVersion version, void *user_data)
+static void stack_fade_cue_ccb_master_volume(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	StackFadeCue *cue = STACK_FADE_CUE(user_data);
 
 	if (cue->fade_tab != NULL && version == STACK_PROPERTY_VERSION_DEFINED)
 	{
-		double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-		stack_property_get_double(property, version, &target_volume);
+		double master_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+		stack_property_get_double(property, version, &master_volume);
 
 		// Build a string of the volume
 		char buffer[32];
-		if (target_volume < -49.99)
+		if (master_volume < -49.99)
 		{
 			snprintf(buffer, 32, "-Inf dB");
 		}
 		else
 		{
-			snprintf(buffer, 32, "%.2f dB", target_volume);
+			snprintf(buffer, 32, "%.2f dB", master_volume);
 		}
-
-		// Get the volume label and update it's value
-		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sfc_builder, "fcpVolumeValueLabel")), buffer);
 	}
 
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
@@ -122,11 +120,29 @@ static void stack_fade_cue_ccb_action_time(StackProperty *property, StackPropert
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+double stack_fade_cue_validate_volume(StackPropertyDouble *property, StackPropertyVersion version, const double value, void *user_data)
+{
+	// If a defined-version property has changed, we should notify the cue list
+	// that we're now different
+	if (version == STACK_PROPERTY_VERSION_DEFINED)
+	{
+		StackFadeCue* cue = STACK_FADE_CUE(user_data);
+
+		// We count anything less than -60dB as silence
+		if (value < -59.99)
+		{
+			return -INFINITY;
+		}
+	}
+
+	return value;
+}
+
 // Pause or resumes change callbacks on variables
 static void stack_fade_cue_pause_change_callbacks(StackCue *cue, bool pause)
 {
     stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
-    stack_property_pause_change_callback(stack_cue_get_property(cue, "target_volume"), pause);
+    stack_property_pause_change_callback(stack_cue_get_property(cue, "master_volume"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "stop_target"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "profile"), pause);
 }
@@ -156,7 +172,7 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	sfc_builder = NULL;
 	cue->fade_tab = NULL;
 	cue->target_cue_id_string[0] = '\0';
-	cue->playback_start_target_volume = 0.0;
+	cue->playback_start_master_volume = 0.0;
 
 	// Add our properties
 	StackProperty *target = stack_property_create("target", STACK_PROPERTY_TYPE_UINT64);
@@ -164,10 +180,12 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	stack_property_set_uint64(target, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_TARGET);
 	stack_property_set_changed_callback(target, stack_fade_cue_ccb_target, (void*)cue);
 
-	StackProperty *target_volume = stack_property_create("target_volume", STACK_PROPERTY_TYPE_DOUBLE);
-	stack_cue_add_property(STACK_CUE(cue), target_volume);
-	stack_property_set_double(target_volume, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_TARGET_VOLUME);
-	stack_property_set_changed_callback(target_volume, stack_fade_cue_ccb_target_volume, (void*)cue);
+	StackProperty *master_volume = stack_property_create("master_volume", STACK_PROPERTY_TYPE_DOUBLE);
+	stack_cue_add_property(STACK_CUE(cue), master_volume);
+	stack_property_set_double(master_volume, STACK_PROPERTY_VERSION_DEFINED, STACK_FADE_CUE_DEFAULT_TARGET_VOLUME);
+	stack_property_set_changed_callback(master_volume, stack_fade_cue_ccb_master_volume, (void*)cue);
+	stack_property_set_validator(master_volume, (stack_property_validator_t)stack_fade_cue_validate_volume, (void*)cue);
+	stack_property_set_nullable(master_volume, true);
 
 	StackProperty *stop_target = stack_property_create("stop_target", STACK_PROPERTY_TYPE_BOOL);
 	stack_cue_add_property(STACK_CUE(cue), stop_target);
@@ -225,14 +243,14 @@ void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 }
 
 /// Sets the change in volume of the target cue
-void stack_fade_cue_set_target_volume(StackFadeCue *cue, double target_volume)
+void stack_fade_cue_set_master_volume(StackFadeCue *cue, double master_volume)
 {
-	if (target_volume < -49.99)
+	if (master_volume < -59.99)
 	{
-		target_volume = -INFINITY;
+		master_volume = -INFINITY;
 	}
 
-	stack_property_set_double(stack_cue_get_property(STACK_CUE(cue), "target_volume"), STACK_PROPERTY_VERSION_DEFINED, target_volume);
+	stack_property_set_double(stack_cue_get_property(STACK_CUE(cue), "master_volume"), STACK_PROPERTY_VERSION_DEFINED, master_volume);
 }
 
 /// Sets whether the Stop Target flag is enabled
@@ -277,7 +295,7 @@ static void fcp_volume_changed(GtkRange *range, gpointer user_data)
 
 	// Get the volume and store it
 	double vol_db = gtk_range_get_value(range);
-	stack_fade_cue_set_target_volume(cue, vol_db);
+	stack_fade_cue_set_master_volume(cue, vol_db);
 }
 
 /// Called when the fade time edit box loses focus
@@ -347,16 +365,64 @@ static bool stack_fade_cue_play(StackCue *cue)
 	if (target != NULL)
 	{
 		// Store the current volume of the target
-		stack_property_get_double(stack_cue_get_property(target, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_target_volume));
+		stack_property_get_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_master_volume));
 
 		// ...copy the current values
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target"));
-		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target_volume"));
+		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "profile"));
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "stop_target"));
 	}
 
 	return true;
+}
+
+static double stack_fade_cue_fade_property(StackFadeCue *cue, StackProperty *source_property, StackFadeProfile profile, double time_scaler)
+{
+	// Determine the volume we're working towards
+	double master_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(source_property, STACK_PROPERTY_VERSION_LIVE, &master_volume);
+
+	// Convert start and end volumes from dB to linear scalars
+	double vstart = stack_db_to_scalar(cue->playback_start_master_volume);
+	double vend = stack_db_to_scalar(master_volume);
+	double vrange = vstart - vend;
+
+	double new_volume;
+	switch (profile)
+	{
+		case STACK_FADE_PROFILE_LINEAR:
+			// time_scaler goes 0.0 -> 1.0
+			new_volume = stack_scalar_to_db(vstart - vrange * time_scaler);
+			break;
+
+		case STACK_FADE_PROFILE_QUAD:
+			// time_scaler goes 0.0 -> 1.0. Build a vol_scaler that is a two-part square curve from 0.0->0.5 then 0.5->1.0
+			double vol_scaler;
+			if (time_scaler < 0.5)
+			{
+				vol_scaler = (time_scaler * time_scaler * 2.0);
+			}
+			else
+			{
+				vol_scaler = 1.0 - ((1.0 - time_scaler) * (1.0 - time_scaler) * 2.0);
+			}
+
+			// Scale between vstart and vend based on vol_scaler and convert back to dB
+			new_volume = stack_scalar_to_db(vstart - vrange * vol_scaler);
+			break;
+
+		case STACK_FADE_PROFILE_EXP:
+			new_volume = stack_scalar_to_db(vstart - vrange * (1.0 - pow(1.0 - time_scaler, 2.0)));
+
+			break;
+
+		case STACK_FADE_PROFILE_INVEXP:
+			new_volume = stack_scalar_to_db(vstart - vrange * pow(time_scaler, 2.0));
+			break;
+	}
+
+	return new_volume;
 }
 
 /// Update the cue based on time
@@ -387,7 +453,7 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		if (pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 		{
 			// Jump to end volume (handles zero-second, non-stopping fades)
-			stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
+			stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
 
 			// If we're supposed to stop our target, do so
 			if (stop_target)
@@ -407,65 +473,91 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				stack_time_t run_action_time;
 				stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
 
-				// Determine the volume we're working towards
-				double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-				stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &target_volume);
-
 				// Calculate a ratio of how far through the queue we are
 				double time_scaler = (double)run_action_time / (double)cue_action_time;
-
-				// Convert start and end volumes from dB to linear scalars
-				double vstart = stack_db_to_scalar(STACK_FADE_CUE(cue)->playback_start_target_volume);
-				double vend = stack_db_to_scalar(target_volume);
-				double vrange = vstart - vend;
 
 				// Get the fade profile
 				StackFadeProfile profile = STACK_FADE_CUE_DEFAULT_PROFILE;
 				stack_property_get_int32(stack_cue_get_property(cue, "profile"), STACK_PROPERTY_VERSION_LIVE, (int32_t*)&profile);
 
-				switch (profile)
-				{
-					case STACK_FADE_PROFILE_LINEAR:
-						// time_scaler goes 0.0 -> 1.0
-						new_volume = stack_scalar_to_db(vstart - vrange * time_scaler);
-						break;
-
-					case STACK_FADE_PROFILE_QUAD:
-						// time_scaler goes 0.0 -> 1.0. Build a vol_scaler that is a two-part square curve from 0.0->0.5 then 0.5->1.0
-						double vol_scaler;
-						if (time_scaler < 0.5)
-						{
-							vol_scaler = (time_scaler * time_scaler * 2.0);
-						}
-						else
-						{
-							vol_scaler = 1.0 - ((1.0 - time_scaler) * (1.0 - time_scaler) * 2.0);
-						}
-
-						// Scale between vstart and vend based on vol_scaler and convert back to dB
-						new_volume = stack_scalar_to_db(vstart - vrange * vol_scaler);
-						break;
-
-					case STACK_FADE_PROFILE_EXP:
-						new_volume = stack_scalar_to_db(vstart - vrange * (1.0 - pow(1.0 - time_scaler, 2.0)));
-
-						break;
-
-					case STACK_FADE_PROFILE_INVEXP:
-						new_volume = stack_scalar_to_db(vstart - vrange * pow(time_scaler, 2.0));
-						break;
-				}
+				// Perform the fade
+				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), stack_cue_get_property(cue, "master_volume"), profile, time_scaler);
 			}
 			else
 			{
 				// Immediately jump to target volume
-				stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
+				stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
 			}
 		}
 
 		// Set the new volume
-		stack_property_set_double(stack_cue_get_property(STACK_CUE(target), "play_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
+		stack_property_set_double(stack_cue_get_property(STACK_CUE(target), "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
 	}
+}
+
+// Note that channel is one-based, not zero
+StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel, bool create)
+{
+	StackProperty *property = NULL;
+
+	if (channel == 0)
+	{
+		// This one always exists
+		property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
+	}
+	else
+	{
+		// Create some new properties
+		char property_name[64];
+		snprintf(property_name, 64, "input_%lu_volume", channel);
+		property = stack_cue_get_property(STACK_CUE(cue), property_name);
+
+		// If the property does not yet exist, create it
+		if (property == NULL && create)
+		{
+			// Create the property
+			property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+
+			// Property should be nullable in case the user doesn't want to change it,
+			// and should default to NULL
+			stack_property_set_nullable(property, true);
+			stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, true);
+			stack_property_set_null(property, STACK_PROPERTY_VERSION_LIVE, true);
+
+			stack_property_set_changed_callback(property, stack_fade_cue_ccb_master_volume, (void*)cue);
+			stack_property_set_validator(property, (stack_property_validator_t)stack_fade_cue_validate_volume, (void*)cue);
+			stack_cue_add_property(STACK_CUE(cue), property);
+		}
+	}
+
+	return property;
+}
+
+StackProperty *stack_fade_cue_get_crosspoint_property(StackCue *cue, size_t input_channel, size_t output_channel, bool create)
+{
+	// Build property name
+	char property_name[64];
+	snprintf(property_name, 64, "crosspoint_%lu_%lu", output_channel, input_channel);
+
+	// Get the property, creating it with a default value if it does not exist
+	StackProperty *property = stack_cue_get_property(STACK_CUE(cue), property_name);
+	if (property == NULL && create)
+	{
+		// Property does not exist - create it
+		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+		stack_property_set_validator(property, (stack_property_validator_t)stack_fade_cue_validate_volume, (void*)cue);
+
+		// Property is nullable - in case the user doesn't want the fade cue to touch this
+		stack_property_set_nullable(property, true);
+
+		// Default crosspoints to NULL
+		stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, true);
+		stack_property_set_null(property, STACK_PROPERTY_VERSION_LIVE, true);
+
+		stack_cue_add_property(cue, property);
+	}
+
+	return property;
 }
 
 /// Sets up the tabs for the fade cue
@@ -474,7 +566,8 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	StackFadeCue *fcue = STACK_FADE_CUE(cue);
 
 	// Create the tab
-	GtkWidget *label = gtk_label_new("Fade");
+	GtkWidget *fade_label = gtk_label_new("Fade");
+	GtkWidget *levels_label = gtk_label_new("Levels");
 
 	// Load the UI (if we haven't already)
 	if (sfc_builder == NULL)
@@ -506,9 +599,14 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	// The tab has a parent window in the UI file - unparent the tab container from it
 	gtk_widget_unparent(fcue->fade_tab);
 
+	// Set up the levels tab
+	fcue->levels_tab = stack_audio_levels_tab_new(cue, stack_fade_cue_get_volume_property, stack_fade_cue_get_crosspoint_property);
+
 	// Append the tab (and show it, because it starts off hidden...)
-	gtk_notebook_append_page(notebook, fcue->fade_tab, label);
+	gtk_notebook_append_page(notebook, fcue->fade_tab, fade_label);
+	gtk_notebook_append_page(notebook, fcue->levels_tab->root, levels_label);
 	gtk_widget_show(fcue->fade_tab);
+	gtk_widget_show(fcue->levels_tab->root);
 
 	// Set the values: cue
 	cue_uid_t target_uid = STACK_CUE_UID_NONE;
@@ -530,6 +628,24 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		gtk_button_set_label(GTK_BUTTON(gtk_builder_get_object(sfc_builder, "fcpCue")), "Select Cue...");
 	}
+
+	size_t input_channels = 0;
+	if (target_cue != NULL)
+	{
+		if (strcmp(target_cue->_class_name, "StackAudioCue") == 0)
+		{
+			if (STACK_AUDIO_CUE(target_cue)->playback_file != NULL)
+			{
+				input_channels = STACK_AUDIO_CUE(target_cue)->playback_file->channels;
+			}
+		}
+		else if (strcmp(target_cue->_class_name, "StackGroupCue") == 0)
+		{
+			// Group cues have the same number of channels as the playlist
+			input_channels = cue->parent->channels;
+		}
+	}
+	stack_audio_levels_tab_populate(fcue->levels_tab, input_channels, cue->parent->channels, true, NULL);
 
 	// Set the values: fade time
 	char buffer[32];	// Warning: used multiple times!
@@ -572,20 +688,6 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 			break;
 	}
 
-	// Set the values: volume
-	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-	stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_DEFINED, &target_volume);
-	if (target_volume < -49.99)
-	{
-		snprintf(buffer, 32, "-Inf dB");
-	}
-	else
-	{
-		snprintf(buffer, 32, "%.2f dB", target_volume);
-	}
-	gtk_range_set_value(GTK_RANGE(gtk_builder_get_object(sfc_builder, "fcpVolume")), target_volume);
-	gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sfc_builder, "fcpVolumeValueLabel")), buffer);
-
 	// Resume change callbacks on the properties
 	stack_fade_cue_pause_change_callbacks(cue, false);
 }
@@ -605,6 +707,19 @@ static void stack_fade_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	// Remove our reference to the fade tab
 	g_object_unref(STACK_FADE_CUE(cue)->fade_tab);
 	STACK_FADE_CUE(cue)->fade_tab = NULL;
+
+	// Find our levels page
+	page = gtk_notebook_page_num(notebook, STACK_FADE_CUE(cue)->levels_tab->root);
+
+	// If we've found the page, remove it
+	if (page >= 0)
+	{
+		gtk_notebook_remove_page(notebook, page);
+	}
+
+	// Destroy the levels tab
+	stack_audio_levels_tab_destroy(STACK_FADE_CUE(cue)->levels_tab);
+	STACK_FADE_CUE(cue)->levels_tab = NULL;
 }
 
 /// Saves the details of this cue as JSON
@@ -615,18 +730,29 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 	// Build JSON
 	Json::Value cue_root;
 	stack_property_write_json(stack_cue_get_property(cue, "target"), &cue_root);
-	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-	stack_property_get_double(stack_cue_get_property(cue, "target_volume"), STACK_PROPERTY_VERSION_DEFINED, &target_volume);
-	if (std::isfinite(target_volume))
+	double master_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, &master_volume);
+	if (std::isfinite(master_volume))
 	{
-		cue_root["target_volume"] = target_volume;
+		cue_root["master_volume"] = master_volume;
 	}
 	else
 	{
-		cue_root["target_volume"] = "-Infinite";
+		cue_root["master_volume"] = "-Infinite";
 	}
 	stack_property_write_json(stack_cue_get_property(cue, "stop_target"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "profile"), &cue_root);
+
+	// If we've got a target, and the target has a file
+	size_t input_channels = 0;
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
+	if (target != NULL)
+	{
+		// TODO: How do we get the number of input channels
+		// cue_root["_last_input_channels"] = input_channels;
+	}
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
@@ -660,16 +786,33 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 
 	// Load in values from JSON
 	stack_fade_cue_set_target(STACK_FADE_CUE(cue), stack_cue_get_by_uid(stack_cue_list_remap(STACK_CUE(cue)->parent, (cue_uid_t)cue_data["target"].asUInt64())));
-	if (cue_data["target_volume"].isString() && cue_data["target_volume"].asString() == "-Infinite")
+	if (cue_data.isMember("master_volume"))
 	{
-		stack_fade_cue_set_target_volume(STACK_FADE_CUE(cue), -INFINITY);
+		if (cue_data["master_volume"].isString() && cue_data["master_volume"].asString() == "-Infinite")
+		{
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY);
+		}
+		else
+		{
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["master_volume"].asDouble());
+		}
 	}
-	else
+	// Older versions used target_volume before we enforced a well-known name
+	else if (cue_data.isMember("target_volume"))
 	{
-		stack_fade_cue_set_target_volume(STACK_FADE_CUE(cue), cue_data["target_volume"].asDouble());
+		if (cue_data["target_volume"].isString() && cue_data["target_volume"].asString() == "-Infinite")
+		{
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY);
+		}
+		else
+		{
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["target_volume"].asDouble());
+		}
 	}
 	stack_fade_cue_set_stop_target(STACK_FADE_CUE(cue), cue_data["stop_target"].asBool());
 	stack_fade_cue_set_profile(STACK_FADE_CUE(cue), (StackFadeProfile)cue_data["profile"].asInt());
+
+	// TODO: Read values of channel and crosspoints
 }
 
 /// Gets the error message for the cue

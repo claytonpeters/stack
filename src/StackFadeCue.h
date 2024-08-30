@@ -3,6 +3,7 @@
 
 // Includes:
 #include "StackCue.h"
+#include "StackAudioLevelsTab.h"
 
 enum StackFadeProfile
 {
@@ -21,8 +22,11 @@ struct StackFadeCue
 	// The fade tab
 	GtkWidget *fade_tab;
 
+	// The levels tab
+	StackAudioLevelsTab *levels_tab;
+
 	// The volume of the target when the cue started
-	double playback_start_target_volume;
+	double playback_start_master_volume;
 
 	// A string of the target cue ID
 	char target_cue_id_string[32];

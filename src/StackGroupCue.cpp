@@ -75,7 +75,7 @@ static StackCue* stack_group_cue_create(StackCueList *cue_list)
 	stack_property_set_changed_callback(action, stack_group_cue_ccb_action, (void*)cue);
 
 	// This property is not exposed to the user and is only used for live volume changes
-	StackProperty *volume = stack_property_create("play_volume", STACK_PROPERTY_TYPE_DOUBLE);
+	StackProperty *volume = stack_property_create("master_volume", STACK_PROPERTY_TYPE_DOUBLE);
 	stack_cue_add_property(STACK_CUE(cue), volume);
 
 	return STACK_CUE(cue);
@@ -278,7 +278,7 @@ static bool stack_group_cue_play(StackCue *cue)
 
 	// Initialise playback
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "action"));
-	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "play_volume"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
 
 	// Get the pre-wait time for the cue
 	stack_time_t pre_time = 0;
@@ -479,7 +479,7 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	// Calculate audio scalar (using the live playback volume). Also use this to
 	// scale from 16-bit signed int to 0.0-1.0 range
 	double playback_live_volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
 	double base_audio_scaler = stack_db_to_scalar(playback_live_volume);
 
 	// Allocate a buffer for new cue data

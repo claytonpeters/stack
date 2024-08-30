@@ -40,6 +40,9 @@ typedef char*(*stack_trigger_to_json_t)(StackTrigger*);
 typedef void(*stack_trigger_free_json_t)(StackTrigger*, char*);
 typedef void(*stack_trigger_from_json_t)(StackTrigger*, const char*);
 typedef bool(*stack_trigger_show_config_ui_t)(StackTrigger*, GtkWidget*, bool);
+typedef char*(*stack_trigger_config_to_json_t)(void);
+typedef void(*stack_trigger_config_free_json_t)(char*);
+typedef void(*stack_trigger_config_from_json_t)(const char*);
 
 // Defines information about a class
 typedef struct StackTriggerClass
@@ -57,6 +60,11 @@ typedef struct StackTriggerClass
 	stack_trigger_free_json_t free_json_func;
 	stack_trigger_from_json_t from_json_func;
 	stack_trigger_show_config_ui_t show_config_ui_func;
+
+	// Global config functions:
+	stack_trigger_config_to_json_t config_to_json_func;
+	stack_trigger_config_free_json_t config_free_json_func;
+	stack_trigger_config_from_json_t config_from_json_func;
 } StackTriggerClass;
 
 // Typedefs:
@@ -84,6 +92,9 @@ char* stack_trigger_to_json(StackTrigger *trigger);
 void stack_trigger_free_json(StackTrigger *trigger, char *json_data);
 void stack_trigger_from_json(StackTrigger *trigger, const char *json_data);
 bool stack_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, bool new_trigger);
+char* stack_trigger_config_to_json(const char *class_name);
+void stack_trigger_config_free_json(const char *class_name, char *json_data);
+void stack_trigger_config_from_json(const char *class_name, const char *json_data);
 
 // Base trigger functions. These should not be called directly except from
 // within subclasses of StackTrigger
@@ -97,6 +108,9 @@ char* stack_trigger_to_json_base(StackTrigger *trigger);
 void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data);
 void stack_trigger_from_json_base(StackTrigger *trigger, const char *json_data);
 bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent, bool new_trigger);
+char* stack_trigger_config_to_json_base(StackTrigger *trigger);
+void stack_trigger_config_free_json_base(StackTrigger *trigger, char *json_data);
+void stack_trigger_config_from_json_base(StackTrigger *trigger, const char *json_data);
 
 // Class functions
 const StackTriggerClass *stack_trigger_get_class(const char *name);

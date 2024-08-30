@@ -38,6 +38,8 @@ enum StackPropertyVersion
 // Pre-define this:
 struct StackProperty;
 
+// Definitions:
+#define STACK_PROPERTY_NULL_FLAGS_
 // Typedefs:
 typedef void(*stack_property_changed_t)(StackProperty *, StackPropertyVersion, void *);
 typedef void* stack_property_validator_t;
@@ -58,7 +60,12 @@ struct StackProperty
 	void *changed_callback_user_data;
 
 	// Whether change callbacks are paused
-	bool change_callbacks_paused;
+	bool change_callbacks_paused : 1;
+	bool nullable : 1;
+	bool version_defined_null : 1;
+	bool version_live_null : 1;
+	bool version_target_null : 1;
+	bool _unused : 3;
 };
 
 // Definitions: Helper to define a typed property. Each property contains:
@@ -148,6 +155,16 @@ StackProperty *stack_property_create(const char *name, StackPropertyType type);
 // @param property The property to destroy
 void stack_property_destroy(StackProperty *property);
 
+// Returns whether or not a property is nullable
+// @param property The property to return the nullable attribute off
+// @returns A boolean indicating if the property is nullable
+bool stack_property_get_nullable(StackProperty *property);
+
+// Sets whether or not a property is nullable
+// @param property The property to set the nullable attribute off
+// @param nullable A boolean indicating if the property should be nullable
+void stack_property_set_nullable(StackProperty *property, bool nullable);
+
 // Sets the callback to call when a property's value changes
 // @param property The property whose callback should be changed
 // @param callback The function to call
@@ -174,5 +191,21 @@ void stack_property_write_json(StackProperty *property, Json::Value* json_root);
 // Copy the defined version of the property to live
 // @param property The property to change
 void stack_property_copy_defined_to_live(StackProperty *property);
+
+// Gets whether a property value is null
+// @param property The property to get the value of
+// @param version The version of the property to get the value of
+// @returns Whether or not the given version of the property is null (or always
+// false if the property is not nullable)
+bool stack_property_get_null(StackProperty *property, StackPropertyVersion version);
+
+// Sets whether a property value is null
+// @param property The property to get the value of
+// @param version The version of the property to get the value of
+// @param is_null Whether to set the value to null or not. If setting a value to
+// not null, you should ensure that the property then has a value
+// @returns True if the nullable field was set, or false otherwise (including if
+// the property is not nullable)
+bool stack_property_set_null(StackProperty *property, StackPropertyVersion version, bool is_null);
 
 #endif

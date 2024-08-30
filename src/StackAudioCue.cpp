@@ -2,6 +2,7 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackAudioCue.h"
+#include "StackAudioLevelsTab.h"
 #include "StackGtkHelper.h"
 #include "MPEGAudioFile.h"
 #include <cstring>
@@ -22,8 +23,9 @@ static GtkBuilder *sac_builder = NULL;
 static GdkPixbuf *icon = NULL;
 
 // Pre-define this:
-static void stack_audio_cue_populate_levels(StackAudioCue *cue);
-static StackProperty *stack_audio_cue_get_channel_volume_property(StackAudioCue *cue, size_t channel, bool create);
+StackProperty *stack_audio_cue_get_volume_property(StackCue *cue, size_t channel, bool create);
+
+typedef void (*ToggleButtonCallback)(GtkToggleButton*, gpointer);
 
 static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 {
@@ -118,7 +120,16 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 		// TODO: Update tabs if we're active
 		if (cue->levels_tab)
 		{
-			stack_audio_cue_populate_levels(cue);
+			size_t input_channels = 0;
+			if (cue->playback_file != NULL)
+			{
+				input_channels = cue->playback_file->channels;
+			}
+
+			stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
+				StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+				cue->affect_live = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(self));
+			});
 		}
 
 		// TODO: Determine what properties we need to create/destroy
@@ -127,7 +138,7 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			// Create new properties
 			for (size_t channel = old_channels; channel < new_channels; channel++)
 			{
-				stack_audio_cue_get_channel_volume_property(cue, channel + 1, true);
+				stack_audio_cue_get_volume_property(STACK_CUE(cue), channel + 1, true);
 			}
 		}
 		else if (new_channels < old_channels)
@@ -135,7 +146,7 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			// Delete some old properties
 			for (size_t channel = new_channels; channel < old_channels; channel++)
 			{
-				StackProperty *property = stack_audio_cue_get_channel_volume_property(cue, channel + 1, false);
+				StackProperty *property = stack_audio_cue_get_volume_property(STACK_CUE(cue), channel + 1, false);
 				stack_cue_remove_property(STACK_CUE(cue), property->name);
 				stack_property_destroy(property);
 			}
@@ -354,26 +365,6 @@ double stack_audio_cue_validate_rate(StackPropertyDouble *property, StackPropert
 	return value;
 }
 
-// Note that channel is one-based, not zero
-static StackProperty *stack_audio_cue_get_channel_volume_property(StackAudioCue *cue, size_t channel, bool create)
-{
-	// Create some new properties
-	char property_name[64];
-	snprintf(property_name, 64, "channel_%lu_volume", channel);
-	StackProperty *property = stack_cue_get_property(STACK_CUE(cue), property_name);
-
-	// If the property does not yet exist, create it
-	if (property == NULL && create)
-	{
-		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
-		stack_property_set_changed_callback(property, stack_audio_cue_ccb_volume, (void*)cue);
-		stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
-		stack_cue_add_property(STACK_CUE(cue), property);
-	}
-
-	return property;
-}
-
 // Creates an audio cue
 static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 {
@@ -396,6 +387,8 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	cue->master_scale = NULL;
 	cue->channel_scales = NULL;
 	cue->affect_live = false;
+	cue->playback_buffer = NULL;
+	cue->playback_buffer_frames = 0;
 
 	// Add our properties
 	StackProperty *file = stack_property_create("file", STACK_PROPERTY_TYPE_STRING);
@@ -417,7 +410,7 @@ static StackCue* stack_audio_cue_create(StackCueList *cue_list)
 	stack_property_set_int32(loops, STACK_PROPERTY_VERSION_DEFINED, 1);
 	stack_property_set_changed_callback(loops, stack_audio_cue_ccb_loops, (void*)cue);
 
-	StackProperty *volume = stack_property_create("play_volume", STACK_PROPERTY_TYPE_DOUBLE);
+	StackProperty *volume = stack_property_create("master_volume", STACK_PROPERTY_TYPE_DOUBLE);
 	stack_cue_add_property(STACK_CUE(cue), volume);
 	stack_property_set_changed_callback(volume, stack_audio_cue_ccb_volume, (void*)cue);
 	stack_property_set_validator(volume, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
@@ -583,236 +576,88 @@ static gboolean acp_rate_changed(GtkWidget *widget, GdkEvent *event, gpointer us
 	return false;
 }
 
-static gboolean acp_volume_entry_changed(GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
+// Note that channel is one-based, not zero
+StackProperty *stack_audio_cue_get_volume_property(StackCue *cue, size_t channel, bool create)
 {
-	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(widget))->selected_cue);
-
-	// User data is the channel number, where 0 is master
-	size_t channel = reinterpret_cast<size_t>(user_data);
-
-	// Determine which property to modify
 	StackProperty *property = NULL;
+
 	if (channel == 0)
 	{
-		property = stack_cue_get_property(STACK_CUE(cue), "play_volume");
+		// This one always exists
+		property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
 	}
 	else
 	{
-		property = stack_audio_cue_get_channel_volume_property(cue, channel, true);
-	}
+		// Create some new properties
+		char property_name[64];
+		snprintf(property_name, 64, "input_%lu_volume", channel);
+		property = stack_cue_get_property(STACK_CUE(cue), property_name);
 
-	// Get the volume from the slider, set it in the cue, and then read back out
-	// the validated version
-	double new_vol = atof(gtk_entry_get_text(GTK_ENTRY(widget)));
-	if (property != NULL)
-	{
-		stack_property_set_double(property, STACK_PROPERTY_VERSION_DEFINED, new_vol);
-		stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &new_vol);
-	}
-
-	// Format the value
-	char buffer[32];
-	if (!std::isfinite(new_vol))
-	{
-		snprintf(buffer, 32, "-Inf");
-	}
-	else
-	{
-		snprintf(buffer, 32, "%.2f", new_vol);
-	}
-
-	// Update the volume entry and scale's value
-	if (channel == 0)
-	{
-		gtk_entry_set_text(GTK_ENTRY(cue->master_value), buffer);
-		gtk_range_set_value(GTK_RANGE(cue->master_scale), new_vol);
-	}
-	else
-	{
-		gtk_entry_set_text(GTK_ENTRY(cue->channel_values[channel - 1]), buffer);
-		gtk_range_set_value(GTK_RANGE(cue->channel_scales[channel - 1]), new_vol);
-	}
-
-	return FALSE;
-}
-
-static void acp_volume_changed(GtkRange *range, gpointer user_data)
-{
-	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(range)))->selected_cue);
-
-	// User data is the channel number, where 0 is master
-	size_t channel = reinterpret_cast<size_t>(user_data);
-
-	// Determine which property to modify
-	StackProperty *property = NULL;
-	if (channel == 0)
-	{
-		property = stack_cue_get_property(STACK_CUE(cue), "play_volume");
-	}
-	else
-	{
-		property = stack_audio_cue_get_channel_volume_property(cue, channel, true);
-	}
-
-	// Get the volume from the slider, set it in the cue, and then read back out
-	// the validated version
-	double vol_db = gtk_range_get_value(range);
-	if (property != NULL)
-	{
-		stack_property_set_double(property, STACK_PROPERTY_VERSION_DEFINED, vol_db);
-		stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &vol_db);
-	}
-
-	// Format the value
-	char buffer[32];
-	if (!std::isfinite(vol_db))
-	{
-		snprintf(buffer, 32, "-Inf");
-	}
-	else
-	{
-		snprintf(buffer, 32, "%.2f", vol_db);
-	}
-
-	// Get the volume entry and update it's value
-	if (channel == 0)
-	{
-		gtk_entry_set_text(GTK_ENTRY(cue->master_value), buffer);
-	}
-	else
-	{
-		// Channel is 1 based, array is naturally 0 based
-		gtk_entry_set_text(GTK_ENTRY(cue->channel_values[channel - 1]), buffer);
-	}
-}
-
-static void stack_audio_cue_create_slider(GtkWidget *parent, const char *name, GtkWidget **scale, GtkWidget **value)
-{
-	GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_box_pack_start(GTK_BOX(parent), vbox, false, false, 4);
-
-	GtkWidget *label = gtk_label_new(name);
-	gtk_box_pack_start(GTK_BOX(vbox), label, false, false, 4);
-
-	*scale = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, -60.0, 20.0, 0.1);
-	gtk_range_set_inverted(GTK_RANGE(*scale), true);
-	gtk_range_set_show_fill_level(GTK_RANGE(*scale), true);
-
-	// Add on some marks ever 20dB, naming a few
-	gtk_scale_add_mark(GTK_SCALE(*scale), 20.0, GTK_POS_RIGHT, "20dB");
-	gtk_scale_add_mark(GTK_SCALE(*scale), 10.0, GTK_POS_RIGHT, NULL);
-	gtk_scale_add_mark(GTK_SCALE(*scale), 0.0, GTK_POS_RIGHT, "0dB");
-	for (float mark = -10.0f; mark > -51.0f; mark -= 10.0f)
-	{
-		gtk_scale_add_mark(GTK_SCALE(*scale), mark, GTK_POS_RIGHT, NULL);
-	}
-	gtk_scale_add_mark(GTK_SCALE(*scale), -60.0, GTK_POS_RIGHT, "-Inf");
-
-	gtk_scale_set_draw_value(GTK_SCALE(*scale), false);
-	gtk_box_pack_start(GTK_BOX(vbox), *scale, true, true, 4);
-
-	*value = gtk_entry_new();
-	gtk_entry_set_width_chars(GTK_ENTRY(*value), 6);
-	gtk_entry_set_alignment(GTK_ENTRY(*value), 0.5);
-	stack_limit_gtk_entry_float(GTK_ENTRY(*value), true);
-	gtk_box_pack_start(GTK_BOX(vbox), *value, false, false, 4);
-
-	gtk_widget_show(label);
-	gtk_widget_show(*scale);
-	gtk_widget_show(*value);
-	gtk_widget_show(vbox);
-}
-
-typedef void (*ThisCallback)(GtkToggleButton*, gpointer);
-
-static void stack_audio_cue_populate_levels(StackAudioCue *cue)
-{
-	size_t channels = 0;
-	char buffer[32];
-
-	if (cue->playback_file != NULL)
-	{
-		channels = cue->playback_file->channels;
-	}
-
-	// Remove anything currently in the tab
-	gtk_container_foreach(GTK_CONTAINER(cue->levels_tab), (GtkCallback)[](GtkWidget *widget, gpointer user_data) -> void {
-		gtk_widget_destroy(widget);
-	}, NULL);
-
-	GtkWidget *check_live = gtk_check_button_new_with_label("Affect Live");
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_live), cue->affect_live);
-	gtk_widget_set_tooltip_text(check_live, "If ticked, changes to levels made whilst the cue is playing will take effect immediately");
-	gtk_widget_show(check_live);
-	gtk_box_pack_start(GTK_BOX(cue->levels_tab), check_live, false, false, 4);
-	g_signal_connect(check_live, "toggled", (GCallback)(ThisCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
-		StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
-		cue->affect_live = gtk_toggle_button_get_active(self);
-	}, (gpointer)cue);
-
-	// MASTER
-	stack_audio_cue_create_slider(cue->levels_tab, "Master", &cue->master_scale, &cue->master_value);
-	g_signal_connect(cue->master_scale, "value-changed", G_CALLBACK(acp_volume_changed), NULL);
-	g_signal_connect(cue->master_value, "focus-out-event", G_CALLBACK(acp_volume_entry_changed), NULL);
-
-	// Individual channels
-	if (cue->channel_scales != NULL)
-	{
-		delete [] cue->channel_scales;
-		cue->channel_scales = NULL;
-	}
-	if (cue->channel_values != NULL)
-	{
-		delete [] cue->channel_values;
-		cue->channel_values = NULL;
-	}
-	if (channels > 0)
-	{
-		cue->channel_scales = new GtkWidget*[channels];
-		cue->channel_values = new GtkWidget*[channels];
-		for (size_t channel = 0; channel < channels; channel++)
+		// If the property does not yet exist, create it
+		if (property == NULL && create)
 		{
-			// Create the slider
-			snprintf(buffer, 32, "Ch. %lu", channel + 1);
-			stack_audio_cue_create_slider(cue->levels_tab, buffer, &cue->channel_scales[channel], &cue->channel_values[channel]);
-
-			// Set signals for these faders
-			g_signal_connect(cue->channel_scales[channel], "value-changed", G_CALLBACK(acp_volume_changed), reinterpret_cast<gpointer>(channel + 1));
-			g_signal_connect(cue->channel_values[channel], "focus-out-event", G_CALLBACK(acp_volume_entry_changed), reinterpret_cast<gpointer>(channel + 1));
-
-			// Get the property
-			StackProperty *ch_vol_prop = stack_audio_cue_get_channel_volume_property(cue, channel + 1, true);
-			double volume = 0.0;
-			stack_property_get_double(ch_vol_prop, STACK_PROPERTY_VERSION_DEFINED, &volume);
-
-			if (!std::isfinite(volume))
-			{
-				snprintf(buffer, 32, "-Inf");
-			}
-			else
-			{
-				snprintf(buffer, 32, "%.2f", volume);
-			}
-			gtk_entry_set_text(GTK_ENTRY(cue->channel_values[channel]), buffer);
-			gtk_range_set_value(GTK_RANGE(cue->channel_scales[channel]), volume);
+			property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+			stack_property_set_changed_callback(property, stack_audio_cue_ccb_volume, (void*)cue);
+			stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
+			stack_cue_add_property(STACK_CUE(cue), property);
 		}
 	}
 
-	// Get the master volume and set it
-	double volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(STACK_CUE(cue), "play_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
+	return property;
+}
 
-	// Set the values: volume
-	if (!std::isfinite(volume))
+StackProperty *stack_audio_cue_get_crosspoint_property(StackCue *cue, size_t input_channel, size_t output_channel, bool create)
+{
+	// Build property name
+	char property_name[64];
+	snprintf(property_name, 64, "crosspoint_%lu_%lu", output_channel, input_channel);
+
+	// Get the property, creating it with a default value if it does not exist
+	StackProperty *property = stack_cue_get_property(STACK_CUE(cue), property_name);
+	if (property == NULL && create)
 	{
-		snprintf(buffer, 32, "-Inf");
+		// Property does not exist - create it
+		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+		stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
+
+		// Set the value to 0.0 if the output channel is the same as the input
+		// channels (i.e. create a one-to-one mapping), otherwise set it to -INFINITY.
+		// One exception: if the file is single-channel, then it's more likely that
+		// we're going to want to map to stereo, so do that
+		double initial_value = -INFINITY;
+		if (STACK_AUDIO_CUE(cue)->playback_file != NULL)
+		{
+			if (STACK_AUDIO_CUE(cue)->playback_file->channels == 1 && output_channel < 2)
+			{
+				initial_value = 0.0;
+			}
+
+			if (output_channel == input_channel)
+			{
+				initial_value = 0.0;
+			}
+		}
+		stack_property_set_double(property, STACK_PROPERTY_VERSION_DEFINED, initial_value);
+		stack_property_set_double(property, STACK_PROPERTY_VERSION_LIVE, initial_value);
+
+		stack_cue_add_property(cue, property);
 	}
-	else
-	{
-		snprintf(buffer, 32, "%.2f", volume);
-	}
-	gtk_range_set_value(GTK_RANGE(cue->master_scale), volume);
-	gtk_entry_set_text(GTK_ENTRY(cue->master_value), buffer);
+
+	return property;
+}
+
+static double stack_audio_cue_get_crosspoint(StackAudioCue *cue, size_t input_channel, size_t output_channel, StackPropertyVersion version)
+{
+	double result;
+	char property_name[64];
+
+	// Build property name
+	snprintf(property_name, 64, "crosspoint_%lu_%lu", output_channel, input_channel);
+
+	// Get the property, creating it with a default value if it does not exist
+	StackProperty *property = stack_audio_cue_get_crosspoint_property(STACK_CUE(cue), input_channel, output_channel, true);
+	stack_property_get_double(property, version, &result);
+	return result;
 }
 
 // Called when we're being played
@@ -849,11 +694,17 @@ static bool stack_audio_cue_play(StackCue *cue)
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "media_start_time"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "media_end_time"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "loops"));
-	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "play_volume"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "rate"));
 	for (size_t channel = 0; channel < audio_cue->playback_file->channels; channel++)
 	{
-		stack_property_copy_defined_to_live(stack_audio_cue_get_channel_volume_property(STACK_AUDIO_CUE(cue), channel + 1, false));
+		stack_property_copy_defined_to_live(stack_audio_cue_get_volume_property(cue, channel + 1, false));
+		for (size_t output_channel = 0; output_channel < cue->parent->channels; output_channel++)
+		{
+			char property_name[64];
+			snprintf(property_name, 64, "crosspoint_%lu_%lu", output_channel, channel);
+			stack_property_copy_defined_to_live(stack_cue_get_property(cue, property_name));
+		}
 	}
 	audio_cue->playback_loops = 0;
 
@@ -899,6 +750,14 @@ static void stack_audio_cue_stop(StackCue *cue)
 	{
 		stack_resampler_destroy(audio_cue->resampler);
 		audio_cue->resampler = NULL;
+	}
+
+	// Tidy up the playback buffer
+	if (audio_cue->playback_buffer != NULL)
+	{
+		delete [] audio_cue->playback_buffer;
+		audio_cue->playback_buffer = NULL;
+		audio_cue->playback_buffer_frames = 0;
 	}
 
 	// Queue a redraw of the media tab if our UI is active (to hide the playback marker)
@@ -1032,7 +891,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	int32_t loops = 1;
 	double rate = 1.0;
 	stack_property_get_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_DEFINED, &loops);
-	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
 	stack_property_get_string(stack_cue_get_property(cue, "file"), STACK_PROPERTY_VERSION_DEFINED, &file);
 	stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
 	stack_property_get_int64(stack_cue_get_property(cue, "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
@@ -1078,16 +937,20 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_widget_unparent(audio_cue->media_tab);
 
 	// Append the tab (and show it, because it starts off hidden...)
-	audio_cue->levels_tab = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_widget_set_margin_start(audio_cue->levels_tab, 4);
-	gtk_widget_set_margin_end(audio_cue->levels_tab, 4);
-	gtk_widget_set_margin_top(audio_cue->levels_tab, 4);
-	gtk_widget_set_margin_bottom(audio_cue->levels_tab, 4);
+	audio_cue->levels_tab = stack_audio_levels_tab_new(cue, stack_audio_cue_get_volume_property, stack_audio_cue_get_crosspoint_property);
 	gtk_notebook_append_page(notebook, audio_cue->media_tab, media_label);
-	gtk_notebook_append_page(notebook, audio_cue->levels_tab, levels_label);
-	stack_audio_cue_populate_levels(audio_cue);
+	gtk_notebook_append_page(notebook, audio_cue->levels_tab->root, levels_label);
+	size_t input_channels = 0;
+	if (audio_cue->playback_file != NULL)
+	{
+		input_channels = audio_cue->playback_file->channels;
+	}
+	stack_audio_levels_tab_populate(audio_cue->levels_tab, input_channels, cue->parent->channels, true, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
+		StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
+		cue->affect_live = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(self));
+	});
 	gtk_widget_show(audio_cue->media_tab);
-	gtk_widget_show(audio_cue->levels_tab);
+	gtk_widget_show(audio_cue->levels_tab->root);
 
 	// Set the values: file
 	if (file && strlen(file) != 0)
@@ -1142,13 +1005,17 @@ static void stack_audio_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 
 	// Find our levels page
-	page = gtk_notebook_page_num(notebook, audio_cue->levels_tab);
+	page = gtk_notebook_page_num(notebook, audio_cue->levels_tab->root);
 
 	// If we've found the page, remove it
 	if (page >= 0)
 	{
 		gtk_notebook_remove_page(notebook, page);
 	}
+
+	// Destroy the levels tab
+	stack_audio_levels_tab_destroy(audio_cue->levels_tab);
+	audio_cue->levels_tab = NULL;
 
 	// Remove the preview from the UI as we re-use it, and if we don't remove
 	// it seems to get stuck parented to a non-existent object and thus never
@@ -1182,22 +1049,29 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	stack_property_write_json(stack_cue_get_property(cue, "loops"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "rate"), &cue_root);
 	double volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
 	if (std::isfinite(volume))
 	{
-		cue_root["play_volume"] = volume;
+		cue_root["master_volume"] = volume;
 	}
 	else
 	{
-		cue_root["play_volume"] = "-Infinite";
+		cue_root["master_volume"] = "-Infinite";
+	}
+
+	// If we've got a file
+	size_t input_channels = 0;
+	if (audio_cue->playback_file != NULL)
+	{
+		input_channels = audio_cue->playback_file->channels;
+		cue_root["_last_input_channels"] = input_channels;
 	}
 
 	// Write channel volumes to JSON
 	StackProperty *ch_vol_prop = NULL;
-	size_t channel = 1;
-	do
+	for (size_t channel = 1; channel <= input_channels; channel++)
 	{
-		ch_vol_prop = stack_audio_cue_get_channel_volume_property(audio_cue, channel, false);
+		ch_vol_prop = stack_audio_cue_get_volume_property(cue, channel, false);
 		if (ch_vol_prop != NULL)
 		{
 			stack_property_get_double(ch_vol_prop, STACK_PROPERTY_VERSION_DEFINED, &volume);
@@ -1209,9 +1083,30 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 			{
 				cue_root[ch_vol_prop->name] = "-Infinite";
 			}
-			channel++;
 		}
-	} while (ch_vol_prop != NULL);
+	}
+
+	// Write crosspoints to JSON
+	size_t output_channels = cue->parent->channels;
+	for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
+	{
+		for (size_t output_channel = 0; output_channel < output_channels; output_channel++)
+		{
+			StackProperty *crosspoint_prop = stack_audio_cue_get_crosspoint_property(cue, input_channel, output_channel, false);
+			if (crosspoint_prop != NULL)
+			{
+				stack_property_get_double(crosspoint_prop, STACK_PROPERTY_VERSION_DEFINED, &volume);
+				if (std::isfinite(volume))
+				{
+					cue_root[crosspoint_prop->name] = volume;
+				}
+				else
+				{
+					cue_root[crosspoint_prop->name] = "-Infinite";
+				}
+			}
+		}
+	}
 
 	// Write out JSON string and return (to be free'd by stack_audio_cue_free_json)
 	Json::FastWriter writer;
@@ -1235,7 +1130,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackAudioCue"))
 	{
-		stack_log("stack_audio_cue_from_json(): Missing StackFadeCue class\n");
+		stack_log("stack_audio_cue_from_json(): Missing StackAudioCue class\n");
 		return;
 	}
 
@@ -1291,7 +1186,21 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	}
 
 	// Load playback volume
-	if (cue_data.isMember("play_volume"))
+	if (cue_data.isMember("master_volume"))
+	{
+		double volume = 0.0;
+		if (cue_data["master_volume"].isString() && cue_data["master_volume"].asString() == "-Infinite")
+		{
+			volume = -INFINITY;
+		}
+		else
+		{
+			volume = cue_data["master_volume"].asDouble();
+		}
+		stack_property_set_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, volume);
+	}
+	// Older versions used play_volume before we enforced a well-known name
+	else if (cue_data.isMember("play_volume"))
 	{
 		double volume = 0.0;
 		if (cue_data["play_volume"].isString() && cue_data["play_volume"].asString() == "-Infinite")
@@ -1302,11 +1211,11 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 		{
 			volume = cue_data["play_volume"].asDouble();
 		}
-		stack_property_set_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, volume);
+		stack_property_set_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, volume);
 	}
 	else
 	{
-		stack_property_set_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_DEFINED, 0.0);
+		stack_property_set_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, 0.0);
 	}
 
 	// Load channel volumes from JSON
@@ -1314,7 +1223,7 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 	do
 	{
 		// Get/create the property
-		StackProperty *ch_vol_prop = stack_audio_cue_get_channel_volume_property(STACK_AUDIO_CUE(cue), channel, true);
+		StackProperty *ch_vol_prop = stack_audio_cue_get_volume_property(cue, channel, true);
 
 		if (cue_data.isMember(ch_vol_prop->name))
 		{
@@ -1389,8 +1298,8 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
 /// Returns audio
 size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 {
-	// We don't need to do anything if we're not in the playing state
-	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
+	// We don't need to do anything if we're not in the playing state or no frames were requested
+	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION || frames == 0)
 	{
 		return 0;
 	}
@@ -1398,18 +1307,27 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	// For tidiness
 	StackAudioCue *audio_cue = STACK_AUDIO_CUE(cue);
 
-	// Calculate audio scalar (using the live playback volume). Also use this to
-	// scale from 16-bit signed int to 0.0-1.0 range
-	double playback_live_volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
-	double base_audio_scaler = stack_db_to_scalar(playback_live_volume);
+	// Store these locally for efficiency
+	const size_t input_channels = audio_cue->playback_file->channels;
+	const size_t output_channels = cue->parent->channels;
+
+	// Make sure we have enough room in our playback buffer
+	if (audio_cue->playback_buffer == NULL || frames > audio_cue->playback_buffer_frames)
+	{
+		if (audio_cue->playback_buffer != NULL)
+		{
+			delete [] audio_cue->playback_buffer;
+		}
+		audio_cue->playback_buffer = new float[frames * input_channels];
+		audio_cue->playback_buffer_frames = frames;
+	}
 
 	size_t frames_to_return = 0;
 
 	if (audio_cue->resampler == NULL)
 	{
 		// Get some more data from the file
-		frames_to_return = stack_audio_file_read(audio_cue->playback_file, buffer, frames);
+		frames_to_return = stack_audio_file_read(audio_cue->playback_file, audio_cue->playback_buffer, frames);
 	}
 	else
 	{
@@ -1420,10 +1338,10 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 		while (current_size < frames && !eof)
 		{
 			// Get some more data from the file
-			frames_read = stack_audio_file_read(audio_cue->playback_file, buffer, frames);
+			frames_read = stack_audio_file_read(audio_cue->playback_file, audio_cue->playback_buffer, frames);
 
 			// Give it to the resampler for resampling
-			current_size = stack_resampler_push(audio_cue->resampler, buffer, frames_read);
+			current_size = stack_resampler_push(audio_cue->resampler, audio_cue->playback_buffer, frames_read);
 
 			// If we've hit the end of the file, stop reading
 			if (frames_read < frames)
@@ -1443,39 +1361,46 @@ size_t stack_audio_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 		size_t fetch_frames = current_size < frames ? current_size : frames;
 
 		// Get the samples out of the resampler
-		frames_to_return = stack_resampler_get_frames(audio_cue->resampler, buffer, fetch_frames);
+		frames_to_return = stack_resampler_get_frames(audio_cue->resampler, audio_cue->playback_buffer, fetch_frames);
 	}
 
-	// Determine how many samles we got
-	size_t samples = frames_to_return * audio_cue->playback_file->channels;
+	// Set the initial output to zero
+	memset(buffer, 0, frames_to_return * output_channels * sizeof(float));
 
-	// Do per-channel audio scaling
-	for (size_t channel = 0; channel < audio_cue->playback_file->channels; channel++)
+	// Calculate audio scalar (using the live playback volume). Also use this to
+	// scale from 16-bit signed int to 0.0-1.0 range
+	double playback_live_volume = 0.0;
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
+	float base_audio_scaler = (float)stack_db_to_scalar(playback_live_volume);
+
+	// For each output channel in the cue list
+	for (size_t output_channel = 0; output_channel < output_channels; output_channel++)
 	{
-		double channel_volume = 0.0;
-		StackProperty *property = stack_audio_cue_get_channel_volume_property(audio_cue, channel + 1, false);
-		stack_property_get_double(property, STACK_PROPERTY_VERSION_LIVE, &channel_volume);
-		double audio_scaler = stack_db_to_scalar(channel_volume) * base_audio_scaler;
-
-		// Only scale if we'll actually make a change
-		if (audio_scaler != 1.0)
+		// For each input channel in the file
+		for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
 		{
-			// Perform the scaling for the channel
-			for (size_t i = channel; i < samples; i += audio_cue->playback_file->channels)
+			// Get the output volume for the channel
+			double channel_volume = 0.0;
+			StackProperty *property = stack_audio_cue_get_volume_property(cue, input_channel + 1, false);
+			stack_property_get_double(property, STACK_PROPERTY_VERSION_LIVE, &channel_volume);
+
+			// Get the total scalar for the master volume, the channel volume and the crosspoint
+			float scalar = base_audio_scaler * (float)stack_db_to_scalar(channel_volume) * (float)stack_db_to_scalar(stack_audio_cue_get_crosspoint(audio_cue, input_channel, output_channel, STACK_PROPERTY_VERSION_LIVE));
+
+			// Skip channels where the scalar is zero to not waste time
+			if (scalar > 0.0)
 			{
-				buffer[i] *= audio_scaler;
-			}
-		}
-	}
+				// Set up our pointers
+				float *read_pointer = &audio_cue->playback_buffer[input_channel];
+				float *read_end_pointer = &audio_cue->playback_buffer[frames_to_return * input_channels + input_channel];
+				float *write_pointer = &buffer[output_channel];
 
-	// TODO: This is only temporary, but for mono files, remap them to
-	// two channel for now
-	if (audio_cue->playback_file->channels == 1 && frames_to_return >= 1)
-	{
-		for (size_t i = frames_to_return - 1; i >= 1; i--)
-		{
-			buffer[i * 2] = buffer[i];
-			buffer[i * 2 + 1] = buffer[i];
+				// Perform the copying and scaling
+				for (; read_pointer < read_end_pointer; write_pointer += output_channels, read_pointer += input_channels)
+				{
+					*write_pointer += *read_pointer * scalar;
+				}
+			}
 		}
 	}
 

@@ -437,7 +437,10 @@ void stack_key_trigger_register()
 		stack_key_trigger_to_json,
 		stack_key_trigger_free_json,
 		stack_key_trigger_from_json,
-		stack_key_trigger_show_config_ui
+		stack_key_trigger_show_config_ui,
+		NULL,
+		NULL,
+		NULL
 	};
 	stack_register_trigger_class(key_trigger_class);
 }

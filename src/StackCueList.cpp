@@ -620,6 +620,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["revision"] = cue_list->show_revision;
 	root["channels"] = cue_list->channels;
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
+	root["config"] = Json::Value(Json::ValueType::objectValue);
 
 	// Iterate over all the cues
 	for (auto cue : *cue_list->cues)
@@ -633,6 +634,23 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 
 		// Add it to the cues entry
 		root["cues"].append(cue_root);
+	}
+
+	// Iterate over the trigger classes
+	for (auto citer : *stack_trigger_class_map_get())
+	{
+		// Get the class name
+		const char *class_name = citer.second->class_name;
+
+		char *trigger_config_json_data = stack_trigger_config_to_json(class_name);
+		if (trigger_config_json_data != NULL)
+		{
+			Json::Reader reader;
+			Json::Value trigger_config_root;
+			reader.parse(trigger_config_json_data, trigger_config_root);
+			root["config"][class_name] = trigger_config_root;
+			stack_trigger_config_free_json(class_name, trigger_config_json_data);
+		}
 	}
 
 	Json::StyledWriter writer;
@@ -824,6 +842,20 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	if (cue_list_root.isMember("revision"))
 	{
 		stack_cue_list_set_show_revision(cue_list, cue_list_root["revision"].asCString());
+	}
+
+	// If we have some config...
+	if (cue_list_root.isMember("config"))
+	{
+		// Iterate over the trigger classes
+		for (auto citer : *stack_trigger_class_map_get())
+		{
+			const char *class_name = citer.second->class_name;
+			if (cue_list_root["config"].isMember(class_name))
+			{
+				stack_trigger_config_from_json(class_name, cue_list_root["config"][class_name].toStyledString().c_str());
+			}
+		}
 	}
 
 	// If we have some cues...

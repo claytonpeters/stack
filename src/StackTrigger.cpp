@@ -274,6 +274,62 @@ bool stack_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, bool
 	return trigger_class_map[string(class_name)]->show_config_ui_func(trigger, parent, new_trigger);
 }
 
+char *stack_trigger_config_to_json(const char *class_name)
+{
+	// Start a JSON response value
+	char *json_data = NULL;
+
+	// Iterate up through all the classes
+	while (class_name != NULL)
+	{
+		if (trigger_class_map[class_name]->config_to_json_func)
+		{
+			if (trigger_class_map[class_name]->config_free_json_func)
+			{
+				return trigger_class_map[class_name]->config_to_json_func();
+			}
+			else
+			{
+				stack_log("stack_trigger_to_json(): Warning: Class '%s' has no config_free_json_func - skipping\n", class_name);
+			}
+		}
+		else
+		{
+			stack_log("stack_trigger_to_json(): Warning: Class '%s' has no config_to_json_func - skipping\n", class_name);
+		}
+
+		// Iterate up to superclass
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	return NULL;
+}
+
+void stack_trigger_config_free_json(const char *class_name, char *json_data)
+{
+	// Look for a free_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && trigger_class_map[class_name]->config_free_json_func == NULL)
+	{
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	trigger_class_map[string(class_name)]->config_free_json_func(json_data);
+}
+
+// Generates the global trigger config from JSON data
+void stack_trigger_config_from_json(const char *class_name, const char *json_data)
+{
+	// Look for a from_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && trigger_class_map[class_name]->config_from_json_func == NULL)
+	{
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	trigger_class_map[string(class_name)]->config_from_json_func(json_data);
+}
+
 StackTrigger* stack_trigger_create_base(StackCue *cue)
 {
 	// Can't create one of these
@@ -349,11 +405,24 @@ bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent,
 	return true;
 }
 
+char* stack_trigger_config_to_json_base()
+{
+	return NULL;
+}
+
+void stack_trigger_config_free_json_base(char *json_data)
+{
+}
+
+void stack_trigger_config_from_json_base(const char *json_data)
+{
+}
+
 // Initialise the StackTrigger system
 void stack_trigger_initsystem()
 {
 	// Register base trigger type
-	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, "No-op abstract", stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base };
+	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, "No-op abstract", stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base, stack_trigger_config_to_json_base, stack_trigger_config_free_json_base, stack_trigger_config_from_json_base };
 	stack_register_trigger_class(stack_trigger_class);
 }
 
