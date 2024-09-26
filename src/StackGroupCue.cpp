@@ -872,9 +872,13 @@ StackCueStdList *stack_group_cue_get_children(StackCue *cue)
 StackCue *stack_group_cue_get_next_cue(StackCue *cue)
 {
 	// Get the current action
-	// TODO: Should this be VERSION_LIVE if we're playing?
 	int32_t action = STACK_GROUP_CUE_ENTER;
-	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
+	StackPropertyVersion version = STACK_PROPERTY_VERSION_DEFINED;
+	if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+	{
+		version = STACK_PROPERTY_VERSION_LIVE;
+	}
+	stack_property_get_int32(stack_cue_get_property(cue, "action"), version, &action);
 
 	// If our action is to enter the group, and we have cues in the group, then
 	// return the first child cue
