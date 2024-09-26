@@ -567,31 +567,28 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 		}
 
 		// Create or update RMS data.
-		// TODO: This feels dirty to edit the RMS data of the parent cue list
-		// like this. We should make this into a function
-		auto rms_iter = cue_list->rms_data->find(cue->uid);
-		if (rms_iter == cue_list->rms_data->end())
+		StackChannelRMSData *rms_data = stack_cue_list_get_rms_data(cue_list, cue->uid);
+		const stack_time_t clock_time = stack_get_clock_time();
+		if (rms_data == NULL)
 		{
-			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
+			rms_data = stack_cue_list_add_rms_data(cue_list, cue->uid, active_channel_count);
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
-				new_rms_data[i].current_level = cue_list->rms_cache[i];
-				new_rms_data[i].peak_level = cue_list->rms_cache[i];
-				new_rms_data[i].peak_time = stack_get_clock_time();
-				new_rms_data[i].clipped = new_clipped[i];
+				rms_data[i].current_level = cue_list->rms_cache[i];
+				rms_data[i].peak_level = cue_list->rms_cache[i];
+				rms_data[i].peak_time = clock_time;
+				rms_data[i].clipped = new_clipped[i];
 			}
-			(*cue_list->rms_data)[cue->uid] = new_rms_data;
 		}
 		else
 		{
-			StackChannelRMSData *rms_data = rms_iter->second;
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
 				rms_data[i].current_level = cue_list->rms_cache[i];
 				if (cue_list->rms_cache[i] >= rms_data[i].peak_level)
 				{
 					rms_data[i].peak_level = cue_list->rms_cache[i];
-					rms_data[i].peak_time = stack_get_clock_time();
+					rms_data[i].peak_time = clock_time;
 				}
 				rms_data[i].clipped = new_clipped[i];
 			}

@@ -1417,6 +1417,30 @@ StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid
 	return NULL;
 }
 
+StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid_t uid, size_t channels)
+{
+	auto rms_iter = cue_list->rms_data->find(uid);
+	if (rms_iter == cue_list->rms_data->end())
+	{
+		StackChannelRMSData *new_rms_data = new StackChannelRMSData[channels];
+		for (size_t channel = 0; channel < channels; channel++)
+		{
+			new_rms_data[channel].current_level = 0.0;
+			new_rms_data[channel].peak_level = 0.0;
+			new_rms_data[channel].peak_time = 0;
+			new_rms_data[channel].clipped = false;
+		}
+
+		(*cue_list->rms_data)[uid] = new_rms_data;
+		return new_rms_data;
+	}
+	else
+	{
+		StackChannelRMSData *old_rms_data = rms_iter->second;
+		return old_rms_data;
+	}
+}
+
 StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_child(bool forward)
 {
 	if (in_child)
@@ -1427,7 +1451,7 @@ StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_
 		{
 			main_iter++;
 		}
-		
+
 		child_iter = cue_list.end();
 	}
 
