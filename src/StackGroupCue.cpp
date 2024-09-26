@@ -436,8 +436,14 @@ static void stack_group_cue_pulse(StackCue *cue, stack_time_t clocktime)
 }
 
 /// Returns which cuelist channels the cue is actively wanting to send audio to
-size_t stack_group_cue_get_active_channels(StackCue *cue, bool *channels)
+size_t stack_group_cue_get_active_channels(StackCue *cue, bool *channels, bool live)
 {
+	// A group cue always has as many cues as the parent cue stack
+	if (!live)
+	{
+		return cue->parent->channels;
+	}
+
 	// If we're not in playback then we're not sending data
 	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 	{
@@ -490,7 +496,7 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 
 		// Get the list of active_channels
 		memset(active_channels_cache, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(cue, active_channels_cache);
+		size_t active_channel_count = stack_cue_get_active_channels(cue, active_channels_cache, true);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)

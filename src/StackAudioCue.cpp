@@ -117,7 +117,7 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
 		}
 
-		// TODO: Update tabs if we're active
+		// Update tabs if we're active
 		if (cue->levels_tab)
 		{
 			size_t input_channels = 0;
@@ -132,7 +132,7 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 			});
 		}
 
-		// TODO: Determine what properties we need to create/destroy
+		// Determine what properties we need to create/destroy
 		if (new_channels > old_channels)
 		{
 			// Create new properties
@@ -1276,8 +1276,20 @@ bool stack_audio_cue_get_error(StackCue *cue, char *message, size_t size)
 }
 
 /// Returns which cuelist channels the cue is actively wanting to send audio to
-size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels)
+size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels, bool live)
 {
+	if (!live)
+	{
+		if (STACK_AUDIO_CUE(cue)->playback_file != NULL)
+		{
+			return STACK_AUDIO_CUE(cue)->playback_file->channels;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
 	// If we're not in playback then we're not sending data
 	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 	{

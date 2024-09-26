@@ -74,6 +74,14 @@ static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVers
 			// Update the UI
 			gtk_button_set_label(button, button_text.c_str());
 		}
+
+		// Update the levels tab to show the possibly different set of levels
+		size_t input_channels = 0;
+		if (new_target != NULL)
+		{
+			input_channels = stack_cue_get_active_channels(new_target, NULL, false);
+		}
+		stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, NULL);
 	}
 
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
@@ -632,18 +640,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	size_t input_channels = 0;
 	if (target_cue != NULL)
 	{
-		if (strcmp(target_cue->_class_name, "StackAudioCue") == 0)
-		{
-			if (STACK_AUDIO_CUE(target_cue)->playback_file != NULL)
-			{
-				input_channels = STACK_AUDIO_CUE(target_cue)->playback_file->channels;
-			}
-		}
-		else if (strcmp(target_cue->_class_name, "StackGroupCue") == 0)
-		{
-			// Group cues have the same number of channels as the playlist
-			input_channels = cue->parent->channels;
-		}
+		input_channels = stack_cue_get_active_channels(target_cue, NULL, false);
 	}
 	stack_audio_levels_tab_populate(fcue->levels_tab, input_channels, cue->parent->channels, true, NULL);
 

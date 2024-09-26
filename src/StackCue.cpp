@@ -633,7 +633,7 @@ static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
 }
 
 // Get the active channels for a cue
-size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
+size_t stack_cue_get_active_channels(StackCue *cue, bool *active, bool live)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
@@ -645,7 +645,7 @@ size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
 	}
 
 	// Call the function
-	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active);
+	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active, live);
 }
 
 const char *stack_cue_get_rendered_name(StackCue *cue)

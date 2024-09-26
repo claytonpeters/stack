@@ -339,69 +339,73 @@ void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_chan
 		gtk_grid_set_row_spacing(GTK_GRID(cp_grid), 4);
 		gtk_grid_set_column_spacing(GTK_GRID(cp_grid), 4);
 
-		// Column and row for labels
-		gtk_grid_insert_row(GTK_GRID(cp_grid), 0);
-		gtk_grid_insert_column(GTK_GRID(cp_grid), 0);
-
-		// Columns and rows for entry
-		for (size_t row = 0; row < input_channels; row++)
+		if (input_channels > 0 && output_channels > 0)
 		{
+			// Column and row for labels
 			gtk_grid_insert_row(GTK_GRID(cp_grid), 0);
-		}
-		for (size_t column = 0; column < output_channels; column++)
-		{
 			gtk_grid_insert_column(GTK_GRID(cp_grid), 0);
-		}
 
-		// Populate labels
-		for (size_t row = 0; row < input_channels; row++)
-		{
-			snprintf(buffer, 64, "In %lu", row + 1);
-			GtkWidget *label = gtk_label_new(buffer);
-			gtk_widget_show(label);
-			gtk_grid_attach(GTK_GRID(cp_grid), label, 0, row + 1, 1, 1);
-		}
-		for (size_t column = 0; column < output_channels; column++)
-		{
-			snprintf(buffer, 64, "Out %lu", column + 1);
-			GtkWidget *label = gtk_label_new(buffer);
-			gtk_widget_show(label);
-			gtk_grid_attach(GTK_GRID(cp_grid), label, column + 1, 0, 1, 1);
-		}
-
-		// Populate entry boxes
-		for (size_t row = 0; row < input_channels; row++)
-		{
+			// Columns and rows for entry
+			for (size_t row = 0; row < input_channels; row++)
+			{
+				gtk_grid_insert_row(GTK_GRID(cp_grid), 0);
+			}
 			for (size_t column = 0; column < output_channels; column++)
 			{
-				// Create entry box
-				GtkWidget *crosspoint = gtk_entry_new();
-				gtk_entry_set_width_chars(GTK_ENTRY(crosspoint), 6);
-				gtk_entry_set_alignment(GTK_ENTRY(crosspoint), 0.5);
-				stack_limit_gtk_entry_float(GTK_ENTRY(crosspoint), true);
-				gtk_widget_show(crosspoint);
-				gtk_grid_attach(GTK_GRID(cp_grid), crosspoint, column + 1, row + 1, 1, 1);
+				gtk_grid_insert_column(GTK_GRID(cp_grid), 0);
+			}
 
-				// Set the entry name to the output channel, followed by the input channel
-				snprintf(buffer, 64, "%lu_%lu", column, row);
-				gtk_widget_set_name(crosspoint, buffer);
-				g_signal_connect(crosspoint, "focus-out-event", G_CALLBACK(stack_audio_levels_tab_crosspoint_entry_changed), (gpointer)tab);
+			// Populate labels
+			for (size_t row = 0; row < input_channels; row++)
+			{
+				snprintf(buffer, 64, "In %lu", row + 1);
+				GtkWidget *label = gtk_label_new(buffer);
+				gtk_widget_show(label);
+				gtk_grid_attach(GTK_GRID(cp_grid), label, 0, row + 1, 1, 1);
+			}
+			for (size_t column = 0; column < output_channels; column++)
+			{
+				snprintf(buffer, 64, "Out %lu", column + 1);
+				GtkWidget *label = gtk_label_new(buffer);
+				gtk_widget_show(label);
+				gtk_grid_attach(GTK_GRID(cp_grid), label, column + 1, 0, 1, 1);
+			}
 
-				// Set value
-				StackProperty *property = tab->get_crosspoint_property(tab->cue, row, column, true);
-				if (stack_property_get_null(property, STACK_PROPERTY_VERSION_DEFINED))
+			// Populate entry boxes
+			for (size_t row = 0; row < input_channels; row++)
+			{
+				for (size_t column = 0; column < output_channels; column++)
 				{
-					buffer[0] = '\0';
+					// Create entry box
+					GtkWidget *crosspoint = gtk_entry_new();
+					gtk_entry_set_width_chars(GTK_ENTRY(crosspoint), 6);
+					gtk_entry_set_alignment(GTK_ENTRY(crosspoint), 0.5);
+					stack_limit_gtk_entry_float(GTK_ENTRY(crosspoint), true);
+					gtk_widget_show(crosspoint);
+					gtk_grid_attach(GTK_GRID(cp_grid), crosspoint, column + 1, row + 1, 1, 1);
+
+					// Set the entry name to the output channel, followed by the input channel
+					snprintf(buffer, 64, "%lu_%lu", column, row);
+					gtk_widget_set_name(crosspoint, buffer);
+					g_signal_connect(crosspoint, "focus-out-event", G_CALLBACK(stack_audio_levels_tab_crosspoint_entry_changed), (gpointer)tab);
+
+					// Set value
+					StackProperty *property = tab->get_crosspoint_property(tab->cue, row, column, true);
+					if (stack_property_get_null(property, STACK_PROPERTY_VERSION_DEFINED))
+					{
+						buffer[0] = '\0';
+					}
+					else
+					{
+						double cp_value = 0.0;
+						stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &cp_value);
+						stack_audio_levels_tab_format_volume(buffer, 64, cp_value, true);
+					}
+					gtk_entry_set_text(GTK_ENTRY(crosspoint), buffer);
 				}
-				else
-				{
-					double cp_value = 0.0;
-					stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &cp_value);
-					stack_audio_levels_tab_format_volume(buffer, 64, cp_value, true);
-				}
-				gtk_entry_set_text(GTK_ENTRY(crosspoint), buffer);
 			}
 		}
+
 		gtk_widget_show(cp_grid);
 		gtk_widget_show(cp_box);
 		gtk_box_pack_start(GTK_BOX(cp_box), cp_grid, false, false, 4);

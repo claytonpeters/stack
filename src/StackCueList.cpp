@@ -523,6 +523,7 @@ static void stack_cue_list_pulse_thread(StackCueList *cue_list)
 void stack_cue_list_pulse(StackCueList *cue_list)
 {
 	static stack_time_t underflow_time = 0;
+	static const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
 
 	// Lock the cue list
 	stack_cue_list_lock(cue_list);
@@ -543,6 +544,29 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		{
 			// Pulse the cue
 			stack_cue_pulse(cue, clocktime);
+		}
+
+		// Update per-cue RMS peaks
+		StackChannelRMSData *rms = stack_cue_list_get_rms_data(cue_list, cue->uid);
+		if (rms != NULL)
+		{
+			size_t channel_count = stack_cue_get_active_channels(cue, NULL, true);
+			for (size_t channel = 0; channel < channel_count; channel++)
+			{
+				if (clocktime - rms[channel].peak_time > peak_hold_time)
+				{
+					rms[channel].peak_level -= 0.1;
+				}
+			}
+		}
+	}
+
+	// Update master RMS peaks
+	for (size_t channel = 0; channel < cue_list->channels; channel++)
+	{
+		if (clocktime - cue_list->master_rms_data[channel].peak_time > peak_hold_time)
+		{
+			cue_list->master_rms_data[channel].peak_level -= 0.1;
 		}
 	}
 
@@ -1215,7 +1239,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 		// Get the list of active_channels
 		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache);
+		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache, true);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)

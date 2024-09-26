@@ -496,7 +496,10 @@ bool stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
 /// implementation, this always returns no active channels
 /// @param cue The cue to get the active channels for
 /// @param active The array to populate
-size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active)
+/// @param live If true, return the number of channels actually being used for
+/// live playback, and populate the 'active' array. If false, just return the
+/// maximum number of channels that the cue could possibly want to send to.
+size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active, bool live)
 {
 	return 0;
 }

@@ -1367,7 +1367,7 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
 	}
 
-	size_t channel_count = stack_cue_get_active_channels(cue, NULL);
+	size_t channel_count = stack_cue_get_active_channels(cue, NULL, true);
 	StackChannelRMSData *rms = stack_cue_list_get_rms_data(window->cue_list, cue->uid);
 	if (rms != NULL)
 	{
@@ -1377,13 +1377,6 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 			if (rms[i].clipped)
 			{
 				stack_level_meter_set_clipped(cue_widget->meter, i, true);
-			}
-
-			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
-			// TODO: This should probably be in StackCueList instead
-			if (current_time - rms[i].peak_time > peak_hold_time)
-			{
-				rms[i].peak_level -= 1.0;
 			}
 		}
 	}
@@ -1479,13 +1472,6 @@ static gboolean saw_ui_timer(gpointer user_data)
 		if (window->cue_list->master_rms_data[i].clipped)
 		{
 			stack_level_meter_set_clipped(window->master_out_meter, i, true);
-		}
-
-		const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
-		// TODO: This should probably be in StackCueList instead
-		if (current_time - window->cue_list->master_rms_data[i].peak_time > peak_hold_time)
-		{
-			window->cue_list->master_rms_data[i].peak_level -= 1.0;
 		}
 	}
 
