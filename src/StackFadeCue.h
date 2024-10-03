@@ -28,6 +28,12 @@ struct StackFadeCue
 	// The volume of the target when the cue started
 	double playback_start_master_volume;
 
+	// The volume of each channel on the target when the cue stated
+	double *playback_start_channel_volumes;
+
+	// The volume of each crosspoint on the target when the cue started
+	double *playback_start_cross_points;
+
 	// A string of the target cue ID
 	char target_cue_id_string[32];
 };

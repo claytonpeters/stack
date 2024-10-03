@@ -181,6 +181,8 @@ static StackCue* stack_fade_cue_create(StackCueList *cue_list)
 	cue->fade_tab = NULL;
 	cue->target_cue_id_string[0] = '\0';
 	cue->playback_start_master_volume = 0.0;
+	cue->playback_start_channel_volumes = NULL;
+	cue->playback_start_cross_points = NULL;
 
 	// Add our properties
 	StackProperty *target = stack_property_create("target", STACK_PROPERTY_TYPE_UINT64);
@@ -380,20 +382,46 @@ static bool stack_fade_cue_play(StackCue *cue)
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "profile"));
 		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "stop_target"));
+
+		size_t input_channels = 0;
+		input_channels = stack_cue_get_active_channels(target, NULL, false);
+
+		if (input_channels > 0)
+		{
+			STACK_FADE_CUE(cue)->playback_start_channel_volumes = new double[input_channels];
+
+			for (size_t channel = 0; channel < input_channels; channel++)
+			{
+				// Get the property
+				char property_name[64];
+				snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+				StackProperty *channel_volume_fade = stack_cue_get_property(cue, property_name);
+				StackProperty *channel_volume_target = stack_cue_get_property(target, property_name);
+				if (channel_volume_fade != NULL && channel_volume_target != NULL)
+				{
+					stack_property_copy_defined_to_live(channel_volume_fade);
+					stack_property_get_double(channel_volume_target, STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_channel_volumes[channel]));
+				}
+				else
+				{
+					STACK_FADE_CUE(cue)->playback_start_channel_volumes[channel] = 0.0;
+				}
+			}
+		}
 	}
 
 	return true;
 }
 
-static double stack_fade_cue_fade_property(StackFadeCue *cue, StackProperty *source_property, StackFadeProfile profile, double time_scaler)
+static double stack_fade_cue_fade_property(StackFadeCue *cue, StackProperty *source_property, StackFadeProfile profile, double time_scaler, double initial_volume)
 {
 	// Determine the volume we're working towards
-	double master_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-	stack_property_get_double(source_property, STACK_PROPERTY_VERSION_LIVE, &master_volume);
+	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(source_property, STACK_PROPERTY_VERSION_LIVE, &target_volume);
 
 	// Convert start and end volumes from dB to linear scalars
-	double vstart = stack_db_to_scalar(cue->playback_start_master_volume);
-	double vend = stack_db_to_scalar(master_volume);
+	double vstart = stack_db_to_scalar(initial_volume);
+	double vend = stack_db_to_scalar(target_volume);
 	double vrange = vstart - vend;
 
 	double new_volume;
@@ -433,6 +461,54 @@ static double stack_fade_cue_fade_property(StackFadeCue *cue, StackProperty *sou
 	return new_volume;
 }
 
+/// Sets the volumes on the target cue to their final volumes
+static void stack_fade_cue_set_to_complete(StackCue *cue)
+{
+	// Get the target
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
+
+	// If the target is valid
+	if (target == NULL)
+	{
+		return;
+	}
+
+	// Jump to end volume (handles zero-second, non-stopping fades)
+	double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
+	stack_property_set_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
+
+	// Perform the per-channel fades
+	size_t input_channels = 0;
+	input_channels = stack_cue_get_active_channels(target, NULL, false);
+	for (size_t channel = 0; channel < input_channels; channel++)
+	{
+		// Get the property
+		char property_name[64];
+		snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+		StackProperty *channel_volume = stack_cue_get_property(cue, property_name);
+
+		// Skip channel volumes that have never been created
+		if (channel_volume == NULL)
+		{
+			continue;
+		}
+
+		// Skip channel volumes that are unset
+		if (stack_property_get_null(channel_volume, STACK_PROPERTY_VERSION_LIVE))
+		{
+			continue;
+		}
+
+		// Jump to end volume
+		new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+		stack_property_get_double(channel_volume, STACK_PROPERTY_VERSION_LIVE, &new_volume);
+		stack_property_set_double(stack_cue_get_property(target, property_name), STACK_PROPERTY_VERSION_LIVE, new_volume);
+	}
+}
+
 /// Update the cue based on time
 static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 {
@@ -447,59 +523,87 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
 	StackCue *target = stack_cue_get_by_uid(target_uid);
 
+	// If the target is valid
+	if (target == NULL)
+	{
+		return;
+	}
+
 	// Get our values
 	bool stop_target = false;
 	stack_property_get_bool(stack_cue_get_property(cue, "stop_target"), STACK_PROPERTY_VERSION_LIVE, &stop_target);
 
-	// If the target is valid
-	if (target != NULL)
+	// If the cue state has changed to stopped on this pulse, and we're
+	// supposed to stop our target, then do so
+	if (pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 	{
-		double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+		stack_fade_cue_set_to_complete(cue);
 
-		// If the cue state has changed to stopped on this pulse, and we're
-		// supposed to stop our target, then do so
-		if (pre_pulse_state == STACK_CUE_STATE_PLAYING_ACTION && cue->state != STACK_CUE_STATE_PLAYING_ACTION)
+		// If we're supposed to stop our target, do so
+		if (stop_target)
 		{
-			// Jump to end volume (handles zero-second, non-stopping fades)
-			stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
+			// Stop the target
+			stack_cue_stop(target);
+		}
+	}
+	else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+	{
+		stack_time_t cue_action_time = 0;
+		stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
+		// This if statement is to avoid divide by zero errors
+		if (cue_action_time > 0.0)
+		{
+			// Get the current fade cue action times
+			stack_time_t run_action_time;
+			stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
 
-			// If we're supposed to stop our target, do so
-			if (stop_target)
+			// Calculate a ratio of how far through the queue we are
+			double time_scaler = (double)run_action_time / (double)cue_action_time;
+
+			// Get the fade profile
+			StackFadeProfile profile = STACK_FADE_CUE_DEFAULT_PROFILE;
+			stack_property_get_int32(stack_cue_get_property(cue, "profile"), STACK_PROPERTY_VERSION_LIVE, (int32_t*)&profile);
+
+			// Perform the fade on the master
+			StackProperty *master_volume = stack_cue_get_property(cue, "master_volume");
+			if (!stack_property_get_null(master_volume, STACK_PROPERTY_VERSION_LIVE))
 			{
-				// Stop the target
-				stack_cue_stop(target);
+				double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), master_volume, profile, time_scaler, STACK_FADE_CUE(cue)->playback_start_master_volume);
+				stack_property_set_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
+			}
+
+			// Perform the per-channel fades
+			size_t input_channels = 0;
+			input_channels = stack_cue_get_active_channels(target, NULL, false);
+			for (size_t channel = 0; channel < input_channels; channel++)
+			{
+				// Get the property
+				char property_name[64];
+				snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+				StackProperty *channel_volume = stack_cue_get_property(cue, property_name);
+
+				// Skip channel volumes that have never been created
+				if (channel_volume == NULL)
+				{
+					continue;
+				}
+
+				// Skip channel volumes that are unset
+				if (stack_property_get_null(channel_volume, STACK_PROPERTY_VERSION_LIVE))
+				{
+					continue;
+				}
+
+				double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
+				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), channel_volume, profile, time_scaler, STACK_FADE_CUE(cue)->playback_start_channel_volumes[channel]);
+				stack_property_set_double(stack_cue_get_property(target, property_name), STACK_PROPERTY_VERSION_LIVE, new_volume);
 			}
 		}
-		else if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
+		else
 		{
-			stack_time_t cue_action_time = 0;
-			stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
-			// This if statement is to avoid divide by zero errors
-			if (cue_action_time > 0.0)
-			{
-				// Get the current fade cue action times
-				stack_time_t run_action_time;
-				stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
-
-				// Calculate a ratio of how far through the queue we are
-				double time_scaler = (double)run_action_time / (double)cue_action_time;
-
-				// Get the fade profile
-				StackFadeProfile profile = STACK_FADE_CUE_DEFAULT_PROFILE;
-				stack_property_get_int32(stack_cue_get_property(cue, "profile"), STACK_PROPERTY_VERSION_LIVE, (int32_t*)&profile);
-
-				// Perform the fade
-				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), stack_cue_get_property(cue, "master_volume"), profile, time_scaler);
-			}
-			else
-			{
-				// Immediately jump to target volume
-				stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
-			}
+			stack_fade_cue_set_to_complete(cue);
 		}
-
-		// Set the new volume
-		stack_property_set_double(stack_cue_get_property(STACK_CUE(target), "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
 	}
 }
 
