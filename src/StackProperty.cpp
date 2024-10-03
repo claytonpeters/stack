@@ -503,6 +503,9 @@ void stack_property_copy_defined_to_live(StackProperty *property)
 		CASE_PROPERTY_DEFLIVE(double, double, STACK_PROPERTY_TYPE_DOUBLE, StackPropertyDouble)
 		CASE_PROPERTY_DEFLIVE(string, char *, STACK_PROPERTY_TYPE_STRING, StackPropertyString)
 	}
+
+	// Copy whether the value is null
+	property->version_live_null = property->version_defined_null;
 }
 
 // Gets whether a property value is null
