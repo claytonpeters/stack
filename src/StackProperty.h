@@ -155,6 +155,10 @@ StackProperty *stack_property_create(const char *name, StackPropertyType type);
 // @param property The property to destroy
 void stack_property_destroy(StackProperty *property);
 
+// Returns the name of the property
+// @returns The name of the property
+const char *stack_property_get_name(StackProperty *property);
+
 // Returns whether or not a property is nullable
 // @param property The property to return the nullable attribute off
 // @returns A boolean indicating if the property is nullable
