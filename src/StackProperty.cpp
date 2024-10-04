@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <cmath>
 
 #define CASE_PROPERTY_INTS(size) \
 	case STACK_PROPERTY_TYPE_INT##size: \
@@ -463,7 +464,14 @@ void stack_property_write_json(StackProperty *property, Json::Value* json_root)
 			(*json_root)[property->name] = (Json::UInt64)((StackPropertyUInt64*)property)->defined;
 			break;
 		case STACK_PROPERTY_TYPE_DOUBLE:
-			(*json_root)[property->name] = ((StackPropertyDouble*)property)->defined;
+			if (std::isfinite(((StackPropertyDouble*)property)->defined))
+			{
+				(*json_root)[property->name] = ((StackPropertyDouble*)property)->defined;
+			}
+			else
+			{
+				(*json_root)[property->name] = "-Infinite";
+			}
 			break;
 		case STACK_PROPERTY_TYPE_STRING:
 			(*json_root)[property->name] = ((StackPropertyString*)property)->defined;
