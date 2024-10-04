@@ -253,14 +253,19 @@ void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 }
 
 /// Sets the change in volume of the target cue
-void stack_fade_cue_set_master_volume(StackFadeCue *cue, double master_volume)
+void stack_fade_cue_set_master_volume(StackFadeCue *cue, double master_volume, bool is_null)
 {
-	if (master_volume < -59.99)
+	if (std::isfinite(master_volume) && master_volume < -59.99)
 	{
 		master_volume = -INFINITY;
 	}
 
-	stack_property_set_double(stack_cue_get_property(STACK_CUE(cue), "master_volume"), STACK_PROPERTY_VERSION_DEFINED, master_volume);
+	StackProperty *property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
+	stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, is_null);
+	if (!is_null)
+	{
+		stack_property_set_double(property, STACK_PROPERTY_VERSION_DEFINED, master_volume);
+	}
 }
 
 /// Sets whether the Stop Target flag is enabled
@@ -305,7 +310,7 @@ static void fcp_volume_changed(GtkRange *range, gpointer user_data)
 
 	// Get the volume and store it
 	double vol_db = gtk_range_get_value(range);
-	stack_fade_cue_set_master_volume(cue, vol_db);
+	stack_fade_cue_set_master_volume(cue, vol_db, false);
 }
 
 /// Called when the fade time edit box loses focus
@@ -357,6 +362,44 @@ static void fcp_stop_target_changed(GtkToggleButton *widget, gpointer user_data)
 ////////////////////////////////////////////////////////////////////////////////
 // BASE CUE OPERATIONS
 
+// Note that channel is one-based, not zero
+StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel, bool create)
+{
+	StackProperty *property = NULL;
+
+	if (channel == 0)
+	{
+		// This one always exists
+		property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
+	}
+	else
+	{
+		// Create some new properties
+		char property_name[64];
+		snprintf(property_name, 64, "input_%lu_volume", channel);
+		property = stack_cue_get_property(STACK_CUE(cue), property_name);
+
+		// If the property does not yet exist, create it
+		if (property == NULL && create)
+		{
+			// Create the property
+			property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+
+			// Property should be nullable in case the user doesn't want to change it,
+			// and should default to NULL
+			stack_property_set_nullable(property, true);
+			stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, true);
+			stack_property_set_null(property, STACK_PROPERTY_VERSION_LIVE, true);
+
+			stack_property_set_changed_callback(property, stack_fade_cue_ccb_master_volume, (void*)cue);
+			stack_property_set_validator(property, (stack_property_validator_t)stack_fade_cue_validate_volume, (void*)cue);
+			stack_cue_add_property(STACK_CUE(cue), property);
+		}
+	}
+
+	return property;
+}
+
 /// Start the cue playing
 static bool stack_fade_cue_play(StackCue *cue)
 {
@@ -395,7 +438,7 @@ static bool stack_fade_cue_play(StackCue *cue)
 				// Get the property
 				char property_name[64];
 				snprintf(property_name, 64, "input_%lu_volume", channel + 1);
-				StackProperty *channel_volume_fade = stack_cue_get_property(cue, property_name);
+				StackProperty *channel_volume_fade = stack_fade_cue_get_volume_property(cue, channel + 1, false);
 				StackProperty *channel_volume_target = stack_cue_get_property(target, property_name);
 				if (channel_volume_fade != NULL && channel_volume_target != NULL)
 				{
@@ -418,6 +461,14 @@ static double stack_fade_cue_fade_property(StackFadeCue *cue, StackProperty *sou
 	// Determine the volume we're working towards
 	double target_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
 	stack_property_get_double(source_property, STACK_PROPERTY_VERSION_LIVE, &target_volume);
+
+	// If the initial volume is -INFINITE, then we'll our scaling will always result
+	// in -INFINITE, so set to a sufficiently low value
+	// TODO: Check if this is required
+	if (!std::isfinite(initial_volume))
+	{
+		initial_volume = -60.0;
+	}
 
 	// Convert start and end volumes from dB to linear scalars
 	double vstart = stack_db_to_scalar(initial_volume);
@@ -477,8 +528,12 @@ static void stack_fade_cue_set_to_complete(StackCue *cue)
 
 	// Jump to end volume (handles zero-second, non-stopping fades)
 	double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &new_volume);
-	stack_property_set_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
+	StackProperty *fade_master_volume = stack_cue_get_property(cue, "master_volume");
+	if (!stack_property_get_null(fade_master_volume, STACK_PROPERTY_VERSION_LIVE))
+	{
+		stack_property_get_double(fade_master_volume, STACK_PROPERTY_VERSION_LIVE, &new_volume);
+		stack_property_set_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, new_volume);
+	}
 
 	// Perform the per-channel fades
 	size_t input_channels = 0;
@@ -488,23 +543,23 @@ static void stack_fade_cue_set_to_complete(StackCue *cue)
 		// Get the property
 		char property_name[64];
 		snprintf(property_name, 64, "input_%lu_volume", channel + 1);
-		StackProperty *channel_volume = stack_cue_get_property(cue, property_name);
+		StackProperty *fade_channel_volume = stack_fade_cue_get_volume_property(cue, channel + 1, false);
 
 		// Skip channel volumes that have never been created
-		if (channel_volume == NULL)
+		if (fade_channel_volume == NULL)
 		{
 			continue;
 		}
 
 		// Skip channel volumes that are unset
-		if (stack_property_get_null(channel_volume, STACK_PROPERTY_VERSION_LIVE))
+		if (stack_property_get_null(fade_channel_volume, STACK_PROPERTY_VERSION_LIVE))
 		{
 			continue;
 		}
 
 		// Jump to end volume
 		new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-		stack_property_get_double(channel_volume, STACK_PROPERTY_VERSION_LIVE, &new_volume);
+		stack_property_get_double(fade_channel_volume, STACK_PROPERTY_VERSION_LIVE, &new_volume);
 		stack_property_set_double(stack_cue_get_property(target, property_name), STACK_PROPERTY_VERSION_LIVE, new_volume);
 	}
 }
@@ -581,22 +636,22 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				// Get the property
 				char property_name[64];
 				snprintf(property_name, 64, "input_%lu_volume", channel + 1);
-				StackProperty *channel_volume = stack_cue_get_property(cue, property_name);
+				StackProperty *fade_channel_volume = stack_fade_cue_get_volume_property(cue, channel + 1, false);
 
 				// Skip channel volumes that have never been created
-				if (channel_volume == NULL)
+				if (fade_channel_volume == NULL)
 				{
 					continue;
 				}
 
 				// Skip channel volumes that are unset
-				if (stack_property_get_null(channel_volume, STACK_PROPERTY_VERSION_LIVE))
+				if (stack_property_get_null(fade_channel_volume, STACK_PROPERTY_VERSION_LIVE))
 				{
 					continue;
 				}
 
 				double new_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), channel_volume, profile, time_scaler, STACK_FADE_CUE(cue)->playback_start_channel_volumes[channel]);
+				new_volume = stack_fade_cue_fade_property(STACK_FADE_CUE(cue), fade_channel_volume, profile, time_scaler, STACK_FADE_CUE(cue)->playback_start_channel_volumes[channel]);
 				stack_property_set_double(stack_cue_get_property(target, property_name), STACK_PROPERTY_VERSION_LIVE, new_volume);
 			}
 		}
@@ -605,44 +660,6 @@ static void stack_fade_cue_pulse(StackCue *cue, stack_time_t clocktime)
 			stack_fade_cue_set_to_complete(cue);
 		}
 	}
-}
-
-// Note that channel is one-based, not zero
-StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel, bool create)
-{
-	StackProperty *property = NULL;
-
-	if (channel == 0)
-	{
-		// This one always exists
-		property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
-	}
-	else
-	{
-		// Create some new properties
-		char property_name[64];
-		snprintf(property_name, 64, "input_%lu_volume", channel);
-		property = stack_cue_get_property(STACK_CUE(cue), property_name);
-
-		// If the property does not yet exist, create it
-		if (property == NULL && create)
-		{
-			// Create the property
-			property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
-
-			// Property should be nullable in case the user doesn't want to change it,
-			// and should default to NULL
-			stack_property_set_nullable(property, true);
-			stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, true);
-			stack_property_set_null(property, STACK_PROPERTY_VERSION_LIVE, true);
-
-			stack_property_set_changed_callback(property, stack_fade_cue_ccb_master_volume, (void*)cue);
-			stack_property_set_validator(property, (stack_property_validator_t)stack_fade_cue_validate_volume, (void*)cue);
-			stack_cue_add_property(STACK_CUE(cue), property);
-		}
-	}
-
-	return property;
 }
 
 StackProperty *stack_fade_cue_get_crosspoint_property(StackCue *cue, size_t input_channel, size_t output_channel, bool create)
@@ -831,16 +848,7 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 	// Build JSON
 	Json::Value cue_root;
 	stack_property_write_json(stack_cue_get_property(cue, "target"), &cue_root);
-	double master_volume = STACK_FADE_CUE_DEFAULT_TARGET_VOLUME;
-	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, &master_volume);
-	if (std::isfinite(master_volume))
-	{
-		cue_root["master_volume"] = master_volume;
-	}
-	else
-	{
-		cue_root["master_volume"] = "-Infinite";
-	}
+	stack_property_write_json(stack_cue_get_property(cue, "master_volume"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "stop_target"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "profile"), &cue_root);
 
@@ -851,8 +859,23 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 	StackCue *target = stack_cue_get_by_uid(target_uid);
 	if (target != NULL)
 	{
-		// TODO: How do we get the number of input channels
-		// cue_root["_last_input_channels"] = input_channels;
+		input_channels = stack_cue_get_active_channels(target, NULL, false);
+		cue_root["_last_input_channels"] = input_channels;
+
+		for (size_t channel = 0; channel < input_channels; channel++)
+		{
+			char property_name[64];
+			snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+			StackProperty *channel_volume = stack_cue_get_property(cue, property_name);
+
+			// Skip channel volumes that have never been created
+			if (channel_volume == NULL)
+			{
+				continue;
+			}
+
+			stack_property_write_json(channel_volume, &cue_root);
+		}
 	}
 
 	// Write out JSON string and return (to be free'd by
@@ -891,11 +914,15 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 	{
 		if (cue_data["master_volume"].isString() && cue_data["master_volume"].asString() == "-Infinite")
 		{
-			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY);
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY, false);
+		}
+		else if (cue_data["master_volume"].isNull())
+		{
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), 0.0, true);
 		}
 		else
 		{
-			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["master_volume"].asDouble());
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["master_volume"].asDouble(), false);
 		}
 	}
 	// Older versions used target_volume before we enforced a well-known name
@@ -903,17 +930,48 @@ void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 	{
 		if (cue_data["target_volume"].isString() && cue_data["target_volume"].asString() == "-Infinite")
 		{
-			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY);
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), -INFINITY, false);
 		}
+		// Note: older versions didn't have a null value possible here
 		else
 		{
-			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["target_volume"].asDouble());
+			stack_fade_cue_set_master_volume(STACK_FADE_CUE(cue), cue_data["target_volume"].asDouble(), false);
 		}
 	}
 	stack_fade_cue_set_stop_target(STACK_FADE_CUE(cue), cue_data["stop_target"].asBool());
 	stack_fade_cue_set_profile(STACK_FADE_CUE(cue), (StackFadeProfile)cue_data["profile"].asInt());
 
-	// TODO: Read values of channel and crosspoints
+	if (cue_data.isMember("_last_input_channels") && cue_data["_last_input_channels"].isUInt())
+	{
+		size_t input_channels = cue_data["_last_input_channels"].asUInt();
+
+		for (size_t channel = 0; channel < input_channels; channel++)
+		{
+			char property_name[64];
+			snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+			if (cue_data.isMember(property_name))
+			{
+				StackProperty *channel_property = stack_fade_cue_get_volume_property(cue, channel + 1, true);
+				if (cue_data[property_name].isString() && cue_data[property_name].asString() == "-Infinite")
+				{
+					stack_property_set_double(channel_property, STACK_PROPERTY_VERSION_DEFINED, -INFINITY);
+					stack_property_set_null(channel_property, STACK_PROPERTY_VERSION_DEFINED, false);
+				}
+				else if (cue_data[property_name].isNull())
+				{
+					stack_property_set_double(channel_property, STACK_PROPERTY_VERSION_DEFINED, 0.0);
+					stack_property_set_null(channel_property, STACK_PROPERTY_VERSION_DEFINED, true);
+				}
+				else
+				{
+					stack_property_set_double(channel_property, STACK_PROPERTY_VERSION_DEFINED, cue_data[property_name].asDouble());
+					stack_property_set_null(channel_property, STACK_PROPERTY_VERSION_DEFINED, false);
+				}
+			}
+		}
+	}
+
+	// TODO: Read values of crosspoints
 }
 
 /// Gets the error message for the cue

@@ -1048,16 +1048,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	stack_property_write_json(stack_cue_get_property(cue, "media_end_time"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "loops"), &cue_root);
 	stack_property_write_json(stack_cue_get_property(cue, "rate"), &cue_root);
-	double volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, &volume);
-	if (std::isfinite(volume))
-	{
-		cue_root["master_volume"] = volume;
-	}
-	else
-	{
-		cue_root["master_volume"] = "-Infinite";
-	}
+	stack_property_write_json(stack_cue_get_property(cue, "master_volume"), &cue_root);
 
 	// If we've got a file
 	size_t input_channels = 0;
@@ -1074,15 +1065,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 		ch_vol_prop = stack_audio_cue_get_volume_property(cue, channel, false);
 		if (ch_vol_prop != NULL)
 		{
-			stack_property_get_double(ch_vol_prop, STACK_PROPERTY_VERSION_DEFINED, &volume);
-			if (std::isfinite(volume))
-			{
-				cue_root[ch_vol_prop->name] = volume;
-			}
-			else
-			{
-				cue_root[ch_vol_prop->name] = "-Infinite";
-			}
+			stack_property_write_json(ch_vol_prop, &cue_root);
 		}
 	}
 
@@ -1095,15 +1078,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 			StackProperty *crosspoint_prop = stack_audio_cue_get_crosspoint_property(cue, input_channel, output_channel, false);
 			if (crosspoint_prop != NULL)
 			{
-				stack_property_get_double(crosspoint_prop, STACK_PROPERTY_VERSION_DEFINED, &volume);
-				if (std::isfinite(volume))
-				{
-					cue_root[crosspoint_prop->name] = volume;
-				}
-				else
-				{
-					cue_root[crosspoint_prop->name] = "-Infinite";
-				}
+				stack_property_write_json(crosspoint_prop, &cue_root);
 			}
 		}
 	}
