@@ -249,6 +249,11 @@ void stack_cue_list_append(StackCueList *cue_list, StackCue *cue)
 {
 	cue_list->changed = true;
 	cue_list->cues->push_back(cue);
+
+	// Add a remap that remaps back to itself so that stack_*_cue_from_json
+	// can continue to work with cues in the cue list when pasting from the
+	// clipboard (as we only remap at load)
+	(*cue_list->uid_remap)[cue->uid] = cue->uid;
 }
 
 /// Moves an existing cue within the stack
