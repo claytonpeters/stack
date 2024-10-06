@@ -23,6 +23,10 @@ static GtkBuilder *sfc_builder = NULL;
 // Global: A single instace of our icon
 static GdkPixbuf *icon = NULL;
 
+// Pre-define these:
+StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel, bool create);
+StackProperty *stack_fade_cue_get_crosspoint_property(StackCue *cue, size_t input_channel, size_t output_channel, bool create);
+
 /// Common property callback code - marks the cue list as changed and fires an
 /// update-selected-cue event
 static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
@@ -162,7 +166,34 @@ static void stack_fade_cue_pause_change_callbacks(StackCue *cue, bool pause)
     stack_property_pause_change_callback(stack_cue_get_property(cue, "stop_target"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "profile"), pause);
 
-	// TODO: We should pause callbacks on channel volume and crosspoints
+	// Get the target
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_LIVE, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
+	if (target == NULL)
+	{
+		return;
+	}
+
+	// Get the number of input channels on the target
+	size_t input_channels = 0;
+	input_channels = stack_cue_get_active_channels(target, NULL, false);
+
+	// Iterate over the input channels
+	for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
+	{
+		// Pause/resume the channel volume property
+		StackProperty *channel_volume_property = stack_fade_cue_get_volume_property(cue, input_channel + 1, false);
+		stack_property_pause_change_callback(channel_volume_property, pause);
+
+		// Iterate over the output channels
+		for (size_t output_channel = 0; output_channel < cue->parent->channels; output_channel++)
+		{
+			// Pause/resume the crosspoint property
+			StackProperty *crosspoint_property = stack_fade_cue_get_crosspoint_property(cue, input_channel, output_channel, false);
+			stack_property_pause_change_callback(crosspoint_property, pause);
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
