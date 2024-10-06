@@ -90,7 +90,7 @@ struct StackProperty
 
 // Definitons: Helper to define getter and setter functions
 #define STACK_PROPERTY_DEFINE_ACCESSORS(type_suffix, type_name) \
-	bool stack_property_get_##type_suffix(StackProperty *property, StackPropertyVersion version, type_name *value); \
+	bool stack_property_get_##type_suffix(const StackProperty *property, StackPropertyVersion version, type_name *value); \
 	bool stack_property_set_##type_suffix(StackProperty *property, StackPropertyVersion version, const type_name value);
 
 // Typed properties:
@@ -157,12 +157,12 @@ void stack_property_destroy(StackProperty *property);
 
 // Returns the name of the property
 // @returns The name of the property
-const char *stack_property_get_name(StackProperty *property);
+const char *stack_property_get_name(const StackProperty *property);
 
 // Returns whether or not a property is nullable
 // @param property The property to return the nullable attribute off
 // @returns A boolean indicating if the property is nullable
-bool stack_property_get_nullable(StackProperty *property);
+bool stack_property_get_nullable(const StackProperty *property);
 
 // Sets whether or not a property is nullable
 // @param property The property to set the nullable attribute off
@@ -190,7 +190,7 @@ void stack_property_set_validator(StackProperty *property, stack_property_valida
 // Writes the property out to JSON
 // @param property The property to add to the JSON structure
 // @param json_root The JSON structure to add the property to
-void stack_property_write_json(StackProperty *property, Json::Value* json_root);
+void stack_property_write_json(const StackProperty *property, Json::Value* json_root);
 
 // Copy the defined version of the property to live
 // @param property The property to change
@@ -201,7 +201,7 @@ void stack_property_copy_defined_to_live(StackProperty *property);
 // @param version The version of the property to get the value of
 // @returns Whether or not the given version of the property is null (or always
 // false if the property is not nullable)
-bool stack_property_get_null(StackProperty *property, StackPropertyVersion version);
+bool stack_property_get_null(const StackProperty *property, StackPropertyVersion version);
 
 // Sets whether a property value is null
 // @param property The property to get the value of

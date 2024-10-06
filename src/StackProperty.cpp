@@ -138,7 +138,7 @@ void stack_property_destroy(StackProperty *property)
 
 // Returns the name of the property
 // @returns The name of the property
-const char *stack_property_get_name(StackProperty *property)
+const char *stack_property_get_name(const StackProperty *property)
 {
 	if (property == NULL)
 	{
@@ -151,7 +151,7 @@ const char *stack_property_get_name(StackProperty *property)
 // Returns whether or not a property is nullable
 // @param property The property to return the nullable attribute off
 // @returns A boolean indicating if the property is nullable
-bool stack_property_get_nullable(StackProperty *property)
+bool stack_property_get_nullable(const StackProperty *property)
 {
 	if (property == NULL)
 	{
@@ -258,7 +258,7 @@ void stack_property_set_validator(StackProperty *property, stack_property_valida
 
 // Helper define that creates the getter for a fundamental type property
 #define DEFINE_STACK_PROPERTY_GETTER(type_suffix, type_name, type_enum, property_type_name) \
-	bool stack_property_get_##type_suffix(StackProperty *property, StackPropertyVersion version, type_name *value) \
+	bool stack_property_get_##type_suffix(const StackProperty *property, StackPropertyVersion version, type_name *value) \
 	{ \
 		if (property == NULL) \
 		{ \
@@ -431,7 +431,7 @@ bool stack_property_set_string(StackProperty *property, StackPropertyVersion ver
 	return true;
 }
 
-void stack_property_write_json(StackProperty *property, Json::Value* json_root)
+void stack_property_write_json(const StackProperty *property, Json::Value* json_root)
 {
 	if (property == NULL)
 	{
@@ -533,7 +533,7 @@ void stack_property_copy_defined_to_live(StackProperty *property)
 // @param version The version of the property to get the value of
 // @returns Whether or not the given version of the property is null (or always
 // false if the property is not nullable)
-bool stack_property_get_null(StackProperty *property, StackPropertyVersion version)
+bool stack_property_get_null(const StackProperty *property, StackPropertyVersion version)
 {
 	if (property == NULL || !property->nullable)
 	{
