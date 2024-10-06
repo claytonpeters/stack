@@ -23,6 +23,8 @@ static GtkBuilder *sfc_builder = NULL;
 // Global: A single instace of our icon
 static GdkPixbuf *icon = NULL;
 
+/// Common property callback code - marks the cue list as changed and fires an
+/// update-selected-cue event
 static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVersion version, StackFadeCue *cue)
 {
 	if (version == STACK_PROPERTY_VERSION_DEFINED)
@@ -39,6 +41,7 @@ static void stack_fade_cue_ccb_common(StackProperty *property, StackPropertyVers
 	}
 }
 
+/// Target Cue property change callback
 static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	StackFadeCue *cue = STACK_FADE_CUE(user_data);
@@ -87,6 +90,7 @@ static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVers
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+/// Master Volume property change callback
 static void stack_fade_cue_ccb_master_volume(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	StackFadeCue *cue = STACK_FADE_CUE(user_data);
@@ -111,11 +115,13 @@ static void stack_fade_cue_ccb_master_volume(StackProperty *property, StackPrope
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+/// Stop Target property change callback
 static void stack_fade_cue_ccb_stop_target(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+/// Fade Profile property change callback
 static void stack_fade_cue_ccb_profile(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
@@ -128,6 +134,8 @@ static void stack_fade_cue_ccb_action_time(StackProperty *property, StackPropert
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
 }
 
+/// Validates any of the properties that are volumes, i.e. msater volume, each
+/// channel volume, and each crosspoint
 double stack_fade_cue_validate_volume(StackPropertyDouble *property, StackPropertyVersion version, const double value, void *user_data)
 {
 	// If a defined-version property has changed, we should notify the cue list
@@ -146,13 +154,15 @@ double stack_fade_cue_validate_volume(StackPropertyDouble *property, StackProper
 	return value;
 }
 
-// Pause or resumes change callbacks on variables
+/// Pause or resumes change callbacks on variables
 static void stack_fade_cue_pause_change_callbacks(StackCue *cue, bool pause)
 {
     stack_property_pause_change_callback(stack_cue_get_property(cue, "target"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "master_volume"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "stop_target"), pause);
     stack_property_pause_change_callback(stack_cue_get_property(cue, "profile"), pause);
+
+	// TODO: We should pause callbacks on channel volume and crosspoints
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -233,7 +243,7 @@ static void stack_fade_cue_destroy(StackCue *cue)
 ////////////////////////////////////////////////////////////////////////////////
 // PROPERTY SETTERS
 
-// Sets the target cue of a fade cue
+/// Sets the target cue of a fade cue
 void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 {
 	cue_uid_t target_uid;
@@ -255,11 +265,6 @@ void stack_fade_cue_set_target(StackFadeCue *cue, StackCue *target)
 /// Sets the change in volume of the target cue
 void stack_fade_cue_set_master_volume(StackFadeCue *cue, double master_volume, bool is_null)
 {
-	if (std::isfinite(master_volume) && master_volume < -59.99)
-	{
-		master_volume = -INFINITY;
-	}
-
 	StackProperty *property = stack_cue_get_property(STACK_CUE(cue), "master_volume");
 	stack_property_set_null(property, STACK_PROPERTY_VERSION_DEFINED, is_null);
 	if (!is_null)
@@ -359,10 +364,13 @@ static void fcp_stop_target_changed(GtkToggleButton *widget, gpointer user_data)
 	stack_fade_cue_set_stop_target(cue, gtk_toggle_button_get_active(widget));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// BASE CUE OPERATIONS
-
-// Note that channel is one-based, not zero
+/// Returns, optionally creating if necessary, the StackProperty object for the
+/// given input channel.
+/// @param cue The fade cue
+/// @param channel The channel to get the property for. Note that channel is
+/// one-based, not zero. If channel zero is givem, the master volume property is
+/// returned
+/// @param create Whether to create the property if it does not exist
 StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel, bool create)
 {
 	StackProperty *property = NULL;
@@ -400,6 +408,14 @@ StackProperty *stack_fade_cue_get_volume_property(StackCue *cue, size_t channel,
 	return property;
 }
 
+/// Returns, optionally creating if necessary, the StackProperty object for the
+/// given crosspoint
+/// @param cue The fade cue
+/// @param input_channel The input channel to get the property for. Note that
+/// unlike stack_fade_cue_get_volume_property, this channel is zero-based
+/// @param output_channel The output channel to get the property for. Note that
+/// unlike stack_fade_cue_get_volume_property, this channel is zero-based
+/// @param create Whether to create the property if it does not exist
 StackProperty *stack_fade_cue_get_crosspoint_property(StackCue *cue, size_t input_channel, size_t output_channel, bool create)
 {
 	// Build property name
@@ -427,114 +443,18 @@ StackProperty *stack_fade_cue_get_crosspoint_property(StackCue *cue, size_t inpu
 	return property;
 }
 
-/// Start the cue playing
-static bool stack_fade_cue_play(StackCue *cue)
-{
-	// Call the superclass
-	if (!stack_cue_play_base(cue))
-	{
-		return false;
-	}
-
-	// Get the target
-	cue_uid_t target_uid = STACK_CUE_UID_NONE;
-	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
-	StackCue *target = stack_cue_get_by_uid(target_uid);
-	StackFadeCue *fcue = STACK_FADE_CUE(cue);
-
-	// If we've found the target
-	if (target != NULL)
-	{
-		// Store the current volume of the target
-		stack_property_get_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_master_volume));
-
-		// ...copy the current values
-		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target"));
-		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
-		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "profile"));
-		stack_property_copy_defined_to_live(stack_cue_get_property(cue, "stop_target"));
-
-		size_t input_channels = 0;
-		input_channels = stack_cue_get_active_channels(target, NULL, false);
-
-		if (input_channels > 0)
-		{
-			fcue->playback_start_channel_volumes = new double[input_channels];
-
-			for (size_t channel = 0; channel < input_channels; channel++)
-			{
-				// Get the property from the fade cue
-				StackProperty *channel_volume_fade = stack_fade_cue_get_volume_property(cue, channel + 1, false);
-				if (channel_volume_fade == NULL)
-				{
-					continue;
-				}
-
-				// Get the property from the target
-				StackProperty *channel_volume_target = stack_cue_get_property(target, stack_property_get_name(channel_volume_fade));
-				if (channel_volume_target != NULL)
-				{
-					stack_property_copy_defined_to_live(channel_volume_fade);
-					stack_property_get_double(channel_volume_target, STACK_PROPERTY_VERSION_LIVE, &fcue->playback_start_channel_volumes[channel]);
-				}
-				else
-				{
-					fcue->playback_start_channel_volumes[channel] = 0.0;
-				}
-			}
-
-			fcue->playback_start_crosspoints = new double[input_channels * cue->parent->channels];
-
-			for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
-			{
-				for (size_t output_channel = 0; output_channel < cue->parent->channels; output_channel++)
-				{
-					// Get the property from the fade cue
-					StackProperty *crosspoint_fade = stack_fade_cue_get_crosspoint_property(cue, input_channel, output_channel, false);
-					if (crosspoint_fade == NULL)
-					{
-						continue;
-					}
-
-					// Get the property from the target
-					StackProperty *crosspoint_target = stack_cue_get_property(target, stack_property_get_name(crosspoint_fade));
-					size_t index = input_channel * cue->parent->channels + output_channel;
-					if (crosspoint_target != NULL)
-					{
-						stack_property_copy_defined_to_live(crosspoint_fade);
-						stack_property_get_double(crosspoint_target, STACK_PROPERTY_VERSION_LIVE, &fcue->playback_start_crosspoints[index]);
-					}
-					else
-					{
-						fcue->playback_start_crosspoints[index] = 0.0;
-					}
-				}
-			}
-		}
-	}
-
-	return true;
-}
-
-static void stack_fade_cue_stop(StackCue *cue)
-{
-	StackFadeCue *fcue = STACK_FADE_CUE(cue);
-
-	// Call the superclass
-	stack_cue_stop_base(cue);
-
-	if (fcue->playback_start_channel_volumes != NULL)
-	{
-		delete [] fcue->playback_start_channel_volumes;
-		fcue->playback_start_channel_volumes = NULL;
-	}
-	if (fcue->playback_start_crosspoints != NULL)
-	{
-		delete [] fcue->playback_start_crosspoints;
-		fcue->playback_start_crosspoints = NULL;
-	}
-}
-
+/// Calculate the new value of a fading property
+/// @param cue The fade cue which is used to determine the target cue
+/// @param source_property The property on the fade cue that we want the faded
+/// value of
+/// @param profile The profile of the fade. This is passed in as this function
+/// is often called repeatedly for many properties, so this stops this function
+/// needing to read the profile property repeatedly
+/// @param time_scalar A value between zero and one that determines how far
+/// through the fade the returned value should be. Again this is passed in as
+/// it's the same for every property
+/// @param initial_volume The value of the property on the target cue before the
+/// fade started
 static double stack_fade_cue_fade_property(StackFadeCue *cue, const StackProperty *source_property, StackFadeProfile profile, double time_scaler, double initial_volume)
 {
 	// Determine the volume we're working towards
@@ -657,6 +577,115 @@ static void stack_fade_cue_set_to_complete(StackCue *cue)
 			stack_property_get_double(crosspoint_fade, STACK_PROPERTY_VERSION_LIVE, &new_volume);
 			stack_property_set_double(stack_cue_get_property(target, stack_property_get_name(crosspoint_fade)), STACK_PROPERTY_VERSION_LIVE, new_volume);
 		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// BASE CUE OPERATIONS
+
+/// Start the cue playing
+static bool stack_fade_cue_play(StackCue *cue)
+{
+	// Call the superclass
+	if (!stack_cue_play_base(cue))
+	{
+		return false;
+	}
+
+	// Get the target
+	cue_uid_t target_uid = STACK_CUE_UID_NONE;
+	stack_property_get_uint64(stack_cue_get_property(cue, "target"), STACK_PROPERTY_VERSION_DEFINED, &target_uid);
+	StackCue *target = stack_cue_get_by_uid(target_uid);
+
+	// If we've not got a target, return early
+	if (target == NULL)
+	{
+		return true;
+	}
+
+	// Store the current volume of the target
+	stack_property_get_double(stack_cue_get_property(target, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &(STACK_FADE_CUE(cue)->playback_start_master_volume));
+
+	// ...copy the current values (of the simple properties)
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "target"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "profile"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "stop_target"));
+
+	// Get the number of channels the target hsa
+	size_t input_channels = 0;
+	input_channels = stack_cue_get_active_channels(target, NULL, false);
+
+	// If we've not got any input channels, return early
+	if (input_channels == 0)
+	{
+		return true;
+	}
+
+	// Allocate memory for start volumes
+	StackFadeCue *fcue = STACK_FADE_CUE(cue);
+	fcue->playback_start_channel_volumes = new double[input_channels];
+	fcue->playback_start_crosspoints = new double[input_channels * cue->parent->channels];
+
+	// For each input channel
+	for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
+	{
+		// Iterate for all the crosspoints
+		for (size_t output_channel = 0; output_channel < cue->parent->channels; output_channel++)
+		{
+			// Get the property from the fade cue, skipping if the property doesn't exist
+			StackProperty *crosspoint_fade = stack_fade_cue_get_crosspoint_property(cue, input_channel, output_channel, false);
+			if (crosspoint_fade == NULL)
+			{
+				continue;
+			}
+
+			// Get the property from the target
+			StackProperty *crosspoint_target = stack_cue_get_property(target, stack_property_get_name(crosspoint_fade));
+			size_t index = input_channel * cue->parent->channels + output_channel;
+			if (crosspoint_target != NULL)
+			{
+				stack_property_copy_defined_to_live(crosspoint_fade);
+				stack_property_get_double(crosspoint_target, STACK_PROPERTY_VERSION_LIVE, &fcue->playback_start_crosspoints[index]);
+			}
+		}
+
+		// Get the property from the fade cue skipping if the property doesn't exist
+		StackProperty *channel_volume_fade = stack_fade_cue_get_volume_property(cue, input_channel + 1, false);
+		if (channel_volume_fade == NULL)
+		{
+			continue;
+		}
+
+		// Get the property from the target
+		StackProperty *channel_volume_target = stack_cue_get_property(target, stack_property_get_name(channel_volume_fade));
+		if (channel_volume_target != NULL)
+		{
+			stack_property_copy_defined_to_live(channel_volume_fade);
+			stack_property_get_double(channel_volume_target, STACK_PROPERTY_VERSION_LIVE, &fcue->playback_start_channel_volumes[input_channel]);
+		}
+	}
+
+	return true;
+}
+
+/// Stops the cue from playing
+static void stack_fade_cue_stop(StackCue *cue)
+{
+	// Call the superclass
+	stack_cue_stop_base(cue);
+
+	// Tidy up the initial volume caches
+	StackFadeCue *fcue = STACK_FADE_CUE(cue);
+	if (fcue->playback_start_channel_volumes != NULL)
+	{
+		delete [] fcue->playback_start_channel_volumes;
+		fcue->playback_start_channel_volumes = NULL;
+	}
+	if (fcue->playback_start_crosspoints != NULL)
+	{
+		delete [] fcue->playback_start_crosspoints;
+		fcue->playback_start_crosspoints = NULL;
 	}
 }
 
