@@ -399,7 +399,7 @@ void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_chan
 					{
 						double cp_value = 0.0;
 						stack_property_get_double(property, STACK_PROPERTY_VERSION_DEFINED, &cp_value);
-						stack_audio_levels_tab_format_volume(buffer, 64, cp_value, true);
+						stack_audio_levels_tab_format_volume(buffer, 64, cp_value, !stack_property_get_nullable(property));
 					}
 					gtk_entry_set_text(GTK_ENTRY(crosspoint), buffer);
 				}
