@@ -98,7 +98,7 @@ static void stack_fade_cue_ccb_master_volume(StackProperty *property, StackPrope
 
 		// Build a string of the volume
 		char buffer[32];
-		if (master_volume < -49.99)
+		if (master_volume < -59.99)
 		{
 			snprintf(buffer, 32, "-Inf dB");
 		}
