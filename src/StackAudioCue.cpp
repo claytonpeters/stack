@@ -1272,13 +1272,17 @@ size_t stack_audio_cue_get_active_channels(StackCue *cue, bool *channels, bool l
 	}
 	else
 	{
-		// TODO  Do this properly once we've implemented cross-points
+		// We currently return data for all channels in the cue list.
+		// TODO: Ideally we should return no data for channels where the
+		// crosspoints are such that we'd never return audio
 		if (channels != NULL)
 		{
-			channels[0] = true;
-			channels[1] = true;
+			for (size_t channel = 0; channel < cue->parent->channels; channel++)
+			{
+				channels[channel] = true;
+			}
 		}
-		return 2;
+		return cue->parent->channels;
 	}
 }
 
