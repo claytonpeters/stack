@@ -7,12 +7,6 @@ G_DEFINE_TYPE(StackLevelMeter, stack_level_meter, GTK_TYPE_WIDGET)
 
 GtkWidget *stack_level_meter_new(guint channels, float min, float max)
 {
-	// Validity checks
-	if (channels == 0)
-	{
-		return NULL;
-	}
-
 	// Create the new object
 	GtkWidget *widget = GTK_WIDGET(g_object_new(stack_level_meter_get_type(), NULL, NULL));
 	StackLevelMeter *meter = STACK_LEVEL_METER(widget);
@@ -27,19 +21,22 @@ GtkWidget *stack_level_meter_new(guint channels, float min, float max)
 
 void stack_level_meter_set_channels(StackLevelMeter *meter, guint channels)
 {
-	// This is not allowed
-	if (channels == 0)
-	{
-		return;
-	}
-
 	meter->channels = channels;
 	delete [] meter->levels;
 	delete [] meter->peaks;
 	delete [] meter->clipped;
-	meter->levels = new float[meter->channels];
-	meter->peaks = new float[meter->channels];
-	meter->clipped = new bool[meter->channels];
+	if (channels == 0)
+	{
+		meter->levels = NULL;
+		meter->peaks = NULL;
+		meter->clipped = NULL;
+	}
+	else
+	{
+		meter->levels = new float[meter->channels];
+		meter->peaks = new float[meter->channels];
+		meter->clipped = new bool[meter->channels];
+	}
 
 	// Set all the levels to min
 	for (guint i = 0; i < channels; i++)
