@@ -685,12 +685,12 @@ const ProtobufCMessageDescriptor stack_rpc__v1__control_response__descriptor =
 static const ProtobufCFieldDescriptor stack_rpc__v1__cue_action_request__field_descriptors[2] =
 {
   {
-    "cue_id",
+    "cue_uid",
     1,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_INT64,
     0,   /* quantifier_offset */
-    offsetof(StackRPC__V1__CueActionRequest, cue_id),
+    offsetof(StackRPC__V1__CueActionRequest, cue_uid),
     NULL,
     NULL,
     0,             /* flags */
@@ -711,7 +711,7 @@ static const ProtobufCFieldDescriptor stack_rpc__v1__cue_action_request__field_d
 };
 static const unsigned stack_rpc__v1__cue_action_request__field_indices_by_name[] = {
   1,   /* field[1] = cue_action */
-  0,   /* field[0] = cue_id */
+  0,   /* field[0] = cue_uid */
 };
 static const ProtobufCIntRange stack_rpc__v1__cue_action_request__number_ranges[1 + 1] =
 {

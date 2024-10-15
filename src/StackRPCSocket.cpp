@@ -292,8 +292,7 @@ static void stack_rpc_socket_handle_cue_action(StackRPCSocketClient *client, Sta
 	}
 	else
 	{
-		// TODO: THIS SHOULD BE CUE_UID!!
-		StackCue *cue = stack_cue_get_by_uid(message->cue_action_request->cue_id);
+		StackCue *cue = stack_cue_get_by_uid(message->cue_action_request->cue_uid);
 		if (cue != NULL)
 		{
 			switch (message->cue_action_request->cue_action)
@@ -314,7 +313,7 @@ static void stack_rpc_socket_handle_cue_action(StackRPCSocketClient *client, Sta
 		}
 		else
 		{
-			stack_log("stack_rpc_socket_handle_cue_action(%lx): Request for unknown cue %lx\n", client, message->cue_action_request->cue_id);
+			stack_log("stack_rpc_socket_handle_cue_action(%lx): Request for unknown cue %lx\n", client, message->cue_action_request->cue_uid);
 		}
 	}
 

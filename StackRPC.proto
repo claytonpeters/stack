@@ -58,7 +58,7 @@ enum CueWaitTrigger {
 
 // Tells a cue to do an action
 message CueActionRequest {
-	int64 cue_id = 1;
+	int64 cue_uid = 1;
 	CueAction cue_action = 2;
 }
 

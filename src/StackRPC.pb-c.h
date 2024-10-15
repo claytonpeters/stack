@@ -136,7 +136,7 @@ struct  StackRPC__V1__ControlResponse
 struct  StackRPC__V1__CueActionRequest
 {
   ProtobufCMessage base;
-  int64_t cue_id;
+  int64_t cue_uid;
   StackRPC__V1__CueAction cue_action;
 };
 #define STACK_RPC__V1__CUE_ACTION_REQUEST__INIT \
