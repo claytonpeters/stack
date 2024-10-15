@@ -1232,6 +1232,12 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	{
 		StackCue *cue = *citer;
 
+		// Skip cues that are not playing
+		if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
+		{
+			continue;
+		}
+
 		// If the cue is a child and the parent is playing, don't get the audio
 		// as we'll have gotten it from the parent already
 		if (cue->parent_cue != NULL && cue->parent_cue->state == STACK_CUE_STATE_PLAYING_ACTION)
