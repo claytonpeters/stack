@@ -393,8 +393,13 @@ size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data
 	StackCueList *cue_list = window->cue_list;
 
 	// TODO: Once we can properly map audio devices to cue list channels, we need to change this
-	size_t channels[] = {0, 1};
-	stack_cue_list_get_audio(cue_list, buffer, samples, 2, channels);
+	size_t *channels = new size_t[cue_list->channels];
+	for (size_t channel = 0; channel < cue_list->channels; channel++)
+	{
+		channels[channel] = channel;
+	}
+	stack_cue_list_get_audio(cue_list, buffer, samples, cue_list->channels, channels);
+	delete [] channels;
 
 	return samples;
 }
@@ -1331,7 +1336,8 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		gtk_label_set_xalign(cue_widget->time, 0.0);
 
 		// Widget for levels
-		cue_widget->meter = STACK_LEVEL_METER(stack_level_meter_new(2, -90.0, 0.0));
+		size_t active_channels = stack_cue_get_active_channels(cue, NULL, true);
+		cue_widget->meter = STACK_LEVEL_METER(stack_level_meter_new(active_channels, -90.0, 0.0));
 		gtk_widget_set_visible(GTK_WIDGET(cue_widget->meter), true);
 		GValue height_request = G_VALUE_INIT;
 		g_value_init(&height_request, G_TYPE_INT);
@@ -1368,6 +1374,15 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	}
 
 	size_t channel_count = stack_cue_get_active_channels(cue, NULL, true);
+
+	// Update the number of active channels if necessary (this can change as when a
+	// cue is in pre-wait, it's live active channel count will almost certinly be
+	// zero, but will likely change once a cue starts playing)
+	if (channel_count != cue_widget->meter->channels)
+	{
+		stack_level_meter_set_channels(cue_widget->meter, channel_count);
+	}
+
 	StackChannelRMSData *rms = stack_cue_list_get_rms_data(window->cue_list, cue->uid);
 	if (rms != NULL)
 	{
@@ -1445,6 +1460,12 @@ static gboolean saw_ui_timer(gpointer user_data)
 
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
+
+	// Make sure we have the right number of channels on our master out meter
+	if (window->master_out_meter->channels != window->cue_list->channels)
+	{
+		stack_level_meter_set_channels(window->master_out_meter, window->cue_list->channels);
+	}
 
 	// Iterate over the cue list
 	for (auto citer = window->cue_list->cues->recursive_begin(); citer != window->cue_list->cues->recursive_end(); ++citer)
