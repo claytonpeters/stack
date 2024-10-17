@@ -1193,35 +1193,50 @@ void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 		stack_property_set_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_DEFINED, 0.0);
 	}
 
-	// Load channel volumes from JSON
-	size_t channel = 1;
-	do
+	if (cue_data.isMember("_last_input_channels") && cue_data["_last_input_channels"].isUInt())
 	{
-		// Get/create the property
-		StackProperty *ch_vol_prop = stack_audio_cue_get_volume_property(cue, channel, true);
+		size_t input_channels = cue_data["_last_input_channels"].asUInt();
 
-		if (cue_data.isMember(ch_vol_prop->name))
+		for (size_t channel = 0; channel < input_channels; channel++)
 		{
-			double volume = 0.0;
-			if (cue_data[ch_vol_prop->name].isString() && cue_data[ch_vol_prop->name].asString() == "-Infinite")
+			char property_name[64];
+			snprintf(property_name, 64, "input_%lu_volume", channel + 1);
+			if (cue_data.isMember(property_name))
 			{
-				volume = -INFINITY;
+				StackProperty *channel_property = stack_audio_cue_get_volume_property(cue, channel + 1, true);
+				if (cue_data[property_name].isString() && cue_data[property_name].asString() == "-Infinite")
+				{
+					stack_property_set_double(channel_property, STACK_PROPERTY_VERSION_DEFINED, -INFINITY);
+				}
+				else
+				{
+					stack_property_set_double(channel_property, STACK_PROPERTY_VERSION_DEFINED, cue_data[property_name].asDouble());
+				}
 			}
-			else
-			{
-				volume = cue_data[ch_vol_prop->name].asDouble();
-			}
-			stack_property_set_double(ch_vol_prop, STACK_PROPERTY_VERSION_DEFINED, volume);
-			channel++;
 		}
-		else
+
+		for (size_t input_channel = 0; input_channel < input_channels; input_channel++)
 		{
-			// Stop at the first channel we don't find (and destroy the property we created)
-			stack_cue_remove_property(cue, ch_vol_prop->name);
-			stack_property_destroy(ch_vol_prop);
-			break;
+			for (size_t output_channel = 0; output_channel < cue->parent->channels; output_channel++)
+			{
+				char property_name[64];
+				snprintf(property_name, 64, "crosspoint_%lu_%lu", output_channel, input_channel);
+
+				if (cue_data.isMember(property_name))
+				{
+					StackProperty *crosspoint_property = stack_audio_cue_get_crosspoint_property(cue, input_channel, output_channel, true);
+					if (cue_data[property_name].isString() && cue_data[property_name].asString() == "-Infinite")
+					{
+						stack_property_set_double(crosspoint_property, STACK_PROPERTY_VERSION_DEFINED, -INFINITY);
+					}
+					else
+					{
+						stack_property_set_double(crosspoint_property, STACK_PROPERTY_VERSION_DEFINED, cue_data[property_name].asDouble());
+					}
+				}
+			}
 		}
-	} while (true);
+	}
 }
 
 /// Gets the error message for the cue
