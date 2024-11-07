@@ -213,12 +213,10 @@ static bool stack_group_cue_play(StackCue *cue)
 	int32_t action = STACK_GROUP_CUE_ENTER;
 	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
 
-	// TODO: Ideally the following would have been calculated beforehand, e.g. 
-	// by some notification that children have changed
-	// Iterate throught the child cues and find the largest action time
 	stack_time_t action_time = 0;
 	if (action == STACK_GROUP_CUE_TRIGGER_ALL)
 	{
+		// Iterate through the child cues and find the largest action time
 		for (auto child : *STACK_GROUP_CUE(cue)->cues)
 		{
 			stack_time_t child_pre_time = 0, child_action_time = 0, child_post_time = 0, child_total_time = 0;
@@ -234,6 +232,7 @@ static bool stack_group_cue_play(StackCue *cue)
 	}
 	else if (action == STACK_GROUP_CUE_TRIGGER_PLAYLIST || action == STACK_GROUP_CUE_TRIGGER_SHUFFLED_PLAYLIST)
 	{
+		// Iterate through the child cues and calculate the total action time
 		for (auto child : *STACK_GROUP_CUE(cue)->cues)
 		{
 			stack_time_t child_pre_time = 0, child_action_time = 0, child_post_time = 0;
