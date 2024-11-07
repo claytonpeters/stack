@@ -9,7 +9,7 @@
 static const float INT8_SCALAR = 7.8125e-3f;
 static const float INT16_SCALAR = 3.051757812e-5f;
 static const float INT24_SCALAR = 1.192092896e-7f;
-static const float INT32_SCALAR = 2.328306437e-10f;
+static const float INT32_SCALAR = 4.656612873e-10;
 
 // Helper function that reset the stream file pointer
 static bool stack_audio_file_reset_stream(GFileInputStream *stream)
