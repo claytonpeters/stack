@@ -126,7 +126,7 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 				input_channels = cue->playback_file->channels;
 			}
 
-			stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
+			stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, cue->affect_live, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
 				StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
 				cue->affect_live = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(self));
 			});
@@ -945,7 +945,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		input_channels = audio_cue->playback_file->channels;
 	}
-	stack_audio_levels_tab_populate(audio_cue->levels_tab, input_channels, cue->parent->channels, true, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
+	stack_audio_levels_tab_populate(audio_cue->levels_tab, input_channels, cue->parent->channels, true, STACK_AUDIO_CUE(cue)->affect_live, (GCallback)(ToggleButtonCallback)[](GtkToggleButton *self, gpointer user_data) -> void {
 		StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
 		cue->affect_live = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(self));
 	});

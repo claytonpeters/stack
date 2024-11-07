@@ -28,6 +28,6 @@ typedef struct StackAudioLevelsTab
 // Functions:
 StackAudioLevelsTab *stack_audio_levels_tab_new(StackCue *cue, salt_get_volume_property_t get_volume_property, salt_get_crosspoint_property_t get_crosspoint_property);
 void stack_audio_levels_tab_destroy(StackAudioLevelsTab *tab);
-void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_channels, size_t output_channels, bool show_crosspoints, GCallback affect_live_cb);
+void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_channels, size_t output_channels, bool show_crosspoints, bool affect_live_checked, GCallback affect_live_cb);
 
 #endif

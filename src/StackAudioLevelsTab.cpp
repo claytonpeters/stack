@@ -256,7 +256,7 @@ static gboolean stack_audio_levels_tab_crosspoint_entry_changed(GtkWidget *widge
 	return FALSE;
 }
 
-void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_channels, size_t output_channels, bool show_crosspoints, GCallback affect_live_cb)
+void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_channels, size_t output_channels, bool show_crosspoints, bool affect_live_checked, GCallback affect_live_cb)
 {
 	char buffer[64];
 	char name_buffer[64];
@@ -269,7 +269,7 @@ void stack_audio_levels_tab_populate(StackAudioLevelsTab *tab, size_t input_chan
 	if (affect_live_cb != NULL)
 	{
 		GtkWidget *check_live = gtk_check_button_new_with_label("Affect Live");
-		// TODO: gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_live), cue->affect_live);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_live), affect_live_checked);
 		gtk_widget_set_tooltip_text(check_live, "If ticked, changes to levels made whilst the cue is playing will take effect immediately");
 		gtk_widget_show(check_live);
 		gtk_box_pack_start(GTK_BOX(tab->root), check_live, false, false, 4);

@@ -88,7 +88,7 @@ static void stack_fade_cue_ccb_target(StackProperty *property, StackPropertyVers
 		{
 			input_channels = stack_cue_get_active_channels(new_target, NULL, false);
 		}
-		stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, NULL);
+		stack_audio_levels_tab_populate(cue->levels_tab, input_channels, STACK_CUE(cue)->parent->channels, true, false, NULL);
 	}
 
 	stack_fade_cue_ccb_common(property, version, STACK_FADE_CUE(user_data));
@@ -917,7 +917,7 @@ static void stack_fade_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	{
 		input_channels = stack_cue_get_active_channels(target_cue, NULL, false);
 	}
-	stack_audio_levels_tab_populate(fcue->levels_tab, input_channels, cue->parent->channels, true, NULL);
+	stack_audio_levels_tab_populate(fcue->levels_tab, input_channels, cue->parent->channels, true, false, NULL);
 
 	// Set the values: fade time
 	char buffer[32];	// Warning: used multiple times!
