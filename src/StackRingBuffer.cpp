@@ -131,7 +131,6 @@ size_t stack_ring_buffer_write(StackRingBuffer *buffer, const float *data, size_
 	}
 
 	buffer->used += count;
-	// TODO: Check for an (admittedly unlikely) overflow on the above?
 	if (buffer->used > buffer->capacity)
 	{
 		buffer->used = buffer->capacity;
