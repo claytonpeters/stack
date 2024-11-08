@@ -214,30 +214,40 @@ static void stack_alsa_audio_device_output_thread(void *user_data)
 				stack_log("Buffer underflow: %lu < %lu!\n", read, writable);
 			}
 
-			if (device->format == SND_PCM_FORMAT_FLOAT_LE)
+			if (device->format == SND_PCM_FORMAT_FLOAT)
 			{
 				// Write out
 				snd_pcm_writei(device->stream, buffer, read);
 			}
-			else if (device->format == SND_PCM_FORMAT_S16_LE)
+			else if (device->format == SND_PCM_FORMAT_S32)
+			{
+				// Convert to int32s
+				int32_t *i32_buffer = new int32_t[total_sample_count];
+				stack_audio_device_to_s32(buffer, i32_buffer, total_sample_count);
+
+				// Write out
+				snd_pcm_writei(device->stream, i32_buffer, read);
+
+				// Tidy up
+				delete [] i32_buffer;
+			}
+			else if (device->format == SND_PCM_FORMAT_S24)
+			{
+				// Convert to int24s (24-bit int wrapped in 32-bit)
+				int32_t *i24_buffer = new int32_t[total_sample_count];
+				stack_audio_device_to_s24_32(buffer, i24_buffer, total_sample_count);
+
+				// Write out
+				snd_pcm_writei(device->stream, i24_buffer, read);
+
+				// Tidy up
+				delete [] i24_buffer;
+			}
+			else if (device->format == SND_PCM_FORMAT_S16)
 			{
 				// Convert to int16s
 				int16_t *i16_buffer = new int16_t[total_sample_count];
-				for (size_t i = 0; i < total_sample_count; i++)
-				{
-					if (buffer[i] < -1.0)
-					{
-						i16_buffer[i] = -32678;
-					}
-					else if (buffer[i] > 1.0)
-					{
-						i16_buffer[i] = 32767;
-					}
-					else
-					{
-						i16_buffer[i] = (int16_t)(buffer[i] * 32767.0f);
-					}
-				}
+				stack_audio_device_to_s16(buffer, i16_buffer, total_sample_count);
 
 				// Write out
 				snd_pcm_writei(device->stream, i16_buffer, read);
@@ -266,8 +276,7 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 	// Allocate the new device
 	StackAlsaAudioDevice *device = new StackAlsaAudioDevice();
 	device->stream = NULL;
-	device->format = SND_PCM_FORMAT_FLOAT_LE;
-	//if (snd_pcm_open(&device->stream, name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) != 0)
+	device->format = SND_PCM_FORMAT_FLOAT;
 	if (snd_pcm_open(&device->stream, name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) != 0)
 	{
 		stack_log("stack_alsa_audio_device_create: snd_pcm_open() failed\n");
@@ -303,16 +312,41 @@ StackAudioDevice *stack_alsa_audio_device_create(const char *name, uint32_t chan
 		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_buffer_size() failed\n");
 	}
 
-	// Set the format to 32-bit floating point, which is what Stack
-	// uses internally
-	if (snd_pcm_hw_params_set_format(device->stream, hw_params, SND_PCM_FORMAT_FLOAT_LE) < 0)
+	static const snd_pcm_format_t supported_formats[] = {
+		SND_PCM_FORMAT_FLOAT,
+		SND_PCM_FORMAT_S32,
+		SND_PCM_FORMAT_S24,
+		SND_PCM_FORMAT_S16,
+		SND_PCM_FORMAT_UNKNOWN
+	};
+
+	static const char *format_names[] = {
+		"32-bit floating point",
+		"signed 32-bit integer",
+		"signed 24-bit integer",
+		"signed 16-bit integer",
+		"unknown"
+	};
+
+	for (size_t format_index = 0; format_index < 6; format_index++)
 	{
-		stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(float) failed - falling back to s16\n");
-		device->format = SND_PCM_FORMAT_S16_LE;
-		if (snd_pcm_hw_params_set_format(device->stream, hw_params, SND_PCM_FORMAT_S16_LE) < 0)
+		device->format = supported_formats[format_index];
+		int result = snd_pcm_hw_params_set_format(device->stream, hw_params, device->format);
+		if (result < 0)
 		{
-			stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format(s16) failed\n");
+			stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format failed for format %s: %s\n", format_names[format_index], snd_strerror(result));
 		}
+		else
+		{
+			stack_log("stack_alsa_audio_device_create: snd_pcm_hw_params_set_format succeeded for format %s\n", format_names[format_index]);
+			break;
+		}
+	}
+
+	if (device->format == SND_PCM_FORMAT_UNKNOWN)
+	{
+		stack_log("stack_alsa_audio_device_create: Failed to find any device format\n");
+		return NULL;
 	}
 
 	// Apply the hardware parameters to the device

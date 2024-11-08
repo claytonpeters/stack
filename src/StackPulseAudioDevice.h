@@ -16,6 +16,9 @@ struct StackPulseAudioDevice
 	// The PulseAudio stream
 	pa_stream *stream;
 
+	// The format of the stream
+	pa_sample_format_t format;
+
 	// Synchronisation semaphore
 	semaphore sync_semaphore;
 
