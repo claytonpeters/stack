@@ -220,6 +220,7 @@ static void stack_audio_cue_ccb_loops(StackProperty *property, StackPropertyVers
 	}
 }
 
+// This is used by master, per-channel and crosspoints
 static void stack_audio_cue_ccb_volume(StackProperty *property, StackPropertyVersion version, void *user_data)
 {
 	// If a defined-version property has changed, we should notify the cue list
@@ -618,6 +619,7 @@ StackProperty *stack_audio_cue_get_crosspoint_property(StackCue *cue, size_t inp
 	{
 		// Property does not exist - create it
 		property = stack_property_create(property_name, STACK_PROPERTY_TYPE_DOUBLE);
+		stack_property_set_changed_callback(property, stack_audio_cue_ccb_volume, (void*)cue);
 		stack_property_set_validator(property, (stack_property_validator_t)stack_audio_cue_validate_volume, (void*)cue);
 
 		// Set the value to 0.0 if the output channel is the same as the input
