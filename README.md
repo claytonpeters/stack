@@ -111,7 +111,7 @@ yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
 ```
 
 **Note that whilst Stack has been shown to compile on Ubuntu 20.04, Ubuntu
-23.10, Ubuntu 24.04, Ubuntu 24.10 and Rocky Linux 8, and Rocky Linux 9, it has
+23.04, Ubuntu 24.04, Ubuntu 24.10 and Rocky Linux 8, and Rocky Linux 9, it has
 not been actively tested on these distros!**
 
 Compilation (once you have the correct dependencies installed), should be as
