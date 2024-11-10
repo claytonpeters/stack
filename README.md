@@ -67,6 +67,14 @@ their development packages) to compile and run Stack:
 * libsoxr (optional, required for resampling)
 * protobuf-c (optional, required for remote control)
 
+For **Ubuntu 23.04 and newer**, this list of dependencies can be installed with:
+
+```shell
+sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
+  libpulse0 libpulse-dev libasound2t64 libasound2-dev libjsoncpp25 libjsoncpp-dev \
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+```
+
 For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
 
 ```shell
@@ -102,14 +110,15 @@ yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   protobuf-c protobuf-c-devel
 ```
 
-**Note that whilst Stack has been show to compile on Ubuntu 20.04, Rocky Linux
-8, and Rocky Linux 9, it has not been tested on these distros!**
+**Note that whilst Stack has been shown to compile on Ubuntu 20.04, Ubuntu
+23.10, Ubuntu 24.04, Ubuntu 24.10 and Rocky Linux 8, and Rocky Linux 9, it has
+not been actively tested on these distros!**
 
 Compilation (once you have the correct dependencies installed), should be as
 simple as:
 
 ```shell
-cmake .
+cmake -DCMAKE_BUILD_TYPE=Release .
 make
 ```
 
