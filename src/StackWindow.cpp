@@ -761,6 +761,16 @@ extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// When called from an accelerator, this takes precedence over copying text
+	// in textboxes. If the cue list is not focussed, re-emit the signal for the
+	// focussed widget
+	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
+	if (active != GTK_WIDGET(window->sclw))
+	{
+		g_signal_emit_by_name((gpointer)active, "copy-clipboard");
+		return;
+	}
+
 	if (window->selected_cue != NULL)
 	{
 		// Get the clipboard
@@ -815,6 +825,16 @@ extern "C" void saw_edit_cut_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
+	// When called from an accelerator, this takes precedence over copying text
+	// in textboxes. If the cue list is not focussed, re-emit the signal for the
+	// focussed widget
+	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
+	if (active != GTK_WIDGET(window->sclw))
+	{
+		g_signal_emit_by_name((gpointer)active, "cut-clipboard");
+		return;
+	}
+
 	if (window->selected_cue != NULL)
 	{
 		// Copy the cue
@@ -830,6 +850,16 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 {
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+
+	// When called from an accelerator, this takes precedence over copying text
+	// in textboxes. If the cue list is not focussed, re-emit the signal for the
+	// focussed widget
+	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
+	if (active != GTK_WIDGET(window->sclw))
+	{
+		g_signal_emit_by_name((gpointer)active, "paste-clipboard");
+		return;
+	}
 
 	// Get the clipboard
 	GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
