@@ -142,3 +142,60 @@ const StackAudioDeviceClassMap *stack_audio_device_class_get_map()
 {
 	return &adev_class_map;
 }
+
+void stack_audio_device_to_s32(float *input, int32_t *output, size_t count)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		if (input[i] < -1.0)
+		{
+			output[i] = -2147483647;
+		}
+		else if (input[i] > 1.0)
+		{
+			output[i] = 2147483647;
+		}
+		else
+		{
+			output[i] = (int32_t)(input[i] * 2147483647.0f);
+		}
+	}
+}
+
+void stack_audio_device_to_s24_32(float *input, int32_t *output, size_t count)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		if (input[i] < -1.0)
+		{
+			output[i] = -16777215;
+		}
+		else if (input[i] > 1.0)
+		{
+			output[i] = 16777215;
+		}
+		else
+		{
+			output[i] = (int32_t)(input[i] * 16777215.0f);
+		}
+	}
+}
+
+void stack_audio_device_to_s16(float *input, int16_t *output, size_t count)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		if (input[i] < -1.0)
+		{
+			output[i] = -32767;
+		}
+		else if (input[i] > 1.0)
+		{
+			output[i] = 32767;
+		}
+		else
+		{
+			output[i] = (int16_t)(input[i] * 32767.0f);
+		}
+	}
+}

@@ -2,11 +2,11 @@
 #include "StackApp.h"
 #include "StackGroupCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
 #include <cmath>
-#include <json/json.h>
 #include <list>
 #include <set>
 
@@ -75,7 +75,7 @@ static StackCue* stack_group_cue_create(StackCueList *cue_list)
 	stack_property_set_changed_callback(action, stack_group_cue_ccb_action, (void*)cue);
 
 	// This property is not exposed to the user and is only used for live volume changes
-	StackProperty *volume = stack_property_create("play_volume", STACK_PROPERTY_TYPE_DOUBLE);
+	StackProperty *volume = stack_property_create("master_volume", STACK_PROPERTY_TYPE_DOUBLE);
 	stack_cue_add_property(STACK_CUE(cue), volume);
 
 	return STACK_CUE(cue);
@@ -213,12 +213,10 @@ static bool stack_group_cue_play(StackCue *cue)
 	int32_t action = STACK_GROUP_CUE_ENTER;
 	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
 
-	// TODO: Ideally the following would have been calculated beforehand, e.g. 
-	// by some notification that children have changed
-	// Iterate throught the child cues and find the largest action time
 	stack_time_t action_time = 0;
 	if (action == STACK_GROUP_CUE_TRIGGER_ALL)
 	{
+		// Iterate through the child cues and find the largest action time
 		for (auto child : *STACK_GROUP_CUE(cue)->cues)
 		{
 			stack_time_t child_pre_time = 0, child_action_time = 0, child_post_time = 0, child_total_time = 0;
@@ -234,6 +232,7 @@ static bool stack_group_cue_play(StackCue *cue)
 	}
 	else if (action == STACK_GROUP_CUE_TRIGGER_PLAYLIST || action == STACK_GROUP_CUE_TRIGGER_SHUFFLED_PLAYLIST)
 	{
+		// Iterate through the child cues and calculate the total action time
 		for (auto child : *STACK_GROUP_CUE(cue)->cues)
 		{
 			stack_time_t child_pre_time = 0, child_action_time = 0, child_post_time = 0;
@@ -278,7 +277,7 @@ static bool stack_group_cue_play(StackCue *cue)
 
 	// Initialise playback
 	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "action"));
-	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "play_volume"));
+	stack_property_copy_defined_to_live(stack_cue_get_property(cue, "master_volume"));
 
 	// Get the pre-wait time for the cue
 	stack_time_t pre_time = 0;
@@ -436,8 +435,14 @@ static void stack_group_cue_pulse(StackCue *cue, stack_time_t clocktime)
 }
 
 /// Returns which cuelist channels the cue is actively wanting to send audio to
-size_t stack_group_cue_get_active_channels(StackCue *cue, bool *channels)
+size_t stack_group_cue_get_active_channels(StackCue *cue, bool *channels, bool live)
 {
+	// A group cue always has as many cues as the parent cue stack
+	if (!live)
+	{
+		return cue->parent->channels;
+	}
+
 	// If we're not in playback then we're not sending data
 	if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
 	{
@@ -479,7 +484,7 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 	// Calculate audio scalar (using the live playback volume). Also use this to
 	// scale from 16-bit signed int to 0.0-1.0 range
 	double playback_live_volume = 0.0;
-	stack_property_get_double(stack_cue_get_property(cue, "play_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
+	stack_property_get_double(stack_cue_get_property(cue, "master_volume"), STACK_PROPERTY_VERSION_LIVE, &playback_live_volume);
 	double base_audio_scaler = stack_db_to_scalar(playback_live_volume);
 
 	// Allocate a buffer for new cue data
@@ -490,7 +495,7 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 
 		// Get the list of active_channels
 		memset(active_channels_cache, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(cue, active_channels_cache);
+		size_t active_channel_count = stack_cue_get_active_channels(cue, active_channels_cache, true);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)
@@ -561,31 +566,28 @@ size_t stack_group_cue_get_audio(StackCue *cue, float *buffer, size_t frames)
 		}
 
 		// Create or update RMS data.
-		// TODO: This feels dirty to edit the RMS data of the parent cue list
-		// like this. We should make this into a function
-		auto rms_iter = cue_list->rms_data->find(cue->uid);
-		if (rms_iter == cue_list->rms_data->end())
+		StackChannelRMSData *rms_data = stack_cue_list_get_rms_data(cue_list, cue->uid);
+		const stack_time_t clock_time = stack_get_clock_time();
+		if (rms_data == NULL)
 		{
-			StackChannelRMSData *new_rms_data = new StackChannelRMSData[active_channel_count];
+			rms_data = stack_cue_list_add_rms_data(cue_list, cue->uid, active_channel_count);
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
-				new_rms_data[i].current_level = cue_list->rms_cache[i];
-				new_rms_data[i].peak_level = cue_list->rms_cache[i];
-				new_rms_data[i].peak_time = stack_get_clock_time();
-				new_rms_data[i].clipped = new_clipped[i];
+				rms_data[i].current_level = cue_list->rms_cache[i];
+				rms_data[i].peak_level = cue_list->rms_cache[i];
+				rms_data[i].peak_time = clock_time;
+				rms_data[i].clipped = new_clipped[i];
 			}
-			(*cue_list->rms_data)[cue->uid] = new_rms_data;
 		}
 		else
 		{
-			StackChannelRMSData *rms_data = rms_iter->second;
 			for (size_t i = 0; i < active_channel_count; i++)
 			{
 				rms_data[i].current_level = cue_list->rms_cache[i];
 				if (cue_list->rms_cache[i] >= rms_data[i].peak_level)
 				{
 					rms_data[i].peak_level = cue_list->rms_cache[i];
-					rms_data[i].peak_time = stack_get_clock_time();
+					rms_data[i].peak_time = clock_time;
 				}
 				rms_data[i].clipped = new_clipped[i];
 			}
@@ -703,9 +705,8 @@ static char *stack_group_cue_to_json(StackCue *cue)
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
-		Json::Reader reader;
 		char *cue_json_data = stack_cue_to_json(cue);
-		reader.parse(cue_json_data, cue_root);
+		stack_json_read_string(cue_json_data, &cue_root);
 		stack_cue_free_json(cue, cue_json_data);
 
 		// Add it to the cues entry
@@ -717,8 +718,8 @@ static char *stack_group_cue_to_json(StackCue *cue)
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, root).c_str());
 }
 
 /// Frees JSON strings as returned by stack_group_cue_to_json
@@ -731,10 +732,9 @@ static void stack_group_cue_free_json(StackCue *cue, char *json_data)
 void stack_group_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackGroupCue"))
@@ -844,9 +844,10 @@ void stack_group_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_group_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	strncpy(message, "", size);
+	return false;
 }
 
 /// Returns the icon for a cue
@@ -868,9 +869,13 @@ StackCueStdList *stack_group_cue_get_children(StackCue *cue)
 StackCue *stack_group_cue_get_next_cue(StackCue *cue)
 {
 	// Get the current action
-	// TODO: Should this be VERSION_LIVE if we're playing?
 	int32_t action = STACK_GROUP_CUE_ENTER;
-	stack_property_get_int32(stack_cue_get_property(cue, "action"), STACK_PROPERTY_VERSION_DEFINED, &action);
+	StackPropertyVersion version = STACK_PROPERTY_VERSION_DEFINED;
+	if (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST)
+	{
+		version = STACK_PROPERTY_VERSION_LIVE;
+	}
+	stack_property_get_int32(stack_cue_get_property(cue, "action"), version, &action);
 
 	// If our action is to enter the group, and we have cues in the group, then
 	// return the first child cue

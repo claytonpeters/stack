@@ -1,8 +1,8 @@
 // Includes:
 #include "StackCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <cstring>
-#include <json/json.h>
 #include <map>
 #include <string>
 
@@ -295,9 +295,8 @@ char *stack_cue_to_json_base(StackCue *cue)
 	for (auto trigger : *cue->triggers)
 	{
 		Json::Value trigger_root;
-		Json::Reader reader;
 		char *trigger_json_data = stack_trigger_to_json(trigger);
-		reader.parse(trigger_json_data, trigger_root);
+		stack_json_read_string(trigger_json_data, &trigger_root);
 		stack_trigger_free_json(trigger, trigger_json_data);
 
 		// Add it to the entry
@@ -306,8 +305,8 @@ char *stack_cue_to_json_base(StackCue *cue)
 
 	// Write out the JSON string and return it (to be free'd by
 	// stack_cue_free_json_base)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 // Frees JSON strings returned by stack_cue_to_json_base
@@ -320,10 +319,9 @@ void stack_cue_free_json_base(StackCue *cue, char *json_data)
 void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	Json::Value& stack_cue_data = cue_root["StackCue"];
@@ -486,16 +484,20 @@ void stack_cue_set_post_trigger(StackCue *cue, StackCueWaitTrigger post_trigger)
 /// @param cue The cue to get the error for
 /// @param message The buffer to store the error message in
 /// @param size The size of the message buffer
-void stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
+bool stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
 {
 	snprintf(message, size, "The base cue implementation should not be used.");
+	return false;
 }
 
 /// Returns the number of active channels for the cue. For the base
 /// implementation, this always returns no active channels
 /// @param cue The cue to get the active channels for
 /// @param active The array to populate
-size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active)
+/// @param live If true, return the number of channels actually being used for
+/// live playback, and populate the 'active' array. If false, just return the
+/// maximum number of channels that the cue could possibly want to send to.
+size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active, bool live)
 {
 	return 0;
 }

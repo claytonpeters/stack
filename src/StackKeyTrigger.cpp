@@ -2,7 +2,7 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackKeyTrigger.h"
-#include <json/json.h>
+#include "StackJson.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // TRIGGER ACTION
@@ -199,8 +199,8 @@ char *stack_key_trigger_to_json(StackTrigger *trigger)
 	trigger_root["keyval"] = STACK_KEY_TRIGGER(trigger)->keyval;
 	trigger_root["event_type"] = STACK_KEY_TRIGGER(trigger)->event_type;
 
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_key_trigger_free_json(StackTrigger *trigger, char *json_data)
@@ -211,13 +211,12 @@ void stack_key_trigger_free_json(StackTrigger *trigger, char *json_data)
 void stack_key_trigger_from_json(StackTrigger *trigger, const char *json_data)
 {
 	Json::Value trigger_root;
-	Json::Reader reader;
 
 	// Call the superclass version
 	stack_trigger_from_json_base(trigger, json_data);
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+	stack_json_read_string(json_data, &trigger_root);
 
 	// Get the data that's pertinent to us
 	Json::Value& stack_trigger_data = trigger_root["StackKeyTrigger"];
@@ -437,7 +436,10 @@ void stack_key_trigger_register()
 		stack_key_trigger_to_json,
 		stack_key_trigger_free_json,
 		stack_key_trigger_from_json,
-		stack_key_trigger_show_config_ui
+		stack_key_trigger_show_config_ui,
+		NULL,
+		NULL,
+		NULL
 	};
 	stack_register_trigger_class(key_trigger_class);
 }

@@ -1102,7 +1102,7 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 	cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
 	cairo_set_line_width(cr, 1.0);
 
-	// TODO: Check font height and reset row_height
+	// Check font height and reset row_height
 	PangoContext *pc = gtk_widget_get_pango_context(GTK_WIDGET(sclw));
 	PangoFontDescription *fd = pango_context_get_font_description(pc);
 	gint text_size = pango_font_description_get_size(fd);
@@ -1628,7 +1628,7 @@ static void stack_cue_list_widget_scroll(GtkWidget *widget, GdkEventScroll *even
 	}
 }
 
-static gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
 	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
 	cue_uid_t new_cue_uid = sclw->primary_selection;
@@ -2039,8 +2039,7 @@ static gboolean stack_cue_list_widget_query_tooltip(GtkWidget* widget, gint x, g
 	}
 
 	char error[512];
-	stack_cue_get_error(cue, error, 512);
-	if (strlen(error) == 0)
+	if (!stack_cue_get_error(cue, error, 512))
 	{
 		return false;
 	}

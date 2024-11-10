@@ -2,16 +2,20 @@
 #include "StackApp.h"
 #include "StackAudioDevice.h"
 #include "StackLog.h"
-#include "StackGtkEntryHelper.h"
+#include "StackGtkHelper.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
+#include <list>
 
 // GTK stuff
 G_DEFINE_TYPE(StackAppWindow, stack_app_window, GTK_TYPE_APPLICATION_WINDOW);
 #define STACK_APP_WINDOW(_w) ((StackAppWindow*)(_w))
 
 static const gchar* stack_cue_data_atom_name = "org.stack.cue-data";
+
+std::list<StackAppWindow*> active_windows;
 
 // Structure used to contain show opening data
 struct ShowLoadingData
@@ -390,8 +394,13 @@ size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data
 	StackCueList *cue_list = window->cue_list;
 
 	// TODO: Once we can properly map audio devices to cue list channels, we need to change this
-	size_t channels[] = {0, 1};
-	stack_cue_list_get_audio(cue_list, buffer, samples, 2, channels);
+	size_t *channels = new size_t[cue_list->channels];
+	for (size_t channel = 0; channel < cue_list->channels; channel++)
+	{
+		channels[channel] = channel;
+	}
+	stack_cue_list_get_audio(cue_list, buffer, samples, cue_list->channels, channels);
+	delete [] channels;
 
 	return samples;
 }
@@ -840,8 +849,7 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 
 	// Decode the JSON
 	Json::Value cues_root;
-	Json::Reader reader;
-	if (!reader.parse((const char*)json_text, cues_root))
+	if (!stack_json_read_string((const char*)json_text, &cues_root))
 	{
 		gtk_selection_data_free(data);
 		stack_log("saw_edit_paste_clicked(): Failed to parse clipboard data\n");
@@ -1053,7 +1061,7 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20240411-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20241110-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1328,7 +1336,8 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		gtk_label_set_xalign(cue_widget->time, 0.0);
 
 		// Widget for levels
-		cue_widget->meter = STACK_LEVEL_METER(stack_level_meter_new(2, -90.0, 0.0));
+		size_t active_channels = stack_cue_get_active_channels(cue, NULL, true);
+		cue_widget->meter = STACK_LEVEL_METER(stack_level_meter_new(active_channels, -90.0, 0.0));
 		gtk_widget_set_visible(GTK_WIDGET(cue_widget->meter), true);
 		GValue height_request = G_VALUE_INIT;
 		g_value_init(&height_request, G_TYPE_INT);
@@ -1364,7 +1373,16 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 		gtk_label_set_text(cue_widget->name, stack_cue_get_rendered_name(cue));
 	}
 
-	size_t channel_count = stack_cue_get_active_channels(cue, NULL);
+	size_t channel_count = stack_cue_get_active_channels(cue, NULL, true);
+
+	// Update the number of active channels if necessary (this can change as when a
+	// cue is in pre-wait, it's live active channel count will almost certinly be
+	// zero, but will likely change once a cue starts playing)
+	if (channel_count != cue_widget->meter->channels)
+	{
+		stack_level_meter_set_channels(cue_widget->meter, channel_count);
+	}
+
 	StackChannelRMSData *rms = stack_cue_list_get_rms_data(window->cue_list, cue->uid);
 	if (rms != NULL)
 	{
@@ -1374,13 +1392,6 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 			if (rms[i].clipped)
 			{
 				stack_level_meter_set_clipped(cue_widget->meter, i, true);
-			}
-
-			const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
-			// TODO: This should probably be in StackCueList instead
-			if (current_time - rms[i].peak_time > peak_hold_time)
-			{
-				rms[i].peak_level -= 1.0;
 			}
 		}
 	}
@@ -1450,6 +1461,12 @@ static gboolean saw_ui_timer(gpointer user_data)
 	// Lock the cue list
 	stack_cue_list_lock(window->cue_list);
 
+	// Make sure we have the right number of channels on our master out meter
+	if (window->master_out_meter->channels != window->cue_list->channels)
+	{
+		stack_level_meter_set_channels(window->master_out_meter, window->cue_list->channels);
+	}
+
 	// Iterate over the cue list
 	for (auto citer = window->cue_list->cues->recursive_begin(); citer != window->cue_list->cues->recursive_end(); ++citer)
 	{
@@ -1476,13 +1493,6 @@ static gboolean saw_ui_timer(gpointer user_data)
 		if (window->cue_list->master_rms_data[i].clipped)
 		{
 			stack_level_meter_set_clipped(window->master_out_meter, i, true);
-		}
-
-		const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
-		// TODO: This should probably be in StackCueList instead
-		if (current_time - window->cue_list->master_rms_data[i].peak_time > peak_hold_time)
-		{
-			window->cue_list->master_rms_data[i].peak_level -= 1.0;
 		}
 	}
 
@@ -1529,6 +1539,9 @@ static void saw_cue_selected(GtkTreeSelection *selection, cue_uid_t uid, gpointe
 static void saw_destroy(GtkWidget* widget, gpointer user_data)
 {
 	stack_log("saw_destroy() called\n");
+
+	// Remove us from the list of active windows
+	active_windows.remove((StackAppWindow*)widget);
 
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
@@ -1600,9 +1613,9 @@ extern "C" void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data
 	}
 
 	// Set the color
-	GdkRGBA rgba;
-	gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(widget), &rgba);
-	stack_cue_set_color(window->selected_cue, (uint8_t)(rgba.red * 255.0), (uint8_t)(rgba.green * 255.0), (uint8_t)(rgba.blue * 255.0));
+	uint8_t r, g, b;
+	stack_gtk_color_chooser_get_rgb(GTK_COLOR_CHOOSER(widget), &r, &g, &b);
+	stack_cue_set_color(window->selected_cue, r, g, b);
 
 	// Update the UI
 	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
@@ -2226,6 +2239,24 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 	return return_cue;
 }
 
+StackAppWindow *saw_get_window_for_cue_list(StackCueList *cue_list)
+{
+	for (auto window : active_windows)
+	{
+		if (window->cue_list == cue_list)
+		{
+			return window;
+		}
+	}
+
+	return NULL;
+}
+
+StackAppWindow *saw_get_window_for_cue(StackCue *cue)
+{
+	return saw_get_window_for_cue_list(cue->parent);
+}
+
 // Initialises the StackAppWindow class
 static void stack_app_window_class_init(StackAppWindowClass *cls)
 {
@@ -2238,7 +2269,9 @@ static void stack_app_window_class_init(StackAppWindowClass *cls)
 // Creates a new StackAppWindow
 StackAppWindow* stack_app_window_new(StackApp *app)
 {
-	return (StackAppWindow*)g_object_new(stack_app_window_get_type(), "application", app, NULL);
+	StackAppWindow *window = (StackAppWindow*)g_object_new(stack_app_window_get_type(), "application", app, NULL);
+	active_windows.push_back(window);
+	return window;
 }
 
 // Opens a given file in the StackAppWindow

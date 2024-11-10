@@ -1,11 +1,11 @@
 // Includes:
 #include "StackTrigger.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <map>
 #include <cstring>
 #include <time.h>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Map of classes
@@ -199,9 +199,8 @@ char *stack_trigger_to_json(StackTrigger *trigger)
 		{
 			if (trigger_class_map[class_name]->free_json_func)
 			{
-				Json::Reader reader;
 				char *json_data = trigger_class_map[class_name]->to_json_func(trigger);
-				reader.parse(json_data, trigger_root[class_name]);
+				stack_json_read_string(json_data, &trigger_root[class_name]);
 			}
 			else
 			{
@@ -218,8 +217,8 @@ char *stack_trigger_to_json(StackTrigger *trigger)
 	}
 
 	// Generate JSON string and return it (to be free'd by stack_trigger_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_trigger_free_json(StackTrigger *trigger, char *json_data)
@@ -274,6 +273,62 @@ bool stack_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, bool
 	return trigger_class_map[string(class_name)]->show_config_ui_func(trigger, parent, new_trigger);
 }
 
+char *stack_trigger_config_to_json(const char *class_name)
+{
+	// Start a JSON response value
+	char *json_data = NULL;
+
+	// Iterate up through all the classes
+	while (class_name != NULL)
+	{
+		if (trigger_class_map[class_name]->config_to_json_func)
+		{
+			if (trigger_class_map[class_name]->config_free_json_func)
+			{
+				return trigger_class_map[class_name]->config_to_json_func();
+			}
+			else
+			{
+				stack_log("stack_trigger_to_json(): Warning: Class '%s' has no config_free_json_func - skipping\n", class_name);
+			}
+		}
+		else
+		{
+			stack_log("stack_trigger_to_json(): Warning: Class '%s' has no config_to_json_func - skipping\n", class_name);
+		}
+
+		// Iterate up to superclass
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	return NULL;
+}
+
+void stack_trigger_config_free_json(const char *class_name, char *json_data)
+{
+	// Look for a free_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && trigger_class_map[class_name]->config_free_json_func == NULL)
+	{
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	trigger_class_map[string(class_name)]->config_free_json_func(json_data);
+}
+
+// Generates the global trigger config from JSON data
+void stack_trigger_config_from_json(const char *class_name, const char *json_data)
+{
+	// Look for a from_json function. Iterate through superclasses if we don't have one
+	while (class_name != NULL && trigger_class_map[class_name]->config_from_json_func == NULL)
+	{
+		class_name = trigger_class_map[class_name]->super_class_name;
+	}
+
+	// Call the function
+	trigger_class_map[string(class_name)]->config_from_json_func(json_data);
+}
+
 StackTrigger* stack_trigger_create_base(StackCue *cue)
 {
 	// Can't create one of these
@@ -310,8 +365,8 @@ char* stack_trigger_to_json_base(StackTrigger *trigger)
 
 	trigger_root["action"] = (Json::UInt64)trigger->action;
 
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data)
@@ -322,10 +377,9 @@ void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data)
 void stack_trigger_from_json_base(StackTrigger *trigger, const char *json_data)
 {
 	Json::Value trigger_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+	stack_json_read_string(json_data, &trigger_root);
 
 	// Get the data that's pertinent to us
 	Json::Value& stack_trigger_data = trigger_root["StackTrigger"];
@@ -349,11 +403,24 @@ bool stack_trigger_show_config_ui_base(StackTrigger *trigger, GtkWidget *parent,
 	return true;
 }
 
+char* stack_trigger_config_to_json_base()
+{
+	return NULL;
+}
+
+void stack_trigger_config_free_json_base(char *json_data)
+{
+}
+
+void stack_trigger_config_from_json_base(const char *json_data)
+{
+}
+
 // Initialise the StackTrigger system
 void stack_trigger_initsystem()
 {
 	// Register base trigger type
-	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, "No-op abstract", stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base };
+	StackTriggerClass* stack_trigger_class = new StackTriggerClass{ "StackTrigger", NULL, "No-op abstract", stack_trigger_create_base, stack_trigger_destroy_base, stack_trigger_get_name_base, stack_trigger_get_event_text_base, stack_trigger_get_description_base, stack_trigger_get_action_base, stack_trigger_to_json_base, stack_trigger_free_json_base, stack_trigger_from_json_base, stack_trigger_show_config_ui_base, stack_trigger_config_to_json_base, stack_trigger_config_free_json_base, stack_trigger_config_from_json_base };
 	stack_register_trigger_class(stack_trigger_class);
 }
 

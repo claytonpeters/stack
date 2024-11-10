@@ -81,9 +81,9 @@ static void stack_pulse_audio_device_output_thread(void *user_data)
 		{
 			// Get PulseAudio to give us a buffer of that size and read (up to)
 			// that many bytes
-			float *buffer = NULL;
+			void *buffer = NULL;
 			pa_threaded_mainloop_lock(mainloop);
-			pa_stream_begin_write(device->stream, (void**)&buffer, &writable);
+			pa_stream_begin_write(device->stream, &buffer, &writable);
 			pa_threaded_mainloop_unlock(mainloop);
 			if (buffer == NULL)
 			{
@@ -91,18 +91,42 @@ static void stack_pulse_audio_device_output_thread(void *user_data)
 				break;
 			}
 
-			// Determine how many samples per channel (rather than bytes) PulseAudio
+			// Determine how many frames of adio (rather than bytes) PulseAudio
 			// wants (pa_stream_begin_write can change the value of 'writable')
-			size_t writable_samples = writable / sizeof(float) / channels;
+			size_t writable_frames = writable / sizeof(float) / channels;
 
 			// Get up to writable_samples samples from the cue list
-			size_t read = STACK_AUDIO_DEVICE(device)->request_audio(writable_samples, buffer, STACK_AUDIO_DEVICE(device)->request_audio_user_data);
+			size_t read = 0;
+			if (device->format == PA_SAMPLE_FLOAT32NE)
+			{
+				read = STACK_AUDIO_DEVICE(device)->request_audio(writable_frames, (float*)buffer, STACK_AUDIO_DEVICE(device)->request_audio_user_data);
+			}
+			else
+			{
+				size_t total_sample_count = writable_frames * channels;
+
+				float *float_buffer = new float[total_sample_count];
+				read = STACK_AUDIO_DEVICE(device)->request_audio(writable_frames, float_buffer, STACK_AUDIO_DEVICE(device)->request_audio_user_data);
+
+				if (device->format == PA_SAMPLE_S32NE)
+				{
+					stack_audio_device_to_s32(float_buffer, (int32_t*)buffer, total_sample_count);
+				}
+				else if (device->format == PA_SAMPLE_S24_32NE)
+				{
+					stack_audio_device_to_s24_32(float_buffer, (int32_t*)buffer, total_sample_count);
+				}
+				else if (device->format == PA_SAMPLE_S16NE)
+				{
+					stack_audio_device_to_s16(float_buffer, (int16_t*)buffer, total_sample_count);
+				}
+			}
 
 			// Warn if we didn't get enough
-			if (read < writable_samples)
+			if (read < writable_frames)
 			{
 				writable = read * channels * sizeof(float);
-				stack_log("Buffer underflow: %lu < %lu!\n", read, writable_samples);
+				stack_log("Buffer underflow: %lu < %lu!\n", read, writable_frames);
 			}
 
 			// Write the data to PulseAudio
@@ -168,7 +192,7 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 			pased->devices[pased->count].desc = strdup(sinkinfo->description);
 			pased->devices[pased->count].min_channels = 1;
 			pased->devices[pased->count].max_channels = sinkinfo->channel_map.channels;
-			pased->devices[pased->count].num_rates = 1;	// I *think* PulseAudio only provides one rate per device
+			pased->devices[pased->count].num_rates = 1;
 			pased->devices[pased->count].rates = new uint32_t[1];
 			pased->devices[pased->count].rates[0] = sinkinfo->sample_spec.rate;
 
@@ -453,7 +477,6 @@ void stack_pulse_audio_device_destroy(StackAudioDevice *device)
 
 StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t channels, uint32_t sample_rate, stack_audio_device_audio_request_t request_audio, void *user_data)
 {
-	// Debug
 	stack_log("stack_pulse_audio_device_create(\"%s\", %u, %u, ...) called\n", name, channels, sample_rate);
 
 	// Allocate the new device
@@ -497,13 +520,50 @@ StackAudioDevice *stack_pulse_audio_device_create(const char *name, uint32_t cha
 	// Create a PulseAudio sample spec
 	pa_sample_spec samplespec;
 	samplespec.channels = channels;
-	samplespec.format = PA_SAMPLE_FLOAT32;
 	samplespec.rate = sample_rate;
 
+	static pa_sample_format_t supported_formats[] = {
+		PA_SAMPLE_FLOAT32NE,
+		PA_SAMPLE_S32NE,
+		PA_SAMPLE_S24_32NE,
+		PA_SAMPLE_S16NE,
+		PA_SAMPLE_INVALID,
+	};
+
+	static const char *format_names[] = {
+		"32-bit floating point",
+		"signed 32-bit integer",
+		"signed 24-bit integer in 32-bit words",
+		"signed 16-bit integer",
+		"invalid"
+	};
+
 	// Create a new stream (on the application-global context)
-	pa_proplist* proplist = pa_proplist_new();
-	device->stream = pa_stream_new_with_proplist(context, "PulseAudio Stream", &samplespec, NULL, proplist);
-	pa_proplist_free(proplist);
+	for (size_t format_index = 0; format_index < 5; format_index++)
+	{
+		samplespec.format = supported_formats[format_index];
+		device->stream = pa_stream_new(context, "Stack PulseAudio Stream", &samplespec, NULL);
+		if (device->stream == NULL)
+		{
+			stack_log("stack_pulse_audio_device_create(): Stream creation failed with format %s\n", format_names[format_index]);
+		}
+		else
+		{
+			stack_log("stack_pulse_audio_device_create(): Stream creation succeeded with format %s\n", format_names[format_index]);
+			break;
+		}
+	}
+
+	// Fail if we didn't manage to find a valid format
+	if (samplespec.format == PA_SAMPLE_INVALID)
+	{
+		delete device;
+		return NULL;
+	}
+	else
+	{
+		device->format = samplespec.format;
+	}
 
 	// Set up callbacks
 	pa_stream_set_state_callback(device->stream, (pa_stream_notify_cb_t)stack_pulse_audio_stream_notify_callback, device);

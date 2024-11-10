@@ -1,5 +1,5 @@
 // Includes:
-#include "StackGtkEntryHelper.h"
+#include "StackGtkHelper.h"
 
 void stack_limit_gtk_entry_int_callback(GtkEntryBuffer *buffer, guint position, gchar *chars, guint count, gpointer userdata)
 {
@@ -90,4 +90,13 @@ void stack_limit_gtk_entry_date_callback(GtkEntryBuffer *buffer, guint position,
 void stack_limit_gtk_entry_date(GtkEntry *entry)
 {
 	g_signal_connect(gtk_entry_get_buffer(entry), "inserted-text", G_CALLBACK(stack_limit_gtk_entry_date_callback), NULL);
+}
+
+void stack_gtk_color_chooser_get_rgb(GtkColorChooser *chooser, uint8_t *r, uint8_t *g, uint8_t *b)
+{
+	GdkRGBA color = {0.0, 0.0, 0.0, 1.0};
+	gtk_color_chooser_get_rgba(chooser, &color);
+	*r = (uint8_t)(color.red * 255.0);
+	*g = (uint8_t)(color.green * 255.0);
+	*b = (uint8_t)(color.blue * 255.0);
 }

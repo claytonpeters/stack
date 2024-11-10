@@ -225,6 +225,7 @@ bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_d
 bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision);
 void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels);
 StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid);
+StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid_t uid, size_t channels);
 
 // Defines:
 #define STACK_CUE_LIST(_c) ((StackCueList*)(_c))

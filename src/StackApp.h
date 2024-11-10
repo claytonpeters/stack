@@ -85,7 +85,7 @@ StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, Sta
 size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data);
 void sss_show_dialog(StackAppWindow* window);
 bool src_show_dialog(StackAppWindow* window);
+StackAppWindow *saw_get_window_for_cue_list(StackCueList *cue_list);
+StackAppWindow *saw_get_window_for_cue(StackCue *cue);
 
 #endif
-
-

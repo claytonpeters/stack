@@ -6,6 +6,7 @@
 #include "StackAudioFile.h"
 #include "StackAudioPreview.h"
 #include "StackResampler.h"
+#include "StackAudioLevelsTab.h"
 #include <thread>
 
 // An audio cue
@@ -21,7 +22,7 @@ struct StackAudioCue
 	GtkWidget *media_tab;
 
 	// The levels tab
-	GtkWidget *levels_tab;
+	StackAudioLevelsTab *levels_tab;
 
 	// The levels
 	GtkWidget *master_scale;
@@ -41,6 +42,14 @@ struct StackAudioCue
 
 	// The current loop count
 	int32_t playback_loops;
+
+	// Buffer for playback - this is the temporary store for data either read
+	// from the file or output from the resampler, which we then use to scale
+	// and sum with crosspoint information
+	float *playback_buffer;
+
+	// Size of playback buffer in frames
+	size_t playback_buffer_frames;
 };
 
 // Functions: Audio cue functions

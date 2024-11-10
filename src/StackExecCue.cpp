@@ -2,11 +2,11 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackExecCue.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
 #include <cmath>
-#include <json/json.h>
 #include <sys/wait.h>
 
 // Global: A single instance of our builder so we don't have to keep reloading
@@ -258,8 +258,8 @@ static char *stack_exec_cue_to_json(StackCue *cue)
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 /// Frees JSON strings as returned by stack_exec_cue_to_json
@@ -272,10 +272,9 @@ static void stack_exec_cue_free_json(StackCue *cue, char *json_data)
 void stack_exec_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackExecCue"))
@@ -291,7 +290,7 @@ void stack_exec_cue_from_json(StackCue *cue, const char *json_data)
 }
 
 /// Gets the error message for the cue
-void stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	// Get the target
 	char *command = NULL;
@@ -300,11 +299,12 @@ void stack_exec_cue_get_error(StackCue *cue, char *message, size_t size)
 	if (command == NULL || strlen(command) == 0)
 	{
 		snprintf(message, size, "No command chosen");
+		return true;
 	}
-	else
-	{
-		strncpy(message, "", size);
-	}
+
+	// Default condition: no error
+	strncpy(message, "", size);
+	return false;
 }
 
 /// Returns the icon for a cue

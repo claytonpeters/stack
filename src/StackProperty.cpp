@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <cmath>
 
 #define CASE_PROPERTY_INTS(size) \
 	case STACK_PROPERTY_TYPE_INT##size: \
@@ -71,7 +72,11 @@ StackProperty *stack_property_create(const char *property, StackPropertyType typ
 	p->name = strdup(property);
 	p->changed_callback = NULL;
 	p->changed_callback_user_data = NULL;
-	p->change_callbacks_paused = false;
+	p->change_callbacks_paused = 0;
+	p->nullable = 0;
+	p->version_defined_null = 0;
+	p->version_live_null = 0;
+	p->version_target_null = 0;
 
 	return p;
 }
@@ -129,6 +134,44 @@ void stack_property_destroy(StackProperty *property)
 			delete p_string;
 			break;
 	}
+}
+
+// Returns the name of the property
+// @returns The name of the property
+const char *stack_property_get_name(const StackProperty *property)
+{
+	if (property == NULL)
+	{
+		return NULL;
+	}
+
+	return property->name;
+}
+
+// Returns whether or not a property is nullable
+// @param property The property to return the nullable attribute off
+// @returns A boolean indicating if the property is nullable
+bool stack_property_get_nullable(const StackProperty *property)
+{
+	if (property == NULL)
+	{
+		return false;
+	}
+
+	return property->nullable;
+}
+
+// Sets whether or not a property is nullable
+// @param property The property to set the nullable attribute off
+// @param nullable A boolean indicating if the property should be nullable
+void stack_property_set_nullable(StackProperty *property, bool nullable)
+{
+	if (property == NULL)
+	{
+		return;
+	}
+
+	property->nullable = nullable;
 }
 
 void stack_property_set_changed_callback(StackProperty *property, stack_property_changed_t callback, void *user_data)
@@ -215,7 +258,7 @@ void stack_property_set_validator(StackProperty *property, stack_property_valida
 
 // Helper define that creates the getter for a fundamental type property
 #define DEFINE_STACK_PROPERTY_GETTER(type_suffix, type_name, type_enum, property_type_name) \
-	bool stack_property_get_##type_suffix(StackProperty *property, StackPropertyVersion version, type_name *value) \
+	bool stack_property_get_##type_suffix(const StackProperty *property, StackPropertyVersion version, type_name *value) \
 	{ \
 		if (property == NULL) \
 		{ \
@@ -388,10 +431,16 @@ bool stack_property_set_string(StackProperty *property, StackPropertyVersion ver
 	return true;
 }
 
-void stack_property_write_json(StackProperty *property, Json::Value* json_root)
+void stack_property_write_json(const StackProperty *property, Json::Value* json_root)
 {
 	if (property == NULL)
 	{
+		return;
+	}
+
+	if (stack_property_get_null(property, STACK_PROPERTY_VERSION_DEFINED))
+	{
+		(*json_root)[property->name] = Json::Value::nullSingleton();
 		return;
 	}
 
@@ -427,7 +476,14 @@ void stack_property_write_json(StackProperty *property, Json::Value* json_root)
 			(*json_root)[property->name] = (Json::UInt64)((StackPropertyUInt64*)property)->defined;
 			break;
 		case STACK_PROPERTY_TYPE_DOUBLE:
-			(*json_root)[property->name] = ((StackPropertyDouble*)property)->defined;
+			if (std::isfinite(((StackPropertyDouble*)property)->defined))
+			{
+				(*json_root)[property->name] = ((StackPropertyDouble*)property)->defined;
+			}
+			else
+			{
+				(*json_root)[property->name] = "-Infinite";
+			}
 			break;
 		case STACK_PROPERTY_TYPE_STRING:
 			(*json_root)[property->name] = ((StackPropertyString*)property)->defined;
@@ -446,6 +502,11 @@ void stack_property_write_json(StackProperty *property, Json::Value* json_root)
 
 void stack_property_copy_defined_to_live(StackProperty *property)
 {
+	if (property == NULL)
+	{
+		return;
+	}
+
 	switch (property->type)
 	{
 		case STACK_PROPERTY_TYPE_NONE:
@@ -462,4 +523,70 @@ void stack_property_copy_defined_to_live(StackProperty *property)
 		CASE_PROPERTY_DEFLIVE(double, double, STACK_PROPERTY_TYPE_DOUBLE, StackPropertyDouble)
 		CASE_PROPERTY_DEFLIVE(string, char *, STACK_PROPERTY_TYPE_STRING, StackPropertyString)
 	}
+
+	// Copy whether the value is null
+	property->version_live_null = property->version_defined_null;
+}
+
+// Gets whether a property value is null
+// @param property The property to get the value of
+// @param version The version of the property to get the value of
+// @returns Whether or not the given version of the property is null (or always
+// false if the property is not nullable)
+bool stack_property_get_null(const StackProperty *property, StackPropertyVersion version)
+{
+	if (property == NULL || !property->nullable)
+	{
+		return false;
+	}
+
+	switch (version)
+	{
+		case STACK_PROPERTY_VERSION_DEFINED:
+			return property->version_defined_null;
+		case STACK_PROPERTY_VERSION_LIVE:
+			return property->version_live_null;
+		case STACK_PROPERTY_VERSION_TARGET:
+			return property->version_target_null;
+		default:
+			return false;
+	}
+}
+
+// Sets whether a property value is null
+// @param property The property to get the value of
+// @param version The version of the property to get the value of
+// @param is_null Whether to set the value to null or not. If setting a value to
+// not null, you should ensure that the property then has a value
+// @returns True if the nullable field was set, or false otherwise (including if
+// the property is not nullable)
+bool stack_property_set_null(StackProperty *property, StackPropertyVersion version, bool is_null)
+{
+	if (property == NULL)
+	{
+		return false;
+	}
+
+	if (!property->nullable)
+	{
+		stack_log("stack_property_set_null called on non-nullable property '%s'\n", property->name);
+		return false;
+	}
+
+	switch (version)
+	{
+		case STACK_PROPERTY_VERSION_DEFINED:
+			property->version_defined_null = is_null;
+			break;
+		case STACK_PROPERTY_VERSION_LIVE:
+			property->version_live_null = is_null;
+			break;
+		case STACK_PROPERTY_VERSION_TARGET:
+			property->version_target_null = is_null;
+			break;
+		default:
+			return false;
+	}
+
+	return true;
 }

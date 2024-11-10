@@ -84,6 +84,11 @@ const StackAudioDeviceClass *stack_audio_device_get_class(const char *name);
 // Functions: Get map of classes
 const StackAudioDeviceClassMap *stack_audio_device_class_get_map();
 
+// Functions: audio transformation
+void stack_audio_device_to_s32(float *input, int32_t *output, size_t count);
+void stack_audio_device_to_s24_32(float *input, int32_t *output, size_t count);
+void stack_audio_device_to_s16(float *input, int16_t *output, size_t count);
+
 // Defines:
 #define STACK_AUDIO_DEVICE(_d) ((StackAudioDevice*)(_d))
 

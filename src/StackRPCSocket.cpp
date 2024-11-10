@@ -18,7 +18,14 @@
 static void stack_rpc_socket_fill_cue_info(StackCue *cue, StackRPC__V1__CueInfo *cue_info)
 {
 	cue_info->uid = cue->uid;
-	cue_info->parent_uid = 0;
+	if (cue->parent_cue != NULL)
+	{
+		cue_info->parent_uid = cue->parent_cue->uid;
+	}
+	else
+	{
+		cue_info->parent_uid = 0;
+	}
 	cue_info->id = cue->id;
 
 	// Populate cue state
@@ -76,6 +83,9 @@ static void stack_rpc_socket_fill_cue_info(StackCue *cue, StackRPC__V1__CueInfo 
 
 	// Populate notes - note that we don't strdup this
 	stack_property_get_string(stack_cue_get_property(cue, "notes"), STACK_PROPERTY_VERSION_DEFINED, &cue_info->notes);
+
+	// Populate script ref - again note, not strdup'd
+	stack_property_get_string(stack_cue_get_property(cue, "script_ref"), STACK_PROPERTY_VERSION_DEFINED, &cue_info->script_ref);
 
 	// Populate the colour as a 24-bit packed RGB integer, as protobuf doesn't
 	// have an 8-bit unsigned integer type
@@ -141,16 +151,54 @@ static void stack_rpc_socket_handle_list_cues(StackRPCSocketClient *client, Stac
 	response->type_case = STACK_RPC__V1__CONTROL_RESPONSE__TYPE_LIST_CUES_RESPONSE;
 	response->list_cues_response = &list_cues_response;
 
-	list_cues_response.n_cue_uid = stack_cue_list_count(client->rpc_socket->cue_list);
-	list_cues_response.cue_uid = new int64_t[list_cues_response.n_cue_uid];
-
 	stack_cue_list_lock(client->rpc_socket->cue_list);
-	size_t index = 0;
-	for (auto cue : *client->rpc_socket->cue_list->cues)
+
+	if (message->list_cues_request->include_children)
 	{
-		list_cues_response.cue_uid[index] = cue->uid;
-		index++;
+		// Count the cues recursively
+		size_t total_cue_count = 0;
+		for (auto iter = client->rpc_socket->cue_list->cues->recursive_begin(); iter != client->rpc_socket->cue_list->cues->recursive_end(); ++iter)
+		{
+			total_cue_count++;
+		}
+
+		list_cues_response.n_cue_uid = total_cue_count;
+		if (total_cue_count > 0)
+		{
+			list_cues_response.cue_uid = new int64_t[list_cues_response.n_cue_uid];
+
+			size_t index = 0;
+			for (auto iter = client->rpc_socket->cue_list->cues->recursive_begin(); iter != client->rpc_socket->cue_list->cues->recursive_end(); ++iter)
+			{
+				list_cues_response.cue_uid[index] = (*iter)->uid;
+				index++;
+			}
+		}
+		else
+		{
+			list_cues_response.cue_uid = NULL;
+		}
 	}
+	else
+	{
+		list_cues_response.n_cue_uid = stack_cue_list_count(client->rpc_socket->cue_list);
+		if (list_cues_response.n_cue_uid > 0)
+		{
+			list_cues_response.cue_uid = new int64_t[list_cues_response.n_cue_uid];
+
+			size_t index = 0;
+			for (auto cue : *client->rpc_socket->cue_list->cues)
+			{
+				list_cues_response.cue_uid[index] = cue->uid;
+				index++;
+			}
+		}
+		else
+		{
+			list_cues_response.cue_uid = NULL;
+		}
+	}
+
 	stack_cue_list_unlock(client->rpc_socket->cue_list);
 
 	// Send the response
@@ -244,8 +292,7 @@ static void stack_rpc_socket_handle_cue_action(StackRPCSocketClient *client, Sta
 	}
 	else
 	{
-		// TODO: THIS SHOULD BE CUE_UID!!
-		StackCue *cue = stack_cue_get_by_uid(message->cue_action_request->cue_id);
+		StackCue *cue = stack_cue_get_by_uid(message->cue_action_request->cue_uid);
 		if (cue != NULL)
 		{
 			switch (message->cue_action_request->cue_action)
@@ -266,7 +313,7 @@ static void stack_rpc_socket_handle_cue_action(StackRPCSocketClient *client, Sta
 		}
 		else
 		{
-			stack_log("stack_rpc_socket_handle_cue_action(%lx): Request for unknown cue %lx\n", client, message->cue_action_request->cue_id);
+			stack_log("stack_rpc_socket_handle_cue_action(%lx): Request for unknown cue %lx\n", client, message->cue_action_request->cue_uid);
 		}
 	}
 

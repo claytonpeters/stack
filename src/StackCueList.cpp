@@ -1,11 +1,11 @@
 // Includes:
 #include "StackCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <list>
 #include <map>
 #include <cstring>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Pre-definitions:
@@ -249,6 +249,11 @@ void stack_cue_list_append(StackCueList *cue_list, StackCue *cue)
 {
 	cue_list->changed = true;
 	cue_list->cues->push_back(cue);
+
+	// Add a remap that remaps back to itself so that stack_*_cue_from_json
+	// can continue to work with cues in the cue list when pasting from the
+	// clipboard (as we only remap at load)
+	(*cue_list->uid_remap)[cue->uid] = cue->uid;
 }
 
 /// Moves an existing cue within the stack
@@ -523,6 +528,7 @@ static void stack_cue_list_pulse_thread(StackCueList *cue_list)
 void stack_cue_list_pulse(StackCueList *cue_list)
 {
 	static stack_time_t underflow_time = 0;
+	static const stack_time_t peak_hold_time = 2 * NANOSECS_PER_SEC;
 
 	// Lock the cue list
 	stack_cue_list_lock(cue_list);
@@ -543,6 +549,29 @@ void stack_cue_list_pulse(StackCueList *cue_list)
 		{
 			// Pulse the cue
 			stack_cue_pulse(cue, clocktime);
+		}
+
+		// Update per-cue RMS peaks
+		StackChannelRMSData *rms = stack_cue_list_get_rms_data(cue_list, cue->uid);
+		if (rms != NULL)
+		{
+			size_t channel_count = stack_cue_get_active_channels(cue, NULL, true);
+			for (size_t channel = 0; channel < channel_count; channel++)
+			{
+				if (clocktime - rms[channel].peak_time > peak_hold_time)
+				{
+					rms[channel].peak_level -= 0.1;
+				}
+			}
+		}
+	}
+
+	// Update master RMS peaks
+	for (size_t channel = 0; channel < cue_list->channels; channel++)
+	{
+		if (clocktime - cue_list->master_rms_data[channel].peak_time > peak_hold_time)
+		{
+			cue_list->master_rms_data[channel].peak_level -= 0.1;
 		}
 	}
 
@@ -620,23 +649,39 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["revision"] = cue_list->show_revision;
 	root["channels"] = cue_list->channels;
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
+	root["config"] = Json::Value(Json::ValueType::objectValue);
 
 	// Iterate over all the cues
 	for (auto cue : *cue_list->cues)
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
-		Json::Reader reader;
 		char *cue_json_data = stack_cue_to_json(cue);
-		reader.parse(cue_json_data, cue_root);
+		stack_json_read_string(cue_json_data, &cue_root);
 		stack_cue_free_json(cue, cue_json_data);
 
 		// Add it to the cues entry
 		root["cues"].append(cue_root);
 	}
 
-	Json::StyledWriter writer;
-	std::string output = writer.write(root);
+	// Iterate over the trigger classes
+	for (auto citer : *stack_trigger_class_map_get())
+	{
+		// Get the class name
+		const char *class_name = citer.second->class_name;
+
+		char *trigger_config_json_data = stack_trigger_config_to_json(class_name);
+		if (trigger_config_json_data != NULL)
+		{
+			Json::Value trigger_config_root;
+			stack_json_read_string(trigger_config_json_data, &trigger_config_root);
+			root["config"][class_name] = trigger_config_root;
+			stack_trigger_config_free_json(class_name, trigger_config_json_data);
+		}
+	}
+
+	Json::StreamWriterBuilder builder;
+	std::string output = Json::writeString(builder, root);
 
 	// Write to the output stream
 	g_output_stream_printf(G_OUTPUT_STREAM(stream), NULL, NULL, NULL, "%s", output.c_str());
@@ -702,9 +747,8 @@ StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Valu
 
 StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct)
 {
-	Json::Reader reader;
 	Json::Value cue_root;
-	if (!reader.parse(json, cue_root))
+	if (!stack_json_read_string(json, &cue_root))
 	{
 		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
 		return NULL;
@@ -787,9 +831,8 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	{
 		callback(NULL, 0.03, "Parsing file...", user_data);
 	}
-	Json::Reader reader;
 	Json::Value cue_list_root;
-	if (!reader.parse(&json_buffer[0], cue_list_root))
+	if (!stack_json_read_string(&json_buffer[0], &cue_list_root))
 	{
 		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
 		return NULL;
@@ -824,6 +867,20 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	if (cue_list_root.isMember("revision"))
 	{
 		stack_cue_list_set_show_revision(cue_list, cue_list_root["revision"].asCString());
+	}
+
+	// If we have some config...
+	if (cue_list_root.isMember("config"))
+	{
+		// Iterate over the trigger classes
+		for (auto citer : *stack_trigger_class_map_get())
+		{
+			const char *class_name = citer.second->class_name;
+			if (cue_list_root["config"].isMember(class_name))
+			{
+				stack_trigger_config_from_json(class_name, cue_list_root["config"][class_name].toStyledString().c_str());
+			}
+		}
 	}
 
 	// If we have some cues...
@@ -1171,6 +1228,12 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 	{
 		StackCue *cue = *citer;
 
+		// Skip cues that are not playing
+		if (cue->state != STACK_CUE_STATE_PLAYING_ACTION)
+		{
+			continue;
+		}
+
 		// If the cue is a child and the parent is playing, don't get the audio
 		// as we'll have gotten it from the parent already
 		if (cue->parent_cue != NULL && cue->parent_cue->state == STACK_CUE_STATE_PLAYING_ACTION)
@@ -1183,7 +1246,7 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 
 		// Get the list of active_channels
 		memset(cue_list->active_channels_cache, 0, cue_list->channels * sizeof(bool));
-		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache);
+		size_t active_channel_count = stack_cue_get_active_channels(cue, cue_list->active_channels_cache, true);
 
 		// Skip cues with no active channels
 		if (active_channel_count == 0)
@@ -1361,6 +1424,30 @@ StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid
 	return NULL;
 }
 
+StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid_t uid, size_t channels)
+{
+	auto rms_iter = cue_list->rms_data->find(uid);
+	if (rms_iter == cue_list->rms_data->end())
+	{
+		StackChannelRMSData *new_rms_data = new StackChannelRMSData[channels];
+		for (size_t channel = 0; channel < channels; channel++)
+		{
+			new_rms_data[channel].current_level = 0.0;
+			new_rms_data[channel].peak_level = 0.0;
+			new_rms_data[channel].peak_time = 0;
+			new_rms_data[channel].clipped = false;
+		}
+
+		(*cue_list->rms_data)[uid] = new_rms_data;
+		return new_rms_data;
+	}
+	else
+	{
+		StackChannelRMSData *old_rms_data = rms_iter->second;
+		return old_rms_data;
+	}
+}
+
 StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_child(bool forward)
 {
 	if (in_child)
@@ -1371,7 +1458,7 @@ StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_
 		{
 			main_iter++;
 		}
-		
+
 		child_iter = cue_list.end();
 	}
 

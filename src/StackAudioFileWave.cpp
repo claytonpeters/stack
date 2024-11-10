@@ -151,7 +151,7 @@ static bool stack_audio_file_wave_read_header(GInputStream *stream, WaveHeader *
                 g_seekable_seek(G_SEEKABLE(stream), subchunk_size, G_SEEK_CUR, NULL, NULL);
 
 				// Keep track of our offset in the file
-				*data_start_offset += subchunk_size;
+				*data_start_offset += subchunk_size + 8;
             }
         }
         else

@@ -2,11 +2,11 @@
 #include "StackCue.h"
 #include "StackGroupCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <map>
 #include <cstring>
 #include <time.h>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Map of classes
@@ -533,7 +533,7 @@ void stack_cue_unset_tabs(StackCue *cue, GtkNotebook *notebook)
 }
 
 // Gets the error message
-void stack_cue_get_error(StackCue *cue, char *message, size_t size)
+bool stack_cue_get_error(StackCue *cue, char *message, size_t size)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
@@ -545,7 +545,7 @@ void stack_cue_get_error(StackCue *cue, char *message, size_t size)
 	}
 
 	// Call the function
-	cue_class_map[string(class_name)]->get_error_func(cue, message, size);
+	return cue_class_map[string(class_name)]->get_error_func(cue, message, size);
 }
 
 char *stack_cue_to_json(StackCue *cue)
@@ -567,9 +567,8 @@ char *stack_cue_to_json(StackCue *cue)
 		{
 			if (cue_class_map[class_name]->free_json_func)
 			{
-				Json::Reader reader;
 				char *json_data = cue_class_map[class_name]->to_json_func(cue);
-				reader.parse(json_data, cue_root[class_name]);
+				stack_json_read_string(json_data, &cue_root[class_name]);
 			}
 			else
 			{
@@ -586,8 +585,8 @@ char *stack_cue_to_json(StackCue *cue)
 	}
 
 	// Generate JSON string and return it (to be free'd by stack_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 void stack_cue_free_json(StackCue *cue, char *json_data)
@@ -633,7 +632,7 @@ static void stack_cue_from_json_void(StackCue *cue, const char *json_data)
 }
 
 // Get the active channels for a cue
-size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
+size_t stack_cue_get_active_channels(StackCue *cue, bool *active, bool live)
 {
 	// Get the class name
 	const char *class_name = cue->_class_name;
@@ -645,7 +644,7 @@ size_t stack_cue_get_active_channels(StackCue *cue, bool *active)
 	}
 
 	// Call the function
-	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active);
+	return cue_class_map[string(class_name)]->get_active_channels_func(cue, active, live);
 }
 
 const char *stack_cue_get_rendered_name(StackCue *cue)
