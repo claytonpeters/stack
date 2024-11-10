@@ -2,11 +2,11 @@
 #include "StackCue.h"
 #include "StackGroupCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <map>
 #include <cstring>
 #include <time.h>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Map of classes
@@ -567,9 +567,8 @@ char *stack_cue_to_json(StackCue *cue)
 		{
 			if (cue_class_map[class_name]->free_json_func)
 			{
-				Json::Reader reader;
 				char *json_data = cue_class_map[class_name]->to_json_func(cue);
-				reader.parse(json_data, cue_root[class_name]);
+				stack_json_read_string(json_data, &cue_root[class_name]);
 			}
 			else
 			{
@@ -586,8 +585,8 @@ char *stack_cue_to_json(StackCue *cue)
 	}
 
 	// Generate JSON string and return it (to be free'd by stack_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 void stack_cue_free_json(StackCue *cue, char *json_data)

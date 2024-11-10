@@ -5,11 +5,11 @@
 #include "StackAudioCue.h"
 #include "StackAudioLevelsTab.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
 #include <cmath>
-#include <json/json.h>
 
 static const cue_uid_t STACK_FADE_CUE_DEFAULT_TARGET = STACK_CUE_UID_NONE;
 static const double STACK_FADE_CUE_DEFAULT_TARGET_VOLUME = -INFINITY;
@@ -1014,7 +1014,7 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 	if (target != NULL)
 	{
 		input_channels = stack_cue_get_active_channels(target, NULL, false);
-		cue_root["_last_input_channels"] = input_channels;
+		cue_root["_last_input_channels"] = (int32_t)input_channels;
 
 		for (size_t channel = 0; channel < input_channels; channel++)
 		{
@@ -1040,8 +1040,8 @@ static char *stack_fade_cue_to_json(StackCue *cue)
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 /// Frees JSON strings as returned by stack_fade_cue_to_json
@@ -1054,10 +1054,9 @@ static void stack_fade_cue_free_json(StackCue *cue, char *json_data)
 void stack_fade_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackFadeCue"))

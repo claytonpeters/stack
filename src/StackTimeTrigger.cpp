@@ -3,7 +3,7 @@
 #include "StackLog.h"
 #include "StackTimeTrigger.h"
 #include "StackGtkHelper.h"
-#include <json/json.h>
+#include "StackJson.h"
 #include <list>
 
 // The list of active triggers for the thread
@@ -291,8 +291,8 @@ char *stack_time_trigger_to_json(StackTrigger *trigger)
 	trigger_root["second"] = time_trigger->second;
 	trigger_root["repeat"] = time_trigger->repeat;
 
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_time_trigger_free_json(StackTrigger *trigger, char *json_data)
@@ -303,13 +303,12 @@ void stack_time_trigger_free_json(StackTrigger *trigger, char *json_data)
 void stack_time_trigger_from_json(StackTrigger *trigger, const char *json_data)
 {
 	Json::Value trigger_root;
-	Json::Reader reader;
 
 	// Call the superclass version
 	stack_trigger_from_json_base(trigger, json_data);
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+	stack_json_read_string(json_data, &trigger_root);
 
 	// Get the data that's pertinent to us
 	Json::Value& trigger_data = trigger_root["StackTimeTrigger"];

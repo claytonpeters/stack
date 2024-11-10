@@ -3,6 +3,7 @@
 #include "StackAudioDevice.h"
 #include "StackLog.h"
 #include "StackGtkHelper.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
@@ -848,8 +849,7 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 
 	// Decode the JSON
 	Json::Value cues_root;
-	Json::Reader reader;
-	if (!reader.parse((const char*)json_text, cues_root))
+	if (!stack_json_read_string((const char*)json_text, &cues_root))
 	{
 		gtk_selection_data_free(data);
 		stack_log("saw_edit_paste_clicked(): Failed to parse clipboard data\n");

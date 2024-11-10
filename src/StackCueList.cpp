@@ -1,11 +1,11 @@
 // Includes:
 #include "StackCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <list>
 #include <map>
 #include <cstring>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Pre-definitions:
@@ -656,9 +656,8 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
-		Json::Reader reader;
 		char *cue_json_data = stack_cue_to_json(cue);
-		reader.parse(cue_json_data, cue_root);
+		stack_json_read_string(cue_json_data, &cue_root);
 		stack_cue_free_json(cue, cue_json_data);
 
 		// Add it to the cues entry
@@ -674,16 +673,15 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		char *trigger_config_json_data = stack_trigger_config_to_json(class_name);
 		if (trigger_config_json_data != NULL)
 		{
-			Json::Reader reader;
 			Json::Value trigger_config_root;
-			reader.parse(trigger_config_json_data, trigger_config_root);
+			stack_json_read_string(trigger_config_json_data, &trigger_config_root);
 			root["config"][class_name] = trigger_config_root;
 			stack_trigger_config_free_json(class_name, trigger_config_json_data);
 		}
 	}
 
-	Json::StyledWriter writer;
-	std::string output = writer.write(root);
+	Json::StreamWriterBuilder builder;
+	std::string output = Json::writeString(builder, root);
 
 	// Write to the output stream
 	g_output_stream_printf(G_OUTPUT_STREAM(stream), NULL, NULL, NULL, "%s", output.c_str());
@@ -749,9 +747,8 @@ StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Valu
 
 StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct)
 {
-	Json::Reader reader;
 	Json::Value cue_root;
-	if (!reader.parse(json, cue_root))
+	if (!stack_json_read_string(json, &cue_root))
 	{
 		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
 		return NULL;
@@ -834,9 +831,8 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	{
 		callback(NULL, 0.03, "Parsing file...", user_data);
 	}
-	Json::Reader reader;
 	Json::Value cue_list_root;
-	if (!reader.parse(&json_buffer[0], cue_list_root))
+	if (!stack_json_read_string(&json_buffer[0], &cue_list_root))
 	{
 		stack_log("stack_cue_list_new_file_file(): Failed to parse show JSON\n");
 		return NULL;

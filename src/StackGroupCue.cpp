@@ -2,11 +2,11 @@
 #include "StackApp.h"
 #include "StackGroupCue.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
 #include <cmath>
-#include <json/json.h>
 #include <list>
 #include <set>
 
@@ -705,9 +705,8 @@ static char *stack_group_cue_to_json(StackCue *cue)
 	{
 		// Get the JSON representation of the cue
 		Json::Value cue_root;
-		Json::Reader reader;
 		char *cue_json_data = stack_cue_to_json(cue);
-		reader.parse(cue_json_data, cue_root);
+		stack_json_read_string(cue_json_data, &cue_root);
 		stack_cue_free_json(cue, cue_json_data);
 
 		// Add it to the cues entry
@@ -719,8 +718,8 @@ static char *stack_group_cue_to_json(StackCue *cue)
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, root).c_str());
 }
 
 /// Frees JSON strings as returned by stack_group_cue_to_json
@@ -733,10 +732,9 @@ static void stack_group_cue_free_json(StackCue *cue, char *json_data)
 void stack_group_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackGroupCue"))

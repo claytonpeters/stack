@@ -1,11 +1,11 @@
 // Includes:
 #include "StackTrigger.h"
 #include "StackLog.h"
+#include "StackJson.h"
 #include <map>
 #include <cstring>
 #include <time.h>
 #include <cmath>
-#include <json/json.h>
 using namespace std;
 
 // Map of classes
@@ -199,9 +199,8 @@ char *stack_trigger_to_json(StackTrigger *trigger)
 		{
 			if (trigger_class_map[class_name]->free_json_func)
 			{
-				Json::Reader reader;
 				char *json_data = trigger_class_map[class_name]->to_json_func(trigger);
-				reader.parse(json_data, trigger_root[class_name]);
+				stack_json_read_string(json_data, &trigger_root[class_name]);
 			}
 			else
 			{
@@ -218,8 +217,8 @@ char *stack_trigger_to_json(StackTrigger *trigger)
 	}
 
 	// Generate JSON string and return it (to be free'd by stack_trigger_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_trigger_free_json(StackTrigger *trigger, char *json_data)
@@ -366,8 +365,8 @@ char* stack_trigger_to_json_base(StackTrigger *trigger)
 
 	trigger_root["action"] = (Json::UInt64)trigger->action;
 
-	Json::FastWriter writer;
-	return strdup(writer.write(trigger_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, trigger_root).c_str());
 }
 
 void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data)
@@ -378,10 +377,9 @@ void stack_trigger_free_json_base(StackTrigger *trigger, char *json_data)
 void stack_trigger_from_json_base(StackTrigger *trigger, const char *json_data)
 {
 	Json::Value trigger_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), trigger_root, false);
+	stack_json_read_string(json_data, &trigger_root);
 
 	// Get the data that's pertinent to us
 	Json::Value& stack_trigger_data = trigger_root["StackTrigger"];

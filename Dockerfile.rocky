@@ -11,4 +11,4 @@ RUN yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
 
 COPY . /stack
 
-RUN cd /stack; rm -rf CMakeCache.txt CMakeFiles; cmake .; make
+RUN cd /stack; rm -rf CMakeCache.txt CMakeFiles; cmake .; make -j 8

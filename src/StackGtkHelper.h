@@ -3,6 +3,7 @@
 
 // Includes:
 #include <gtk/gtk.h>
+#include <stdint.h>
 
 void stack_limit_gtk_entry_int(GtkEntry *entry, bool negatives);
 void stack_limit_gtk_entry_float(GtkEntry *entry, bool negatives);

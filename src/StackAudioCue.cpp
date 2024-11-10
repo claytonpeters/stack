@@ -4,11 +4,11 @@
 #include "StackAudioCue.h"
 #include "StackAudioLevelsTab.h"
 #include "StackGtkHelper.h"
+#include "StackJson.h"
 #include "MPEGAudioFile.h"
 #include <cstring>
 #include <cstdlib>
 #include <cmath>
-#include <json/json.h>
 #include <vector>
 #include <time.h>
 
@@ -1057,7 +1057,7 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	if (audio_cue->playback_file != NULL)
 	{
 		input_channels = audio_cue->playback_file->channels;
-		cue_root["_last_input_channels"] = input_channels;
+		cue_root["_last_input_channels"] = (int32_t)input_channels;
 	}
 
 	// Write channel volumes to JSON
@@ -1086,8 +1086,8 @@ static char *stack_audio_cue_to_json(StackCue *cue)
 	}
 
 	// Write out JSON string and return (to be free'd by stack_audio_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 static void stack_audio_cue_free_json(StackCue *cue, char *json_data)
@@ -1099,10 +1099,9 @@ static void stack_audio_cue_free_json(StackCue *cue, char *json_data)
 void stack_audio_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackAudioCue"))

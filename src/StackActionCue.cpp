@@ -2,11 +2,11 @@
 #include "StackApp.h"
 #include "StackLog.h"
 #include "StackActionCue.h"
+#include "StackJson.h"
 #include <cstring>
 #include <cstdlib>
 #include <string>
 #include <cmath>
-#include <json/json.h>
 
 // Global: A single instance of our builder so we don't have to keep reloading
 // it every time we change the selected cue
@@ -386,8 +386,8 @@ static char *stack_action_cue_to_json(StackCue *cue)
 
 	// Write out JSON string and return (to be free'd by
 	// stack_fade_cue_free_json)
-	Json::FastWriter writer;
-	return strdup(writer.write(cue_root).c_str());
+	Json::StreamWriterBuilder builder;
+	return strdup(Json::writeString(builder, cue_root).c_str());
 }
 
 /// Frees JSON strings as returned by stack_action_cue_to_json
@@ -400,10 +400,9 @@ static void stack_action_cue_free_json(StackCue *cue, char *json_data)
 void stack_action_cue_from_json(StackCue *cue, const char *json_data)
 {
 	Json::Value cue_root;
-	Json::Reader reader;
 
 	// Parse JSON data
-	reader.parse(json_data, json_data + strlen(json_data), cue_root, false);
+	stack_json_read_string(json_data, &cue_root);
 
 	// Get the data that's pertinent to us
 	if (!cue_root.isMember("StackActionCue"))
