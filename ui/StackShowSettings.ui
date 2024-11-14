@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
   <object class="GtkDialog" id="StackShowSettingsDialog">
@@ -136,7 +136,7 @@
               </packing>
             </child>
             <child>
-              <!-- n-columns=2 n-rows=6 -->
+              <!-- n-columns=2 n-rows=5 -->
               <object class="GtkGrid" id="sssAudioGrid">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
@@ -210,29 +210,6 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkComboBoxText" id="sssSampleRateCombo">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <signal name="changed" handler="sss_sample_rate_changed" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">2</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="sssMappingLabel">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <property name="halign">end</property>
-                    <property name="label" translatable="yes">Mapping:</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">0</property>
-                    <property name="top-attach">5</property>
-                  </packing>
-                </child>
-                <child>
                   <object class="GtkLabel" id="sssChannelsLabel">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
@@ -243,31 +220,6 @@
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
-                    <property name="top-attach">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkTreeView">
-                    <property name="visible">True</property>
-                    <property name="can-focus">True</property>
-                    <property name="hexpand">True</property>
-                    <child internal-child="selection">
-                      <object class="GtkTreeSelection"/>
-                    </child>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">5</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkComboBoxText" id="sssChannelsCombo">
-                    <property name="visible">True</property>
-                    <property name="can-focus">False</property>
-                    <signal name="changed" handler="sss_channels_changed" swapped="no"/>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
                     <property name="top-attach">4</property>
                   </packing>
                 </child>
@@ -296,6 +248,71 @@
                   <packing>
                     <property name="left-attach">1</property>
                     <property name="top-attach">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="sssSampleRateCombo">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="has-entry">True</property>
+                    <items>
+                      <item translatable="yes">8000</item>
+                      <item translatable="yes">11025</item>
+                      <item translatable="yes">16000</item>
+                      <item translatable="yes">22050</item>
+                      <item translatable="yes">32000</item>
+                      <item translatable="yes">44100</item>
+                      <item translatable="yes">48000</item>
+                      <item translatable="yes">88200</item>
+                      <item translatable="yes">96000</item>
+                      <item translatable="yes">176400</item>
+                      <item translatable="yes">192000</item>
+                    </items>
+                    <signal name="changed" handler="sss_sample_rate_changed" swapped="no"/>
+                    <child internal-child="entry">
+                      <object class="GtkEntry">
+                        <property name="can-focus">True</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBoxText" id="sssChannelsCombo">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="has-entry">True</property>
+                    <items>
+                      <item translatable="yes">1</item>
+                      <item translatable="yes">2</item>
+                      <item translatable="yes">3</item>
+                      <item translatable="yes">4</item>
+                      <item translatable="yes">5</item>
+                      <item translatable="yes">6</item>
+                      <item translatable="yes">7</item>
+                      <item translatable="yes">8</item>
+                      <item translatable="yes">9</item>
+                      <item translatable="yes">10</item>
+                      <item translatable="yes">11</item>
+                      <item translatable="yes">12</item>
+                      <item translatable="yes">13</item>
+                      <item translatable="yes">14</item>
+                      <item translatable="yes">15</item>
+                      <item translatable="yes">16</item>
+                    </items>
+                    <signal name="changed" handler="sss_channels_changed" swapped="no"/>
+                    <child internal-child="entry">
+                      <object class="GtkEntry">
+                        <property name="can-focus">True</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">4</property>
                   </packing>
                 </child>
               </object>
