@@ -3,43 +3,22 @@
 #include "StackLog.h"
 #include <cstring>
 
-// Initialises AlsaAudio
-bool stack_init_alsa_audio()
-{
-	return true;
-}
-
 size_t stack_alsa_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 {
-	static const int common_sample_rates[] = {8000, 11025, 16000, 22050, 32000, 44100, 48000, 88200, 96000, 176400, 192000};
-	static const size_t num_common_sample_rates = 11;
-
-	// Initialise pulse audio
-	if (!stack_init_alsa_audio())
-	{
-		// Failed to initialise, return NULL
-		*outputs = NULL;
-		return 0;
-	}
-
-	// Get some hints
 	void **hints = NULL;
-	int result = snd_device_name_hint(-1, "pcm", &hints);
-	if (result != 0)
+	int err = snd_device_name_hint(-1, "pcm", &hints);
+	if (err != 0)
 	{
 		*outputs = NULL;
 		return 0;
 	}
 
 	size_t alsa_device_count = 0, stack_device_count = 0;
-
-	// Count how many devices we find
 	for (size_t i = 0; hints[i] != NULL; i++)
 	{
 		alsa_device_count = i + 1;
 	}
 
-	// If there are no devices, return immediately
 	if (alsa_device_count == 0)
 	{
 		snd_device_name_free_hint(hints);
@@ -49,90 +28,36 @@ size_t stack_alsa_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 
 	StackAudioDeviceDesc* devices = new StackAudioDeviceDesc[alsa_device_count];
 
-	// Iterate over the devices and build information
 	for (size_t alsa_device_idx = 0, stack_device_idx = 0; alsa_device_idx < alsa_device_count; alsa_device_idx++)
 	{
 		char *name = snd_device_name_get_hint(hints[alsa_device_idx], "NAME");
 		char *desc = snd_device_name_get_hint(hints[alsa_device_idx], "DESC");
 
-		// Open the device
-		snd_pcm_t* pcm = NULL;
-		if (snd_pcm_open(&pcm, name, SND_PCM_STREAM_PLAYBACK, 0) != 0)
-		{
-			free(name);
-			free(desc);
-			continue;
-		}
-
-		// Get parameters
-		snd_pcm_hw_params_t* hw_params = NULL;
-		snd_pcm_hw_params_malloc(&hw_params);
-		snd_pcm_hw_params_any(pcm, hw_params);
-
-		// Get minimum and maximum number of channels
-		unsigned int min, max;
-		snd_pcm_hw_params_get_channels_min(hw_params, &min);
-		snd_pcm_hw_params_get_channels_max(hw_params, &max);
-
-		// Limit the maximum to 32 channels, as some devices return "-1" channels
-		if (max > 32)
-		{
-			max = 32;
-		}
-
-		// Store channel counts
-		devices[stack_device_idx].min_channels = min;
-		devices[stack_device_idx].max_channels = max;
-
-		// Get minimum and maximum sample rates
-		int dir;
-		snd_pcm_hw_params_get_rate_min(hw_params, &min, &dir);
-		snd_pcm_hw_params_get_rate_max(hw_params, &max, &dir);
-
-		// Iterate over our common sample rates and see which ones are valid
-		size_t sample_rate_count = 0;
-		for (size_t common_rate_idx = 0; common_rate_idx < num_common_sample_rates; common_rate_idx++)
-		{
-			if (common_sample_rates[common_rate_idx] >= min && common_sample_rates[common_rate_idx] <= max)
-			{
-				if (snd_pcm_hw_params_test_rate(pcm, hw_params, common_sample_rates[common_rate_idx], 0) == 0)
-				{
-					sample_rate_count++;
-				}
-			}
-		}
-
-		// Store the sample rates
-		devices[stack_device_idx].num_rates = sample_rate_count;
-		if (sample_rate_count > 0)
-		{
-			devices[stack_device_idx].rates = new uint32_t[sample_rate_count];
-			for (size_t rate_idx = 0, common_rate_idx = 0; common_rate_idx < num_common_sample_rates; common_rate_idx++)
-			{
-				if (common_sample_rates[common_rate_idx] >= min && common_sample_rates[common_rate_idx] <= max)
-				{
-					devices[stack_device_idx].rates[rate_idx] = common_sample_rates[common_rate_idx];
-					rate_idx++;
-				}
-			}
-
-		}
-		else
-		{
-			devices[stack_device_idx].rates = NULL;
-		}
-
 		// Store the name and description
-		devices[stack_device_idx].name = strdup(name);
-		devices[stack_device_idx].desc = strdup(desc);
+		if (name != NULL && desc != NULL)
+		{
+			devices[stack_device_count].name = strdup(name);
+			devices[stack_device_count].desc = strdup(desc);
+
+			// We can't get this info from ALSA without opening the device, but
+			// the device may be in use. For now we've opted to not use this
+			// info in the UI anyway and make the fields freeform.
+			devices[stack_device_count].rates = NULL;
+			devices[stack_device_count].num_rates = 0;
+			devices[stack_device_count].min_channels = -1;
+			devices[stack_device_count].max_channels = -1;
+			stack_device_count++;
+		}
 
 		// Tidy up
-		free(name);
-		free(desc);
-		snd_pcm_hw_params_free(hw_params);
-		snd_pcm_close(pcm);
-		stack_device_count++;
-		stack_device_idx++;
+		if (name != NULL)
+		{
+			free(name);
+		}
+		if (desc != NULL)
+		{
+			free(desc);
+		}
 	}
 
 	// Tidy up
@@ -152,7 +77,10 @@ void stack_alsa_audio_device_free_outputs(StackAudioDeviceDesc **outputs, size_t
 	{
 		free((*outputs)[i].name);
 		free((*outputs)[i].desc);
-		delete [] (*outputs)[i].rates;
+		if ((*outputs)[i].rates != NULL)
+		{
+			delete [] (*outputs)[i].rates;
+		}
 	}
 
 	delete [] *outputs;

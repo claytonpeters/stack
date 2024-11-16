@@ -190,6 +190,8 @@ void stack_pulse_audio_sink_info_callback(pa_context* context, pa_sink_info* sin
 			// Store the information
 			pased->devices[pased->count].name = strdup(sinkinfo->name);
 			pased->devices[pased->count].desc = strdup(sinkinfo->description);
+
+			// We populate this information, but it is now (currently) unused
 			pased->devices[pased->count].min_channels = 1;
 			pased->devices[pased->count].max_channels = sinkinfo->channel_map.channels;
 			pased->devices[pased->count].num_rates = 1;

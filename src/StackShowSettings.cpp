@@ -22,10 +22,8 @@ extern "C" void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_da
 	GtkComboBoxText *sample_rate_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data->builder, "sssSampleRateCombo"));
 	GtkComboBoxText *channels_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data->builder, "sssChannelsCombo"));
 
-	// Clear all the combos
+	// Clear the device list combo
 	gtk_combo_box_text_remove_all(devices_combo);
-	gtk_combo_box_text_remove_all(sample_rate_combo);
-	gtk_combo_box_text_remove_all(channels_combo);
 
 	// Get the name of the chosen provider class
 	const gchar *provider_class = gtk_combo_box_get_active_id(widget);
@@ -58,54 +56,6 @@ extern "C" void sss_audio_device_changed(GtkComboBox *widget, gpointer user_data
 {
 	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
 	dialog_data->audio_device_changed = true;
-
-	// Get the widgets we need to change
-	GtkComboBoxText *sample_rate_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data->builder, "sssSampleRateCombo"));
-	GtkComboBoxText *channels_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data->builder, "sssChannelsCombo"));
-
-	// Clear all the combos
-	gtk_combo_box_text_remove_all(sample_rate_combo);
-	gtk_combo_box_text_remove_all(channels_combo);
-
-	// Get the name of the chosen provider class, and the device
-	const gchar *provider_class = gtk_combo_box_get_active_id(GTK_COMBO_BOX(gtk_builder_get_object(dialog_data->builder, "sssAudioProviderCombo")));
-	const gchar *device_name = gtk_combo_box_get_active_id(widget);
-	if (provider_class == NULL || device_name == NULL)
-	{
-		return;
-	}
-
-	// Get the class itself
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class(provider_class);
-
-	// Get the available devices for the class
-	if (sadc->get_outputs_func != NULL)
-	{
-		StackAudioDeviceDesc *devices = NULL;
-		size_t num_outputs = sadc->get_outputs_func(&devices);
-		if (devices != NULL && num_outputs > 0)
-		{
-			for (size_t i = 0; i < num_outputs; i++)
-			{
-				if (strcmp(devices[i].name, device_name) == 0)
-				{
-					for (size_t j = devices[i].min_channels; j <= devices[i].max_channels; j++)
-					{
-						char channel_value[16];
-						snprintf(channel_value, 16, "%lu", j);
-						gtk_combo_box_text_append(channels_combo, channel_value, channel_value);
-					}
-					for (size_t j = 0; j < devices[i].num_rates; j++)
-					{
-						char sample_rate_value[16];
-						snprintf(sample_rate_value, 16, "%d", devices[i].rates[j]);
-						gtk_combo_box_text_append(sample_rate_combo, sample_rate_value, sample_rate_value);
-					}
-				}
-			}
-		}
-	}
-
 }
 
 extern "C" void sss_sample_rate_changed(GtkComboBox *widget, gpointer user_data)
@@ -144,8 +94,8 @@ void sss_show_dialog(StackAppWindow *window)
 	// Get the widgets we need to look at
 	GtkComboBox *audio_providers_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssAudioProviderCombo"));
 	GtkComboBox *devices_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssAudioDeviceCombo"));
-	GtkComboBox *sample_rate_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssSampleRateCombo"));
-	GtkComboBox *channels_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssChannelsCombo"));
+	GtkComboBoxText *sample_rate_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data.builder, "sssSampleRateCombo"));
+	GtkComboBoxText *channels_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data.builder, "sssChannelsCombo"));
 
 	// Iterate over audio providers
 	for (auto class_iter : *stack_audio_device_class_get_map())
@@ -172,11 +122,13 @@ void sss_show_dialog(StackAppWindow *window)
 
 		// Set the audio sample rate
 		snprintf(buffer, 16, "%u", window->cue_list->audio_device->sample_rate);
-		gtk_combo_box_set_active_id(sample_rate_combo, buffer);
+		GtkWidget *sample_rate_entry = gtk_bin_get_child(GTK_BIN(sample_rate_combo));
+		gtk_entry_set_text(GTK_ENTRY(sample_rate_entry), buffer);
 
 		// Set the audio channels
 		snprintf(buffer, 16, "%u", window->cue_list->audio_device->channels);
-		gtk_combo_box_set_active_id(channels_combo, buffer);
+		GtkWidget *channels_entry = gtk_bin_get_child(GTK_BIN(channels_combo));
+		gtk_entry_set_text(GTK_ENTRY(channels_entry), buffer);
 
 		// Reset this to false as setting the active IDs fire the callbacks
 		// (which is useful as it populates the combos for us)
@@ -203,8 +155,8 @@ void sss_show_dialog(StackAppWindow *window)
 			// Pull the IDs from the combo boxes
 			const gchar *device_class = gtk_combo_box_get_active_id(audio_providers_combo);
 			const gchar *device = gtk_combo_box_get_active_id(devices_combo);
-			const gchar *sample_rate_text = gtk_combo_box_get_active_id(sample_rate_combo);
-			const gchar *channels_text = gtk_combo_box_get_active_id(channels_combo);
+			gchar *sample_rate_text = gtk_combo_box_text_get_active_text(sample_rate_combo);
+			gchar *channels_text = gtk_combo_box_text_get_active_text(channels_combo);
 
 			// Determine if everything was selected
 			GtkWidget *message_dialog = NULL;
@@ -247,6 +199,10 @@ void sss_show_dialog(StackAppWindow *window)
 
 				dialog_succeeded = true;
 			}
+
+			// Tidy up
+			g_free(sample_rate_text);
+			g_free(channels_text);
 		}
 		else
 		{
