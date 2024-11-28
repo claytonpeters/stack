@@ -33,6 +33,7 @@ typedef uint64_t cue_uid_t;
 #define MILLISECS_PER_SEC_F ((double)MILLISECS_PER_SEC)
 #define CENTISECS_PER_SEC_F ((double)CENTISECS_PER_SEC)
 #define STACK_CUE_UID_NONE ((cue_uid_t)0)
+#define STACK_TIME_INFINITE ((stack_time_t)0x7FFFFFFFFFFFFFFF)
 
 // Includes:
 #include "StackError.h"

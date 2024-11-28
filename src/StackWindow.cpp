@@ -1454,14 +1454,7 @@ static void saw_add_or_update_active_cue_widget(StackAppWindow *window, StackCue
 	}
 	stack_format_time_as_string(first_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 	strncat(time_text, " / ", 63);
-	if (second_time >= 0)
-	{
-		stack_format_time_as_string(second_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
-	}
-	else
-	{
-		strncat(time_text, "Forever", 63);
-	}
+	stack_format_time_as_string(second_time, &time_text[strlen(time_text)], 64 - strlen(time_text));
 
 	// Update the contents
 	gtk_label_set_text(cue_widget->time, time_text);
