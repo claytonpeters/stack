@@ -27,22 +27,45 @@ StackProperty *stack_audio_cue_get_volume_property(StackCue *cue, size_t channel
 
 typedef void (*ToggleButtonCallback)(GtkToggleButton*, gpointer);
 
+// Returns the length of a single iteration of the audio (which is the same as
+// the length of the cue if we have one loop)
+static stack_time_t stack_audio_cue_get_loop_length(StackAudioCue *cue, StackPropertyVersion version, double *output_rate)
+{
+	// Get the media start and end time
+	stack_time_t media_start_time = 0, media_end_time = 0, duration = 0;
+	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), version, &media_start_time);
+	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), version, &media_end_time);
+	if (media_end_time > media_start_time)
+	{
+		duration = media_end_time - media_start_time;
+	}
+
+	// Get the custom playback rate
+	double rate = 1.0;
+	stack_property_get_double(stack_cue_get_property(STACK_CUE(cue), "rate"), version, &rate);
+
+	// Return the rate if the caller wants it
+	if (output_rate)
+	{
+		*output_rate = rate;
+	}
+
+	return (stack_time_t)((double)duration / rate);
+}
+
+// Updates the action time of the cue taking in to account the playback rate and the
+// number of loops
 static void stack_audio_cue_update_action_time(StackAudioCue *cue)
 {
 	// Re-calculate the action time
-	stack_time_t media_start_time = 0, media_end_time = 0, action_time;
-	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
-	stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
-	if (media_end_time > media_start_time)
-	{
-		double rate = 1.0;
-		stack_property_get_double(stack_cue_get_property(STACK_CUE(cue), "rate"), STACK_PROPERTY_VERSION_DEFINED, &rate);
+	stack_time_t action_time = STACK_TIME_INFINITE;
 
-		action_time = (stack_time_t)((double)(media_end_time - media_start_time) / rate);
-	}
-	else
+	// If we're not infinitely looping, calculate the total time for all loops
+	int32_t loops = 1;
+	stack_property_get_int32(stack_cue_get_property(STACK_CUE(cue), "loops"), STACK_PROPERTY_VERSION_DEFINED, &loops);
+	if (loops > 0)
 	{
-		action_time = 0;
+		action_time = stack_audio_cue_get_loop_length(cue, STACK_PROPERTY_VERSION_DEFINED, NULL) * loops;
 	}
 
 	stack_cue_set_action_time(STACK_CUE(cue), action_time);
@@ -203,6 +226,9 @@ static void stack_audio_cue_ccb_loops(StackProperty *property, StackPropertyVers
 
 		// Notify cue list that we've changed
 		stack_cue_list_changed(STACK_CUE(cue)->parent, STACK_CUE(cue), property);
+
+		// The action time needs recalculating
+		stack_audio_cue_update_action_time(cue);
 
 		// Fire an updated-selected-cue signal to signal the UI to change
 		if (cue->media_tab)
@@ -779,30 +805,29 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	stack_cue_get_running_times(cue, clocktime, NULL, &run_action_time, NULL, NULL, NULL, NULL);
 	stack_property_get_int64(stack_cue_get_property(cue, "action_time"), STACK_PROPERTY_VERSION_LIVE, &cue_action_time);
 
-	// Get the custom playback rate
-	double rate = 1.0;
-	stack_property_get_double(stack_cue_get_property(cue, "rate"), STACK_PROPERTY_VERSION_LIVE, &rate);
+	// Get the number of loops
+	int32_t loops = 1;
+	stack_property_get_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_LIVE, &loops);
 
-	// If we're in playback, but we've reached the end of our time
-	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && run_action_time == cue_action_time)
+	// Get the length of a single iteration of the audio
+	double rate = 1.0;
+	stack_time_t loop_length = stack_audio_cue_get_loop_length(audio_cue, STACK_PROPERTY_VERSION_LIVE, &rate);
+
+	// If we're in playback, determine if we're at a point where we should stop or loop
+	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION)
 	{
 		bool loop = false;
 
-		// Get the number of loops the user wanted
-		uint32_t media_end_time = 0;
-		int32_t loops = 1;
-		stack_property_get_int32(stack_cue_get_property(cue, "loops"), STACK_PROPERTY_VERSION_LIVE, &loops);
-
 		// Determine if we should loop
-		if (loops <= 0)
-		{
-			loop = true;
-		}
-		else if (loops > 1)
+		if (run_action_time / loop_length > audio_cue->playback_loops)
 		{
 			audio_cue->playback_loops++;
 
-			if (audio_cue->playback_loops < loops)
+			if (loops <= 0)
+			{
+				loop = true;
+			}
+			else if (loops > 1 && audio_cue->playback_loops < loops)
 			{
 				loop = true;
 			}
@@ -811,22 +836,9 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		// If we are looping, we need to reset the cue start
 		if (loop)
 		{
-			stack_time_t cue_pre_time = 0;
-			stack_time_t media_start_time = 0;
-			stack_property_get_int64(stack_cue_get_property(cue, "pre_time"), STACK_PROPERTY_VERSION_LIVE, &cue_pre_time);
-			stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_LIVE, &media_start_time);
-
-			// Set the cue start time to now minus the amount of time the pre-
-			// wait should have taken so it looks like we should have just
-			// started the action
-			cue->start_time = clocktime - cue_pre_time;
-
-			// Reset any pause times
-			cue->pause_time = 0;
-			cue->paused_time = 0;
-			cue->pause_paused_time = 0;
-
 			// Seek back in the file
+			stack_time_t media_start_time = 0;
+			stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_LIVE, &media_start_time);
 			stack_audio_file_seek(audio_cue->playback_file, media_start_time);
 
 			// We need to reset the resampler as we may have told it
@@ -850,7 +862,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		stack_time_t media_start_time = 0;
 		stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_LIVE, &media_start_time);
 		audio_cue->preview_widget->last_redraw_time = stack_get_clock_time();
-		stack_audio_preview_set_playback(audio_cue->preview_widget, media_start_time + (stack_time_t)((double)run_action_time) * rate);
+		stack_audio_preview_set_playback(audio_cue->preview_widget, media_start_time + (stack_time_t)((double)(run_action_time % loop_length) * rate));
 	}
 }
 

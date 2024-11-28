@@ -935,9 +935,8 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 
 			// Format the times
 			stack_format_time_as_string(cue_pre_time - rpre, pre_buffer, 32);
-			if (cue_action_time < 0)
+			if (cue_action_time == STACK_TIME_INFINITE)
 			{
-				// Cue never stops
 				stack_format_time_as_string(raction, action_buffer, 32);
 			}
 			else
@@ -951,7 +950,7 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 			{
 				pre_pct = double(rpre) / double(cue_pre_time);
 			}
-			if (cue_action_time > 0)
+			if (cue_action_time > 0 && cue_action_time != STACK_TIME_INFINITE)
 			{
 				action_pct = double(raction) / double(cue_action_time);
 			}
