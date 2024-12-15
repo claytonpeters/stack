@@ -29,11 +29,13 @@ Cue Triggers:
 * Timed cue triggers to fire at a given date/time, optionally repeatng
 
 Outputs:
+* PipeWire
 * PulseAudio (also works with PipeWire via PipeWire PulseAudio plugin)
 * ALSA
 
-PulseAudio is set as the default output device with a common 2-channel, 44.1kHz
-sample rate initially. Output device, channels and sample rates can be chosen
+PipeWire is set as the default output device with a common 2-channel, 44.1kHz
+sample rate initially. If PipeWire was not compiled in, PulseAudio is used as
+a fallback device. The output device, channels and sample rates can be chosen
 in the settings. If you want to use ALSA on a system where PulseAudio currently
 uses the same audio device, you may start Stack by running,
 `pasuspender ./runstack` and then changing the device settings to ALSA.
@@ -66,13 +68,15 @@ their development packages) to compile and run Stack:
 * libmad (optional, required for MP3 playback)
 * libsoxr (optional, required for resampling)
 * protobuf-c (optional, required for remote control)
+* libpipewire-0.3 (optional, required for PipeWire audio devices)
 
-For **Ubuntu 23.04 and newer**, this list of dependencies can be installed with:
+For **Ubuntu 24.04 and newer**, this list of dependencies can be installed with:
 
 ```shell
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2t64 libasound2-dev libjsoncpp25 libjsoncpp-dev \
-  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
+  libpipewire-0.3-dev
 ```
 
 For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
@@ -110,9 +114,14 @@ yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   protobuf-c protobuf-c-devel
 ```
 
+For Rocky Linux 9, you will also need PipeWire:
+```shell
+yum -y install pipewire-devel
+```
+
 **Note that whilst Stack has been shown to compile on Ubuntu 20.04, Ubuntu
-23.04, Ubuntu 24.04, Ubuntu 24.10 and Rocky Linux 8, and Rocky Linux 9, it has
-not been actively tested on these distros!**
+23.04, Ubuntu 24.10 and Rocky Linux 8, and Rocky Linux 9, it has not been
+actively tested on these distros!**
 
 Compilation (once you have the correct dependencies installed), should be as
 simple as:
