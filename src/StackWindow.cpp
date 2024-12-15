@@ -408,24 +408,35 @@ size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data
 // Sets up an initial playback device
 static void saw_setup_default_device(StackAppWindow *window)
 {
-	// DEBUG: Open a PulseAudio device
-	const StackAudioDeviceClass *sadc = stack_audio_device_get_class("StackPulseAudioDevice");
-	if (sadc)
+	const StackAudioDeviceClass *pipewire = stack_audio_device_get_class("StackPipeWireAudioDevice");
+	const StackAudioDeviceClass *pulse = stack_audio_device_get_class("StackPulseAudioDevice");
+	const StackAudioDeviceClass *chosen_class = NULL;
+
+	if (pipewire)
+	{
+		chosen_class = pipewire;
+	}
+	else if (pulse)
+	{
+		chosen_class = pulse;
+	}
+
+	if (chosen_class)
 	{
 		StackAudioDeviceDesc *devices = NULL;
-		size_t num_outputs = sadc->get_outputs_func(&devices);
+		size_t num_outputs = chosen_class->get_outputs_func(&devices);
 
 		if (devices != NULL && num_outputs > 0)
 		{
-			// Create a PulseAudio device using the default device
-			StackAudioDevice *device = stack_audio_device_new("StackPulseAudioDevice", NULL, 2, 44100, saw_get_audio_from_cuelist, window);
+			// Create a default device using the chosen class
+			StackAudioDevice *device = stack_audio_device_new(chosen_class->class_name, NULL, 2, 44100, saw_get_audio_from_cuelist, window);
 
 			// Store the audio device in the cue list
 			window->cue_list->audio_device = device;
 		}
 
 		// Free the list of devices
-		sadc->free_outputs_func(&devices, num_outputs);
+		chosen_class->free_outputs_func(&devices, num_outputs);
 	}
 }
 

@@ -120,6 +120,7 @@ find_package(PulseAudio REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ALSA)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
+pkg_check_modules(PIPEWIRE libpipewire-0.3)
 
 ## We need libdl for our plugin loading support
 find_library(DL_LIBRARIES dl REQUIRED)
@@ -136,7 +137,7 @@ find_library(SOXR_LIBRARIES soxr)
 find_package_handle_standard_args(SOXR DEFAULT_MSG SOXR_INCLUDE_DIRS SOXR_LIBRARIES)
 mark_as_advanced(SOXR_INCLUDE_DIRS SOXR_LIBRARIES SOXR_DEFINITIONS)
 
-## Protobuf-c doesn't ship with a CMakeFile
+## Protobuf-c doesn't ship with a CMake file
 find_path(PROTOBUF_C_INCLUDE_DIRS protobuf-c.h)
 find_library(PROTOBUF_C_LIBRARIES protobuf-c)
 find_package_handle_standard_args(PROTOBUF_C PROTOBUF_C_INCLUDE_DIRS PROTOBUF_C_LIBRARIES)
@@ -176,6 +177,16 @@ if (ALSA_FOUND)
 	endif()
 	link_directories(${ALSA_LIBRARY_DIRS})
 	target_link_libraries(StackAlsaAudioDevice ${ALSA_LIBRARY})
+endif()
+
+# Optional: Only build StackPipeWireAudioDevice if ALSA was found
+if (PIPEWIRE_FOUND)
+	add_library(StackPipeWireAudioDevice SHARED src/StackPipeWireAudioDevice.cpp)
+	if (PIPEWIRE_INCLUDE_DIRS)
+		include_directories(${PIPEWIRE_INCLUDE_DIRS})
+	endif()
+	link_directories(${PIPEWIRE_LIBRARY_DIRS})
+	target_link_libraries(StackPipeWireAudioDevice ${PIPEWIRE_LIBRARIES})
 endif()
 
 # Optional: Add in MAD if it was found

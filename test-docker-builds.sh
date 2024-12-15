@@ -7,7 +7,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # Attempt the builds for Ubuntu
-for RELEASE in 20.04 22.04 23.04 23.10 24.04 24.10; do
+for RELEASE in 20.04 22.04 24.04 24.10; do
 	echo -n "Building for Ubuntu $RELEASE..."
 	docker build --network=host --build-arg RELEASE=$RELEASE -f Dockerfile.ubuntu -t stack:ubuntu-$RELEASE . >&/dev/null
 	if [[ $? -eq 0 ]]; then

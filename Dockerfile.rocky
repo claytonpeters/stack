@@ -9,6 +9,12 @@ RUN yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
   protobuf-c protobuf-c-devel
 
+ARG RELEASE
+RUN echo "$RELEASE"; \
+  if [ "$RELEASE" = "9" ]; then \
+    yum -y install pipewire-devel; \
+  fi
+
 COPY . /stack
 
 RUN cd /stack; rm -rf CMakeCache.txt CMakeFiles; cmake .; make -j 8

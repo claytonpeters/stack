@@ -17,7 +17,7 @@ RUN echo "$RELEASE"; \
     DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" apt -y install libjsoncpp25 libjsoncpp-dev; \
   fi; \
   if [ "$RELEASE" = "noble" ] || [ "$RELEASE" = "oracular" ] || [ "$RELEASE" = "24.10" ] || [ "$RELEASE" = "24.04" ]; then \
-    DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" apt -y install libasound2t64; \
+    DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" apt -y install libasound2t64 libpipewire-0.3-dev; \
   else \
     DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" apt -y install libasound2; \
   fi
