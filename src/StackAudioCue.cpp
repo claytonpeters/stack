@@ -138,6 +138,19 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 		{
 			StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->media_tab));
 			g_signal_emit_by_name((gpointer)window, "update-selected-cue");
+
+			// Display the file length
+			char time_buffer[32], text_buffer[128];
+			if (cue->playback_file)
+			{
+				stack_format_time_as_string(cue->playback_file->length, time_buffer, 32);
+				snprintf(text_buffer, 128, "(Length is %s)", time_buffer);
+			}
+			else
+			{
+				text_buffer[0] = '\0';
+			}
+			gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sac_builder, "acpFileLengthLabel")), text_buffer);
 		}
 
 		// Update tabs if we're active
@@ -153,6 +166,8 @@ static void stack_audio_cue_ccb_file(StackProperty *property, StackPropertyVersi
 				StackAudioCue *cue = STACK_AUDIO_CUE(user_data);
 				cue->affect_live = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(self));
 			});
+
+			gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpFileEntry")), uri);
 		}
 
 		// Determine what properties we need to create/destroy
@@ -503,18 +518,62 @@ bool stack_audio_cue_set_file(StackAudioCue *cue, const char *uri)
 	return cue->playback_file != NULL;
 }
 
-static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
+static void acp_file_choose(GtkWidget *widget, gpointer user_data)
 {
 	// Handy pointers
-	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
-	GtkFileChooser *chooser = GTK_FILE_CHOOSER(widget);
+	GtkWindow *window = (GtkWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget));
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)window)->selected_cue);
 
-	// Get the filename
-	gchar* filename = gtk_file_chooser_get_filename(chooser);
-	gchar* uri = gtk_file_chooser_get_uri(chooser);
+	// Create an Open dialog
+	GtkWidget *dialog = gtk_file_chooser_dialog_new("Select a File", window, GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Open", GTK_RESPONSE_ACCEPT, NULL);
+	GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 
-	// Change the file
-	if (stack_audio_cue_set_file(cue, uri))
+	if (last_file_chooser_folder != NULL)
+	{
+		gtk_file_chooser_set_current_folder(chooser, last_file_chooser_folder);
+	}
+	else
+	{
+		char *file = NULL;
+		stack_property_get_string(stack_cue_get_property(STACK_CUE(cue), "file"), STACK_PROPERTY_VERSION_DEFINED, &file);
+
+		// If we don't have a last chosen folder, and we have a current file,
+		// set the filename of the chooser to the current file
+		if (file != NULL && strlen(file) != 0)
+		{
+			// Skip past the file:// if we have a URI rather than a plain filename
+			if (strncasecmp(file, "file://", 7) == 0)
+			{
+				file = &file[7];
+			}
+			gtk_file_chooser_set_filename(chooser, file);
+		}
+	}
+
+	// Add filters to it (the file chooser takes ownership, so we don't have to tidy them up)
+	GtkFileFilter *supported_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(supported_filter, "*.mp3");
+	gtk_file_filter_add_pattern(supported_filter, "*.wav");
+	gtk_file_filter_set_name(supported_filter, "All Supported Files (*.mp3,*.wav)");
+	gtk_file_chooser_add_filter(chooser, supported_filter);
+	GtkFileFilter *wav_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(wav_filter, "*.wav");
+	gtk_file_filter_set_name(wav_filter, "Wave Files (*.wav)");
+	gtk_file_chooser_add_filter(chooser, wav_filter);
+	GtkFileFilter *mp3_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(mp3_filter, "*.mp3");
+	gtk_file_filter_set_name(mp3_filter, "MP3 Files (*.mp3)");
+	gtk_file_chooser_add_filter(chooser, mp3_filter);
+	GtkFileFilter *all_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(all_filter, "*");
+	gtk_file_filter_set_name(all_filter, "All Files (*)");
+	gtk_file_chooser_add_filter(chooser, all_filter);
+
+	// Run the dialog
+	gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	// If the user chose to Open...
+	if (response == GTK_RESPONSE_ACCEPT)
 	{
 		// Store the last folder
 		if (last_file_chooser_folder == NULL)
@@ -523,31 +582,43 @@ static void acp_file_changed(GtkFileChooserButton *widget, gpointer user_data)
 		}
 		last_file_chooser_folder = gtk_file_chooser_get_current_folder(chooser);
 
-		// Display the file length
-		char time_buffer[32], text_buffer[128];
-		stack_format_time_as_string(cue->playback_file->length, time_buffer, 32);
-		snprintf(text_buffer, 128, "(Length is %s)", time_buffer);
-		gtk_label_set_text(GTK_LABEL(gtk_builder_get_object(sac_builder, "acpFileLengthLabel")), text_buffer);
-
-		// Update the UI
-		stack_time_t media_start_time = 0, media_end_time = 0;
-		stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_start_time"), STACK_PROPERTY_VERSION_DEFINED, &media_start_time);
-		stack_property_get_int64(stack_cue_get_property(STACK_CUE(cue), "media_end_time"), STACK_PROPERTY_VERSION_DEFINED, &media_end_time);
-		stack_format_time_as_string(media_start_time, time_buffer, 32);
-		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimStart")), time_buffer);
-		stack_format_time_as_string(media_end_time, time_buffer, 32);
-		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpTrimEnd")), time_buffer);
+		// Get the URI
+		gchar *uri = gtk_file_chooser_get_uri(chooser);
+		stack_audio_cue_set_file(cue, uri);
+		g_free(uri);
 	}
 
 	// Tidy up
-	g_free(filename);
-	g_free(uri);
+	gtk_widget_destroy(dialog);
+}
+
+static void acp_file_reload_from_entry(GtkWidget *widget)
+{
+	// Handy pointers
+	StackAudioCue *cue = STACK_AUDIO_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
+
+	// Get the filename/URI
+	const gchar* uri = gtk_entry_get_text(GTK_ENTRY(widget));
+
+	// Change the file
+	stack_audio_cue_set_file(cue, uri);
 
 	// Fire an updated-selected-cue signal to signal the UI to change (we might
 	// have changed state)
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget));
 	g_signal_emit_by_name((gpointer)window, "update-selected-cue");
-	g_signal_emit_by_name((gpointer)window, "update-cue-properties", STACK_CUE(cue));
+}
+
+static gboolean acp_file_drop(GtkWidget *widget, GdkDragContext *context, gint x, gint y, GtkSelectionData *data, guint info, guint time, gpointer user_data)
+{
+	acp_file_reload_from_entry(widget);
+	return true;
+}
+
+static gboolean acp_file_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+{
+	acp_file_reload_from_entry(widget);
+	return true;
 }
 
 static gboolean acp_trim_start_changed(GtkWidget *widget, GdkEvent *event, gpointer user_data)
@@ -882,6 +953,8 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 
 		// Set up callbacks
 		gtk_builder_add_callback_symbol(sac_builder, "acp_file_changed", G_CALLBACK(acp_file_changed));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_file_drop", G_CALLBACK(acp_file_drop));
+		gtk_builder_add_callback_symbol(sac_builder, "acp_file_choose", G_CALLBACK(acp_file_choose));
 		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_start_changed", G_CALLBACK(acp_trim_start_changed));
 		gtk_builder_add_callback_symbol(sac_builder, "acp_trim_end_changed", G_CALLBACK(acp_trim_end_changed));
 		gtk_builder_add_callback_symbol(sac_builder, "acp_loops_changed", G_CALLBACK(acp_loops_changed));
@@ -937,12 +1010,6 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	gtk_widget_set_size_request(GTK_WIDGET(audio_cue->preview_widget), 100, 125);
 	gtk_box_pack_start(GTK_BOX(gtk_builder_get_object(sac_builder, "acpPreviewBox")), GTK_WIDGET(audio_cue->preview_widget), true, true, 0);
 
-	// Use the last selected folder as the default location for the file chooser
-	if (last_file_chooser_folder != NULL)
-	{
-		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(gtk_builder_get_object(sac_builder, "acpFile")), last_file_chooser_folder);
-	}
-
 	// Add an extra reference to the media tab - we're about to remove it's
 	// parent and we don't want it to get garbage collected
 	g_object_ref(audio_cue->media_tab);
@@ -970,7 +1037,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	if (file && strlen(file) != 0)
 	{
 		// Set the filename
-		gtk_file_chooser_set_uri(GTK_FILE_CHOOSER(gtk_builder_get_object(sac_builder, "acpFile")), file);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpFileEntry")), file);
 
 		if (audio_cue->playback_file != NULL)
 		{
@@ -983,7 +1050,7 @@ static void stack_audio_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	}
 	else
 	{
-		gtk_file_chooser_set_uri(GTK_FILE_CHOOSER(gtk_builder_get_object(sac_builder, "acpFile")), "");
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sac_builder, "acpFileEntry")), "");
 	}
 
 	// Set the values: trim start
@@ -1441,7 +1508,7 @@ const char *stack_audio_cue_get_field(StackCue *cue, const char *field)
 	}
 	else if (strcmp(field, "filename") == 0)
 	{
-		if (strlen(STACK_AUDIO_CUE(cue)->short_filename) == 0)
+		if (STACK_AUDIO_CUE(cue)->short_filename == NULL || strlen(STACK_AUDIO_CUE(cue)->short_filename) == 0)
 		{
 			return "<no file selected>";
 		}
