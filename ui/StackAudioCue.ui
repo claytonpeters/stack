@@ -12,6 +12,13 @@
       <pattern>*.mp3</pattern>
     </patterns>
   </object>
+  <object class="GtkAdjustment" id="acpVolumeAdjust">
+    <property name="lower">-50</property>
+    <property name="upper">21</property>
+    <property name="step-increment">0.01</property>
+    <property name="page-increment">0.10</property>
+    <property name="page-size">1</property>
+  </object>
   <object class="GtkWindow" id="window1">
     <property name="can-focus">False</property>
     <child>
@@ -34,7 +41,7 @@
             <property name="halign">end</property>
             <property name="label" translatable="yes">F_ile:</property>
             <property name="use-underline">True</property>
-            <property name="mnemonic-widget">acpFile</property>
+            <property name="mnemonic-widget">acpFileEntry</property>
           </object>
           <packing>
             <property name="left-attach">0</property>
@@ -56,20 +63,6 @@
           <packing>
             <property name="left-attach">0</property>
             <property name="top-attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkFileChooserButton" id="acpFile">
-            <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="tooltip-text" translatable="yes">The audio file to play</property>
-            <property name="hexpand">True</property>
-            <property name="filter">acpAudioFileFilter</property>
-            <signal name="file-set" handler="acp_file_changed" swapped="no"/>
-          </object>
-          <packing>
-            <property name="left-attach">1</property>
-            <property name="top-attach">0</property>
           </packing>
         </child>
         <child>
@@ -269,14 +262,46 @@
             <property name="top-attach">3</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="spacing">4</property>
+            <child>
+              <object class="GtkEntry" id="acpFileEntry">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <signal name="drag-data-received" handler="acp_file_drop" after="yes" swapped="no"/>
+                <signal name="focus-out-event" handler="acp_file_changed" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="acpFileButton">
+                <property name="label" translatable="yes">  _Choose  </property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="use-underline">True</property>
+                <signal name="clicked" handler="acp_file_choose" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left-attach">1</property>
+            <property name="top-attach">0</property>
+          </packing>
+        </child>
       </object>
     </child>
-  </object>
-  <object class="GtkAdjustment" id="acpVolumeAdjust">
-    <property name="lower">-50</property>
-    <property name="upper">21</property>
-    <property name="step-increment">0.01</property>
-    <property name="page-increment">0.10</property>
-    <property name="page-size">1</property>
   </object>
 </interface>

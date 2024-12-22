@@ -20,12 +20,21 @@ static bool stack_audio_file_reset_stream(GFileInputStream *stream)
 }
 
 // Creates a new StackAudioFile object from the supplied file
-StackAudioFile *stack_audio_file_create(const char *uri)
+StackAudioFile *stack_audio_file_create(const char *filename)
 {
 	StackAudioFile* result = NULL;
 
 	// Open the file
-	GFile *file = g_file_new_for_uri(uri);
+	GFile *file = NULL;
+	if (filename[0] == '/')
+	{
+		file = g_file_new_for_path(filename);
+	}
+	else
+	{
+		file = g_file_new_for_uri(filename);
+	}
+
 	if (file == NULL)
 	{
 		stack_log("stack_audio_file_create(): Failed to open file\n");
