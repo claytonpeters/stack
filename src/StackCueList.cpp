@@ -1376,6 +1376,13 @@ void stack_cue_list_populate_buffers(StackCueList *cue_list, size_t samples)
 			mc_rms_data->peak_time = stack_get_clock_time();
 		}
 
+		// Some audio devices auto suspend - adding a tiny impulse of noise can
+		// prevent it on some of these devices
+		if (channel_rms == 0.0)
+		{
+			new_data[channel * request_samples] = 0.00005;
+		}
+
 		stack_ring_buffer_write(cue_list->buffers[channel], &new_data[channel * request_samples], request_samples, 1);
 	}
 

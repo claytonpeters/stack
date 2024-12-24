@@ -11,7 +11,7 @@ enum StackAudioFileFormat
     STACK_AUDIO_FILE_FORMAT_NONE = 0,
     STACK_AUDIO_FILE_FORMAT_WAVE = 1,
     STACK_AUDIO_FILE_FORMAT_MP3 = 2,
-	STACK_AUDIO_FILE_FORMAT_OGG = 3, // Reserved for future implementation
+	STACK_AUDIO_FILE_FORMAT_OGG = 3,
 	STACK_AUDIO_FILE_FORMAT_AAC = 4, // Reserved for future implementation
 };
 
