@@ -121,7 +121,7 @@ find_package(Threads REQUIRED)
 find_package(ALSA)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 pkg_check_modules(PIPEWIRE libpipewire-0.3)
-pkg_check_modules(VORBISFILE REQUIRED vorbisfile)
+pkg_check_modules(VORBISFILE vorbisfile)
 
 ## We need libdl for our plugin loading support
 find_library(DL_LIBRARIES dl REQUIRED)
