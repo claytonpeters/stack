@@ -7,7 +7,7 @@ RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-${R
 RUN yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   glib2 glib2-devel pulseaudio-libs pulseaudio-libs-devel alsa-lib \
   alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
-  protobuf-c protobuf-c-devel
+  protobuf-c protobuf-c-devel libvorbis-devel
 
 ARG RELEASE
 RUN echo "$RELEASE"; \
@@ -17,4 +17,12 @@ RUN echo "$RELEASE"; \
 
 COPY . /stack
 
-RUN cd /stack; rm -rf CMakeCache.txt CMakeFiles; cmake .; make -j 8
+RUN cd /stack; \
+  rm -rf CMakeCache.txt CMakeFiles; \
+  cmake .; \
+  grep ^CXX_DEFINES CMakeFiles/runstack.dir/flags.make >/dev/null | grep -o -e -DHAVE_LIBMAD=1 || echo " - No MP3 support"; \
+  grep ^CXX_DEFINES CMakeFiles/runstack.dir/flags.make >/dev/null  | grep -o -e -DHAVE_LIBPROTOBUF_C=1 || echo " - No gRPC support"; \
+  grep ^CXX_DEFINES CMakeFiles/runstack.dir/flags.make >/dev/null  | grep -o -e -DHAVE_LIBSOXR=1 || echo " - No resampling support"; \
+  grep ^CXX_DEFINES CMakeFiles/runstack.dir/flags.make >/dev/null  | grep -o -e -DHAVE_LIBVORBISFILE=1 || echo " - No Ogg Vorbis support"; \
+  grep -o ^PIPEWIRE_FOUND:INTERNAL=1 CMakeCache.txt > /dev/null || echo "No PipeWire support"; \
+  make -j 8

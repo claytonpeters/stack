@@ -9,24 +9,25 @@ using Gtk+, aiming to bring efficient, stable show control to Linux.
 
 Cues:
 * Audio Cues
-  * Playback from Wave and MP3
+  * Playback from Wave, Ogg Vorbis and MP3
   * Start/end trim points
   * Loops
   * Resampling when device/file sample rates differ
+  * Custom playback rates
 * Fade Cues
   * Choice of fade profiles
 * Action Cues: Start/Stop/Pause other cues
 * Execute Cues: Run arbitrary programs/commands/scripts
 * Group Cues: various modes when playing:
   * Trigger all child cues
-  * Trigger random cchild cue
+  * Trigger random child cue
   * Trigger children in order as a playlist
   * Trigger children in random order as a shuffled playlist
 
 Cue Triggers:
 * Spacebar to play next cue in playlist
 * Custom key triggers to play/pause/stop cues when a key is pressed/released
-* Timed cue triggers to fire at a given date/time, optionally repeatng
+* Timed cue triggers to fire at a given date/time, optionally repeating
 
 Outputs:
 * PipeWire
@@ -69,6 +70,7 @@ their development packages) to compile and run Stack:
 * libsoxr (optional, required for resampling)
 * protobuf-c (optional, required for remote control)
 * libpipewire-0.3 (optional, required for PipeWire audio devices)
+* libvorbisfile3 (optional, required for Ogg Vorbis playback)
 
 For **Ubuntu 24.04 and newer**, this list of dependencies can be installed with:
 
@@ -76,7 +78,7 @@ For **Ubuntu 24.04 and newer**, this list of dependencies can be installed with:
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2t64 libasound2-dev libjsoncpp25 libjsoncpp-dev \
   libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
-  libpipewire-0.3-dev
+  libpipewire-0.3-dev libvorbis-dev
 ```
 
 For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
@@ -84,7 +86,8 @@ For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
 ```shell
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp25 libjsoncpp-dev \
-  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
+  libvorbis-dev
 ```
 
 For **Ubuntu 20.04**, the slight variation on the above is:
@@ -92,7 +95,8 @@ For **Ubuntu 20.04**, the slight variation on the above is:
 ```shell
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp1 libjsoncpp-dev \
-  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev
+  libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
+  libvorbis-dev
 ```
 
 For **Rocky Linux**, you will first need the EPEL repository configured,
@@ -111,7 +115,7 @@ The list of dependencies can be installed with:
 yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   glib2 glib2-devel pulseaudio-libs pulseaudio-libs-devel alsa-lib \
   alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
-  protobuf-c protobuf-c-devel
+  protobuf-c protobuf-c-devel libvorbis-devel
 ```
 
 For Rocky Linux 9, you will also need PipeWire:

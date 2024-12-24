@@ -4,6 +4,9 @@
 #if HAVE_LIBMAD == 1
 #include "StackAudioFileMP3.h"
 #endif
+#if HAVE_VORBISFILE == 1
+#include "StackAudioFileOgg.h"
+#endif
 #include "StackLog.h"
 
 static const float INT8_SCALAR = 7.8125e-3f;
@@ -53,7 +56,10 @@ StackAudioFile *stack_audio_file_create(const char *filename)
 	// Attempt to load as the various types
 	if (!((result = (StackAudioFile*)stack_audio_file_create_wave(stream))
 		  || stack_audio_file_reset_stream(stream)
-#if HAVE_LIBMAD == 1
+#if HAVE_VORBISFILE == 1
+		  || (result = (StackAudioFile*)stack_audio_file_create_ogg(stream))
+#endif
+#if HAVE_LIBMAD == 1 /* note that we do MP3 last as it doesn't always necessarily have a standard header */
 		  || (result = (StackAudioFile*)stack_audio_file_create_mp3(stream))
 #endif
 		))
@@ -85,6 +91,11 @@ void stack_audio_file_destroy(StackAudioFile *audio_file)
 		case STACK_AUDIO_FILE_FORMAT_WAVE:
 			stack_audio_file_destroy_wave((StackAudioFileWave*)audio_file);
 			break;
+#if HAVE_VORBISFILE == 1
+		case STACK_AUDIO_FILE_FORMAT_OGG:
+			stack_audio_file_destroy_ogg((StackAudioFileOgg*)audio_file);
+			break;
+#endif
 #if HAVE_LIBMAD == 1
 		case STACK_AUDIO_FILE_FORMAT_MP3:
 			stack_audio_file_destroy_mp3((StackAudioFileMP3*)audio_file);
@@ -101,6 +112,11 @@ void stack_audio_file_seek(StackAudioFile *audio_file, stack_time_t pos)
 		case STACK_AUDIO_FILE_FORMAT_WAVE:
 			stack_audio_file_seek_wave((StackAudioFileWave*)audio_file, pos);
 			break;
+#if HAVE_VORBISFILE == 1
+		case STACK_AUDIO_FILE_FORMAT_OGG:
+			stack_audio_file_seek_ogg((StackAudioFileOgg*)audio_file, pos);
+			break;
+#endif
 #if HAVE_LIBMAD == 1
 		case STACK_AUDIO_FILE_FORMAT_MP3:
 			stack_audio_file_seek_mp3((StackAudioFileMP3*)audio_file, pos);
@@ -119,6 +135,10 @@ size_t stack_audio_file_read(StackAudioFile *audio_file, float *buffer, size_t f
 	{
 		case STACK_AUDIO_FILE_FORMAT_WAVE:
 			return stack_audio_file_read_wave((StackAudioFileWave*)audio_file, buffer, frames);
+#if HAVE_VORBISFILE == 1
+		case STACK_AUDIO_FILE_FORMAT_OGG:
+			return stack_audio_file_read_ogg((StackAudioFileOgg*)audio_file, buffer, frames);
+#endif
 #if HAVE_LIBMAD == 1
 		case STACK_AUDIO_FILE_FORMAT_MP3:
 			return stack_audio_file_read_mp3((StackAudioFileMP3*)audio_file, buffer, frames);

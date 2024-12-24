@@ -552,18 +552,40 @@ static void acp_file_choose(GtkWidget *widget, gpointer user_data)
 
 	// Add filters to it (the file chooser takes ownership, so we don't have to tidy them up)
 	GtkFileFilter *supported_filter = gtk_file_filter_new();
+#if HAVE_LIBMAD == 1
 	gtk_file_filter_add_pattern(supported_filter, "*.mp3");
+#endif
 	gtk_file_filter_add_pattern(supported_filter, "*.wav");
-	gtk_file_filter_set_name(supported_filter, "All Supported Files (*.mp3,*.wav)");
+#if HAVE_VORBISFILE == 1
+	gtk_file_filter_add_pattern(supported_filter, "*.ogg");
+	gtk_file_filter_add_pattern(supported_filter, "*.oga");
+#endif
+	gtk_file_filter_set_name(supported_filter, "All Supported Files (*.wav"
+#if HAVE_VORBISFILE == 1
+	",*.ogg,*.oga"
+#endif
+#if HAVE_LIBMAD == 1
+	",*.mp3"
+#endif
+	")");
 	gtk_file_chooser_add_filter(chooser, supported_filter);
 	GtkFileFilter *wav_filter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(wav_filter, "*.wav");
 	gtk_file_filter_set_name(wav_filter, "Wave Files (*.wav)");
 	gtk_file_chooser_add_filter(chooser, wav_filter);
+#if HAVE_LIBMAD == 1
 	GtkFileFilter *mp3_filter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(mp3_filter, "*.mp3");
 	gtk_file_filter_set_name(mp3_filter, "MP3 Files (*.mp3)");
 	gtk_file_chooser_add_filter(chooser, mp3_filter);
+#endif
+#if HAVE_VORBISFILE == 1
+	GtkFileFilter *ogg_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(ogg_filter, "*.ogg");
+	gtk_file_filter_add_pattern(ogg_filter, "*.oga");
+	gtk_file_filter_set_name(mp3_filter, "Ogg Vorbis Files (*.ogg,*.oga)");
+	gtk_file_chooser_add_filter(chooser, ogg_filter);
+#endif
 	GtkFileFilter *all_filter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(all_filter, "*");
 	gtk_file_filter_set_name(all_filter, "All Files (*)");
@@ -1544,6 +1566,14 @@ void stack_audio_cue_register()
 	// Register cue types
 	StackCueClass* audio_cue_class = new StackCueClass{ "StackAudioCue", "StackCue", "Audio Cue", stack_audio_cue_create, stack_audio_cue_destroy, stack_audio_cue_play, NULL, stack_audio_cue_stop, stack_audio_cue_pulse, stack_audio_cue_set_tabs, stack_audio_cue_unset_tabs, stack_audio_cue_to_json, stack_audio_cue_free_json, stack_audio_cue_from_json, stack_audio_cue_get_error, stack_audio_cue_get_active_channels, stack_audio_cue_get_audio, stack_audio_cue_get_field, stack_audio_cue_get_icon, NULL, NULL };
 	stack_register_cue_class(audio_cue_class);
+
+	stack_log("stack_audio_cue_register(): Audio file support: Wave\n");
+#if HAVE_VORBISFILE == 1
+	stack_log("stack_audio_cue_register(): Audio file support: Ogg Vorbis\n");
+#endif
+#if HAVE_LIBMAD == 1
+	stack_log("stack_audio_cue_register(): Audio file support: MPEG Layer 3\n");
+#endif
 }
 
 // The entry point for the plugin that Stack calls
