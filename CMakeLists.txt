@@ -98,7 +98,7 @@ add_custom_command(
 add_custom_target(stacktimetrigger-resources-target DEPENDS src/stacktimetrigger-resources.c)
 set_source_files_properties(src/stacktimetrigger-resources.c PROPERTIES GENERATED TRUE)
 
-set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkHelper.cpp src/StackJson.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackTrigger.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/StackAudioFileOgg.cpp src/MPEGAudioFile.cpp src/StackAudioLevelsTab.cpp src/resources.c)
+set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkHelper.cpp src/StackJson.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackTrigger.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/StackAudioFileOgg.cpp src/StackAudioFileFLAC.cpp src/MPEGAudioFile.cpp src/StackAudioLevelsTab.cpp src/resources.c)
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 add_library(StackPulseAudioDevice SHARED src/StackPulseAudioDevice.cpp)
@@ -122,6 +122,7 @@ find_package(ALSA)
 pkg_check_modules(JSONCPP REQUIRED jsoncpp)
 pkg_check_modules(PIPEWIRE libpipewire-0.3)
 pkg_check_modules(VORBISFILE vorbisfile)
+pkg_check_modules(FLAC flac)
 
 ## We need libdl for our plugin loading support
 find_library(DL_LIBRARIES dl REQUIRED)
@@ -208,6 +209,16 @@ if (VORBISFILE_FOUND)
 	endif()
 	add_definitions(${VORBISFILE_DEFINITIONS})
 	target_link_libraries(runstack ${VORBISFILE_LIBRARIES})
+endif()
+
+# Optional: Add in FLAC if it was found
+if (FLAC_FOUND)
+	list(APPEND FLAC_DEFINITIONS -DHAVE_LIBFLAC=1)
+	if (FLAC_INCLUDE_DIRS)
+		include_directories(${FLAC_INCLUDE_DIRS})
+	endif()
+	add_definitions(${FLAC_DEFINITIONS})
+	target_link_libraries(runstack ${FLAC_LIBRARIES})
 endif()
 
 # Optional: Add in SOXR if it was found

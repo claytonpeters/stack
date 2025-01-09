@@ -9,7 +9,7 @@ using Gtk+, aiming to bring efficient, stable show control to Linux.
 
 Cues:
 * Audio Cues
-  * Playback from Wave, Ogg Vorbis and MP3
+  * Playback from Wave, Ogg Vorbis, FLAC and MP3
   * Start/end trim points
   * Loops
   * Resampling when device/file sample rates differ
@@ -71,6 +71,7 @@ their development packages) to compile and run Stack:
 * protobuf-c (optional, required for remote control)
 * libpipewire-0.3 (optional, required for PipeWire audio devices)
 * libvorbisfile3 (optional, required for Ogg Vorbis playback)
+* libflac (optional, required for FLAC playback)
 
 For **Ubuntu 24.04 and newer**, this list of dependencies can be installed with:
 
@@ -78,7 +79,7 @@ For **Ubuntu 24.04 and newer**, this list of dependencies can be installed with:
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2t64 libasound2-dev libjsoncpp25 libjsoncpp-dev \
   libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
-  libpipewire-0.3-dev libvorbis-dev
+  libpipewire-0.3-dev libvorbis-dev libflac-dev
 ```
 
 For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
@@ -87,7 +88,7 @@ For **Ubuntu 22.04 and newer**, this list of dependencies can be installed with:
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp25 libjsoncpp-dev \
   libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
-  libvorbis-dev
+  libvorbis-dev libflac-dev
 ```
 
 For **Ubuntu 20.04**, the slight variation on the above is:
@@ -96,7 +97,7 @@ For **Ubuntu 20.04**, the slight variation on the above is:
 sudo apt install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2 libasound2-dev libjsoncpp1 libjsoncpp-dev \
   libmad0 libmad0-dev libsoxr0 libsoxr-dev libprotobuf-c1 libprotobuf-c-dev \
-  libvorbis-dev
+  libvorbis-dev libflac-dev
 ```
 
 For **Rocky Linux**, you will first need the EPEL repository configured,
@@ -115,7 +116,7 @@ The list of dependencies can be installed with:
 yum -y install --enablerepo=devel cmake gcc-c++ pkg-config gtk3 gtk3-devel \
   glib2 glib2-devel pulseaudio-libs pulseaudio-libs-devel alsa-lib \
   alsa-lib-devel libmad libmad-devel soxr soxr-devel jsoncpp jsoncpp-devel \
-  protobuf-c protobuf-c-devel libvorbis-devel
+  protobuf-c protobuf-c-devel libvorbis-devel libflac-devel
 ```
 
 For Rocky Linux 9, you will also need PipeWire:

@@ -7,6 +7,9 @@
 #if HAVE_VORBISFILE == 1
 #include "StackAudioFileOgg.h"
 #endif
+#if HAVE_LIBFLAC == 1
+#include "StackAudioFileFLAC.h"
+#endif
 #include "StackLog.h"
 
 static const float INT8_SCALAR = 7.8125e-3f;
@@ -59,6 +62,9 @@ StackAudioFile *stack_audio_file_create(const char *filename)
 #if HAVE_VORBISFILE == 1
 		  || (result = (StackAudioFile*)stack_audio_file_create_ogg(stream))
 #endif
+#if HAVE_LIBFLAC == 1
+		  || (result = (StackAudioFile*)stack_audio_file_create_flac(stream))
+#endif
 #if HAVE_LIBMAD == 1 /* note that we do MP3 last as it doesn't always necessarily have a standard header */
 		  || (result = (StackAudioFile*)stack_audio_file_create_mp3(stream))
 #endif
@@ -96,6 +102,11 @@ void stack_audio_file_destroy(StackAudioFile *audio_file)
 			stack_audio_file_destroy_ogg((StackAudioFileOgg*)audio_file);
 			break;
 #endif
+#if HAVE_LIBFLAC == 1
+		case STACK_AUDIO_FILE_FORMAT_FLAC:
+			stack_audio_file_destroy_flac((StackAudioFileFLAC*)audio_file);
+			break;
+#endif
 #if HAVE_LIBMAD == 1
 		case STACK_AUDIO_FILE_FORMAT_MP3:
 			stack_audio_file_destroy_mp3((StackAudioFileMP3*)audio_file);
@@ -115,6 +126,11 @@ void stack_audio_file_seek(StackAudioFile *audio_file, stack_time_t pos)
 #if HAVE_VORBISFILE == 1
 		case STACK_AUDIO_FILE_FORMAT_OGG:
 			stack_audio_file_seek_ogg((StackAudioFileOgg*)audio_file, pos);
+			break;
+#endif
+#if HAVE_LIBFLAC == 1
+		case STACK_AUDIO_FILE_FORMAT_FLAC:
+			stack_audio_file_seek_flac((StackAudioFileFLAC*)audio_file, pos);
 			break;
 #endif
 #if HAVE_LIBMAD == 1
@@ -138,6 +154,10 @@ size_t stack_audio_file_read(StackAudioFile *audio_file, float *buffer, size_t f
 #if HAVE_VORBISFILE == 1
 		case STACK_AUDIO_FILE_FORMAT_OGG:
 			return stack_audio_file_read_ogg((StackAudioFileOgg*)audio_file, buffer, frames);
+#endif
+#if HAVE_LIBFLAC == 1
+		case STACK_AUDIO_FILE_FORMAT_FLAC:
+			return stack_audio_file_read_flac((StackAudioFileFLAC*)audio_file, buffer, frames);
 #endif
 #if HAVE_LIBMAD == 1
 		case STACK_AUDIO_FILE_FORMAT_MP3:
