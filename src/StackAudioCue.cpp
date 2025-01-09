@@ -552,17 +552,23 @@ static void acp_file_choose(GtkWidget *widget, gpointer user_data)
 
 	// Add filters to it (the file chooser takes ownership, so we don't have to tidy them up)
 	GtkFileFilter *supported_filter = gtk_file_filter_new();
-#if HAVE_LIBMAD == 1
-	gtk_file_filter_add_pattern(supported_filter, "*.mp3");
-#endif
 	gtk_file_filter_add_pattern(supported_filter, "*.wav");
 #if HAVE_VORBISFILE == 1
 	gtk_file_filter_add_pattern(supported_filter, "*.ogg");
 	gtk_file_filter_add_pattern(supported_filter, "*.oga");
 #endif
+#if HAVE_LIBFLAC == 1
+	gtk_file_filter_add_pattern(supported_filter, "*.flac");
+#endif
+#if HAVE_LIBMAD == 1
+	gtk_file_filter_add_pattern(supported_filter, "*.mp3");
+#endif
 	gtk_file_filter_set_name(supported_filter, "All Supported Files (*.wav"
 #if HAVE_VORBISFILE == 1
 	",*.ogg,*.oga"
+#endif
+#if HAVE_LIBFLAC == 1
+	",*.flac"
 #endif
 #if HAVE_LIBMAD == 1
 	",*.mp3"
@@ -573,18 +579,24 @@ static void acp_file_choose(GtkWidget *widget, gpointer user_data)
 	gtk_file_filter_add_pattern(wav_filter, "*.wav");
 	gtk_file_filter_set_name(wav_filter, "Wave Files (*.wav)");
 	gtk_file_chooser_add_filter(chooser, wav_filter);
+#if HAVE_VORBISFILE == 1
+	GtkFileFilter *ogg_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(ogg_filter, "*.ogg");
+	gtk_file_filter_add_pattern(ogg_filter, "*.oga");
+	gtk_file_filter_set_name(ogg_filter, "Ogg Vorbis Files (*.ogg,*.oga)");
+	gtk_file_chooser_add_filter(chooser, ogg_filter);
+#endif
+#if HAVE_LIBFLAC == 1
+	GtkFileFilter *flac_filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(flac_filter, "*.flac");
+	gtk_file_filter_set_name(flac_filter, "FLAC Files (*.flac)");
+	gtk_file_chooser_add_filter(chooser, flac_filter);
+#endif
 #if HAVE_LIBMAD == 1
 	GtkFileFilter *mp3_filter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(mp3_filter, "*.mp3");
 	gtk_file_filter_set_name(mp3_filter, "MP3 Files (*.mp3)");
 	gtk_file_chooser_add_filter(chooser, mp3_filter);
-#endif
-#if HAVE_VORBISFILE == 1
-	GtkFileFilter *ogg_filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(ogg_filter, "*.ogg");
-	gtk_file_filter_add_pattern(ogg_filter, "*.oga");
-	gtk_file_filter_set_name(mp3_filter, "Ogg Vorbis Files (*.ogg,*.oga)");
-	gtk_file_chooser_add_filter(chooser, ogg_filter);
 #endif
 	GtkFileFilter *all_filter = gtk_file_filter_new();
 	gtk_file_filter_add_pattern(all_filter, "*");
@@ -1570,6 +1582,9 @@ void stack_audio_cue_register()
 	stack_log("stack_audio_cue_register(): Audio file support: Wave\n");
 #if HAVE_VORBISFILE == 1
 	stack_log("stack_audio_cue_register(): Audio file support: Ogg Vorbis\n");
+#endif
+#if HAVE_LIBFLAC == 1
+	stack_log("stack_audio_cue_register(): Audio file support: FLAC\n");
 #endif
 #if HAVE_LIBMAD == 1
 	stack_log("stack_audio_cue_register(): Audio file support: MPEG Layer 3\n");

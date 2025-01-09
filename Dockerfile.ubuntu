@@ -7,7 +7,7 @@ RUN apt update
 RUN DEBIAN_FRONTEND="noninteractive" DEBCONF_NONINTERACTIVE_SEEN="true" \
   apt -y install cmake g++ pkg-config libgtk-3-0 libgtk-3-dev libglib2.0-dev \
   libpulse0 libpulse-dev libasound2-dev libmad0 libmad0-dev libsoxr0 \
-  libsoxr-dev libprotobuf-c1 libprotobuf-c-dev libvorbis-dev
+  libsoxr-dev libprotobuf-c1 libprotobuf-c-dev libvorbis-dev libflac-dev
 
 ARG RELEASE
 RUN echo "$RELEASE"; \

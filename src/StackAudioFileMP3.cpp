@@ -54,6 +54,9 @@ static bool stack_audio_file_mp3_process(GInputStream *stream, MP3Info *mp3_info
 
 StackAudioFileMP3 *stack_audio_file_create_mp3(GFileInputStream *stream)
 {
+	// Rewind back to the start of the file (as another file format might have read)
+	g_seekable_seek(G_SEEKABLE(stream), 0, G_SEEK_SET, NULL, NULL);
+
 	MP3Info mp3_info;
 	bool is_mp3_file = stack_audio_file_mp3_process(G_INPUT_STREAM(stream), &mp3_info);
 	if (!is_mp3_file)
