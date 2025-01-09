@@ -187,17 +187,29 @@ StackAudioFileFLAC *stack_audio_file_create_flac(GFileInputStream *stream)
 	// Find and decode at least one audio block
 	if (!FLAC__stream_decoder_process_single(decoder))
 	{
-		stack_log("stack_audio_file_create_flac(): Couldn't find metadata\n");
+		stack_log("stack_audio_file_create_flac(): Couldn't decode an audio frame\n");
 		FLAC__stream_decoder_delete(decoder);
+		delete result;
+		return NULL;
+	}
+
+	// Get some information from the metadata
+	size_t channels = FLAC__stream_decoder_get_channels(decoder);
+	size_t sample_rate = FLAC__stream_decoder_get_sample_rate(decoder);
+	size_t frames = FLAC__stream_decoder_get_total_samples(decoder);
+
+	// Ensure the metadata returned something accurate
+	if (channels == 0 || sample_rate == 0 || frames == 0)
+	{
 		delete result;
 		return NULL;
 	}
 
 	// Fill in the details about the file
 	result->super.format = STACK_AUDIO_FILE_FORMAT_FLAC;
-	result->super.channels = FLAC__stream_decoder_get_channels(decoder);
-	result->super.sample_rate = FLAC__stream_decoder_get_sample_rate(decoder);
-	result->super.frames = FLAC__stream_decoder_get_total_samples(decoder);
+	result->super.channels = channels;
+	result->super.sample_rate = sample_rate;
+	result->super.frames = frames;
 	result->super.length = (stack_time_t)(double(result->super.frames) / double(result->super.sample_rate) * NANOSECS_PER_SEC_F);
 	result->eof = false;
 
