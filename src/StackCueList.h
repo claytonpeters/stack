@@ -194,7 +194,7 @@ struct StackCueList
 
 // Functions: Cue list count
 StackCueList *stack_cue_list_new(uint16_t channels);
-StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback = NULL, void *callback_user_data = NULL);
+StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_audio_request_t audio_callback, void *audio_callback_user_data, stack_cue_list_load_callback_t progress_callback = NULL, void *progress_user_data = NULL);
 StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Value &json, bool construct);
 StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct);
 bool stack_cue_list_save(StackCueList *cue_list, const char *uri);

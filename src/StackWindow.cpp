@@ -83,7 +83,7 @@ static void saw_open_file_thread(ShowLoadingData *sld)
 	std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
 	// Open the file
-	sld->new_cue_list = stack_cue_list_new_from_file(sld->uri, saw_open_file_callback, (void*)sld);
+	sld->new_cue_list = stack_cue_list_new_from_file(sld->uri, saw_get_audio_from_cuelist, (void*)sld->window, saw_open_file_callback, (void*)sld);
 
 	// Note that we've finished and exit the thread
 	sld->finished = true;
@@ -408,6 +408,7 @@ size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data
 // Sets up an initial playback device
 static void saw_setup_default_device(StackAppWindow *window)
 {
+	stack_log("saw_setup_default_device(): Choosing default audio device\n");
 	const StackAudioDeviceClass *pipewire = stack_audio_device_get_class("StackPipeWireAudioDevice");
 	const StackAudioDeviceClass *pulse = stack_audio_device_get_class("StackPulseAudioDevice");
 	const StackAudioDeviceClass *chosen_class = NULL;
@@ -2396,13 +2397,15 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		stack_cue_list_widget_set_cue_list(window->sclw, window->cue_list);
 
 		// Refresh the cue list
-		//saw_refresh_list_store_from_list(window);
 		char title_buffer[512];
 		snprintf(title_buffer, 512, "%s - Stack", uri);
 		gtk_window_set_title(GTK_WINDOW(window), title_buffer);
 
-		// Setup the default device
-		saw_setup_default_device(window);
+		// Setup the default device if we didn't create one
+		if (window->cue_list->audio_device == NULL)
+		{
+			saw_setup_default_device(window);
+		}
 
 		// Set the focus to the cue list and select the first cue so we're
 		// ready for playback
