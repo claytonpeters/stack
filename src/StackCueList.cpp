@@ -635,7 +635,7 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		return false;
 	}
 
-	// Get a write strea
+	// Get a write stream
 	GFileOutputStream *stream = g_file_replace(file, NULL, false, G_FILE_CREATE_NONE, NULL, NULL);
 	if (stream == NULL)
 	{
@@ -648,6 +648,19 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["designer"] = cue_list->show_designer;
 	root["revision"] = cue_list->show_revision;
 	root["channels"] = cue_list->channels;
+	if (cue_list->audio_device)
+	{
+		root["audio_device_class"] = cue_list->audio_device->_class_name;
+		root["audio_device_sample_rate"] = cue_list->audio_device->sample_rate;
+		if (cue_list->audio_device->device_name != NULL)
+		{
+			root["audio_device_name"] = cue_list->audio_device->device_name;
+		}
+		else
+		{
+			root["audio_device_name"] = Json::nullValue;
+		}
+	}
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
 	root["config"] = Json::Value(Json::ValueType::objectValue);
 
@@ -759,14 +772,16 @@ StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, con
 
 /// Creates a new cue list using the contents of a file
 /// @param uri The URI of the path to read from (e.g. file:///home/blah/test.stack)
-/// @param callback The callback function to notify on progress
-/// @param user_data Arbitrary data to pass to the callback function
+/// @param audio_callback The callback function to pass to the audio device for requesting audio
+/// @param audio_callback_user_data Arbitrary data to pass to the audio_callback function
+/// @param progess_callback The callback function to notify on progress
+/// @param progess_user_data Arbitrary data to pass to the callback function
 /// @returns A new cue list or NULL on error
-StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_callback_t callback, void* user_data)
+StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_audio_request_t audio_callback, void *audio_callback_user_data, stack_cue_list_load_callback_t progress_callback, void *progress_user_data)
 {
-	if (callback != NULL)
+	if (progress_callback != NULL)
 	{
-		callback(NULL, 0, "Opening file...", user_data);
+		progress_callback(NULL, 0, "Opening file...", progress_user_data);
 	}
 
 	// Open the file
@@ -805,9 +820,9 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	// Allocate memory
 	std::vector<char> json_buffer(size + 1);
 
-	if (callback)
+	if (progress_callback)
 	{
-		callback(NULL, 0.01, "Reading file...", user_data);
+		progress_callback(NULL, 0.01, "Reading file...", progress_user_data);
 	}
 
 	// Read the file in to the buffer
@@ -827,9 +842,9 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 	g_object_unref(file);
 
 	// Parse the JSON
-	if (callback)
+	if (progress_callback)
 	{
-		callback(NULL, 0.03, "Parsing file...", user_data);
+		progress_callback(NULL, 0.03, "Parsing file...", progress_user_data);
 	}
 	Json::Value cue_list_root;
 	if (!stack_json_read_string(&json_buffer[0], &cue_list_root))
@@ -890,9 +905,9 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 
 		if (cues_root.isArray())
 		{
-			if (callback)
+			if (progress_callback)
 			{
-				callback(cue_list, 0.1, "Preparing cue list...", user_data);
+				progress_callback(cue_list, 0.1, "Preparing cue list...", progress_user_data);
 			}
 
 			// Iterate over the cues, creating their instances, and populating
@@ -918,9 +933,9 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				cue_count++;
 			}
 
-			if (callback)
+			if (progress_callback)
 			{
-				callback(cue_list, 0.2, "Initialising cues...", user_data);
+				progress_callback(cue_list, 0.2, "Initialising cues...", progress_user_data);
 			}
 
 			// Iterate over the cues again calling their actual constructor
@@ -939,11 +954,11 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 				stack_cue_from_json(stack_cue_get_by_uid(cue_json["_new_uid"].asUInt64()), cue_json.toStyledString().c_str());
 				prepared_cues++;
 
-				if (callback)
+				if (progress_callback)
 				{
 					// We count the first 20% as parsing the cue list
 					double progress = 0.2 + ((double)prepared_cues * 0.8 / (double)cue_count);
-					callback(cue_list, progress, "Initialising cues...", user_data);
+					progress_callback(cue_list, progress, "Initialising cues...", progress_user_data);
 				}
 			}
 		}
@@ -957,16 +972,39 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_cue_list_load_
 		stack_log("stack_cue_list_new_from_file(): Missing 'cues' option\n");
 	}
 
+	// Set up the audio device
+	if (cue_list_root.isMember("audio_device_class"))
+	{
+		const char *audio_device_class_name = cue_list_root["audio_device_class"].asCString();
+		const char *audio_device_name = NULL;
+		size_t sample_rate = 44100;
+
+		if (cue_list_root.isMember("audio_device_name") && !cue_list_root["audio_device_name"].isNull())
+		{
+			audio_device_name = cue_list_root["audio_device_name"].asCString();
+		}
+
+		if (cue_list_root.isMember("audio_device_sample_rate"))
+		{
+			sample_rate = cue_list_root["audio_device_sample_rate"].asUInt();
+			if (sample_rate <= 0)
+			{
+				sample_rate = 44100;
+			}
+		}
+
+		cue_list->audio_device = stack_audio_device_new(audio_device_class_name, audio_device_name, cue_list->channels, sample_rate, audio_callback, audio_callback_user_data);
+	}
+
 	// Flag that the cue list hasn't changed
-	stack_log("stack_cue_list_new_from_file(): Marking cue list as unchanged\n");
 	cue_list->changed = false;
 
 	// Store the URI of the file we opened
 	cue_list->uri = strdup(uri);
 
-	if (callback)
+	if (progress_callback)
 	{
-		callback(cue_list, 1.0, "Ready", user_data);
+		progress_callback(cue_list, 1.0, "Ready", progress_user_data);
 	}
 
 	return cue_list;
