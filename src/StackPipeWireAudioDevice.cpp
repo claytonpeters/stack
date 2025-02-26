@@ -321,6 +321,20 @@ static void stack_pipewire_audio_device_process_callback(void *user_data)
 	if (pwb == NULL)
 	{
 		stack_log("stack_pipeire_audio_device_process_callback(): failed to get PipeWire buffer\n");
+
+		// For reasons that are not clear to me, not having this here causes a
+		// segfault in libspa in certain circumstances. I could readily recreate
+		// this by opening Audacity whilst Stack was running, but with this here
+		// it _seems_ to not happen. Non-empty string to prevent a compile-time
+		// warning about an empty format string
+		pw_log_warn(" ");
+
+		return;
+	}
+
+	if (pwb->buffer == NULL || pwb->buffer->n_datas == 0 || pwb->buffer->datas == NULL)
+	{
+		stack_log("stack_pipeire_audio_device_process_callback(): failed to get PipeWire buffer - no buffer returned\n");
 		return;
 	}
 
