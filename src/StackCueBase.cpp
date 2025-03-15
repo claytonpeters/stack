@@ -133,7 +133,12 @@ void stack_cue_stop_base(StackCue *cue)
 	cue->pause_time = 0;
 	cue->paused_time = 0;
 	cue->pause_paused_time = 0;
-	stack_cue_set_state(cue, STACK_CUE_STATE_STOPPED);
+
+	// If we're in error state, don't reset out of it
+	if (cue->state != STACK_CUE_STATE_ERROR)
+	{
+		stack_cue_set_state(cue, STACK_CUE_STATE_STOPPED);
+	}
 }
 
 // Provides the pulse for a base cue
