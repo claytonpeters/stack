@@ -2388,13 +2388,15 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		// We don't need to worry about the UI timer, as that's running on the
 		// same thread as the event loop that is handling this event handler
 
-		// Destroy the old cue list
-		stack_cue_list_destroy(window->cue_list);
-
 		// Store the new cue list
+		StackCueList *old_cue_list = window->cue_list;
 		window->cue_list = sld.new_cue_list;
 		window->loading_cue_list = NULL;
 		stack_cue_list_widget_set_cue_list(window->sclw, window->cue_list);
+
+		// Destroy the old cue list (do this after setting thew new one, so that
+		// any still-running event callbacks always have a valid cue list available)
+		stack_cue_list_destroy(old_cue_list);
 
 		// Refresh the cue list
 		char title_buffer[512];
