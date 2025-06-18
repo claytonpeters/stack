@@ -753,7 +753,7 @@ GdkPixbuf *stack_cue_get_icon(StackCue *cue)
 	// Get the class name
 	const char *class_name = cue->_class_name;
 
-	// Look for a get_field function. Iterate through superclasses if we don't have one
+	// Look for a get_icon function. Iterate through superclasses if we don't have one
 	while (class_name != NULL && cue_class_map[class_name]->get_icon_func == NULL)
 	{
 		class_name = cue_class_map[class_name]->super_class_name;

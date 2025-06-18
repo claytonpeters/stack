@@ -981,7 +981,8 @@ extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data
 // Edit -> Show Settings
 extern "C" void saw_edit_show_settings_clicked(void* widget, gpointer user_data)
 {
-	sss_show_dialog(STACK_APP_WINDOW(user_data));
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	sss_show_dialog(window, window->cue_list, STACK_SETTINGS_TAB_DEFAULT);
 }
 
 static void saw_generic_add_cue(StackAppWindow *window, const char *type)
@@ -1103,8 +1104,8 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20241224-1");
-	gtk_about_dialog_set_copyright(about, "Copyright (c) 2024 Clayton Peters");
+	gtk_about_dialog_set_version(about, "Version 0.1.20250618-1");
+	gtk_about_dialog_set_copyright(about, "Copyright (c) 2025 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
 	gtk_about_dialog_set_logo(about, STACK_APP_WINDOW(user_data)->icon);
@@ -1204,7 +1205,7 @@ extern "C" void saw_cue_trigger_add_clicked(void *widget, gpointer user_data)
 
 // Trigger toolbar callback
 extern "C" void saw_cue_trigger_edit_clicked(void *widget, gpointer user_data)
-{	// Add to the UI
+{
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
@@ -1313,6 +1314,14 @@ extern "C" void saw_cue_trigger_clear_clicked(void *widget, gpointer user_data)
 	// Remove all triggers from the cue
 	stack_cue_clear_triggers(window->selected_cue);
 }
+
+// Trigger double-clicked
+extern "C" void saw_cue_trigger_row_activated(GtkTreeView *self, GtkTreePath* path, GtkTreeViewColumn *column, gpointer user_data)
+{
+	// Call the edit button handler
+	saw_cue_trigger_edit_clicked(NULL, user_data);
+}
+
 
 static void saw_remove_inactive_cue_widgets(StackAppWindow *window)
 {
@@ -2085,6 +2094,12 @@ static void stack_app_window_init(StackAppWindow *window)
 	gtk_widget_grab_focus(GTK_WIDGET(window->sclw));
 }
 
+extern "C" void ttd_row_activated(GtkTreeView *self, GtkTreePath* path, GtkTreeViewColumn *column, gpointer user_data)
+{
+	GtkDialog *dialog = GTK_DIALOG(user_data);
+	gtk_dialog_response(dialog, 1);
+}
+
 StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 {
 	StackTrigger *result = NULL;
@@ -2093,6 +2108,9 @@ StackTrigger *stack_new_trigger_dialog(StackAppWindow *window, StackCue *cue)
 	GtkBuilder *builder = gtk_builder_new_from_resource("/org/stack/ui/SelectTriggerType.ui");
 	GtkDialog *dialog = GTK_DIALOG(gtk_builder_get_object(builder, "triggerTypeDialog"));
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
+
+	// Connect signals
+	gtk_builder_connect_signals(builder, (gpointer)dialog);
 
 	// Set up response buttons
 	gtk_dialog_add_buttons(dialog, "Cancel", 2, "Create", 1, NULL);

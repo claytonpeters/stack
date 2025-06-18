@@ -379,8 +379,8 @@ void stack_cue_from_json_base(StackCue *cue, const char *json_data)
 					free(class_name);
 
 					// TODO: It would be nice if we have some sort of 'error
-					// trigger' which contained the JSON for the cue, so we
-					// didn't just drop the trigger from thh cue
+					// trigger' which contained the JSON for the trigger, so we
+					// didn't just drop the trigger from the cue
 
 					continue;
 				}
