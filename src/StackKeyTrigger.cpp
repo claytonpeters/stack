@@ -14,25 +14,7 @@ gboolean stack_key_trigger_run_action(GtkWidget* self, GdkEventKey *event, gpoin
 	// If the right key was pressed/released
 	if (event->type == trigger->event_type && event->keyval == trigger->keyval)
 	{
-		// Get the cue and the action
-		StackCue *cue = STACK_TRIGGER(trigger)->cue;
-		StackTriggerAction action = stack_trigger_get_action(STACK_TRIGGER(trigger));
-
-		// Run the correct action
-		stack_cue_list_lock(cue->parent);
-		switch (action)
-		{
-			case STACK_TRIGGER_ACTION_STOP:
-				stack_cue_stop(cue);
-				break;
-			case STACK_TRIGGER_ACTION_PAUSE:
-				stack_cue_pause(cue);
-				break;
-			case STACK_TRIGGER_ACTION_PLAY:
-				stack_cue_play(cue);
-				break;
-		}
-		stack_cue_list_unlock(cue->parent);
+		stack_trigger_do_action(STACK_TRIGGER(trigger));
 	}
 
 	// Always allow other handlers to trigger

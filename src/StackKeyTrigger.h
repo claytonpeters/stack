@@ -4,7 +4,7 @@
 // Includes:
 #include "StackTrigger.h"
 
-typedef struct StackKeyTrigger
+struct StackKeyTrigger
 {
 	// Superclass
 	StackTrigger super;
@@ -18,7 +18,7 @@ typedef struct StackKeyTrigger
 
 	// Whether we've currently got the seat grabbed
 	bool grabbed;
-} StackKeyTrigger;
+};
 
 // Defines:
 #define STACK_KEY_TRIGGER(_t) ((StackKeyTrigger*)(_t))

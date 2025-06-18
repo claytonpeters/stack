@@ -167,11 +167,13 @@ struct StackCueClass
 
 // Functions: Helpers
 stack_time_t stack_get_clock_time();
-void stack_format_time_as_string(stack_time_t time, char *str, size_t len);
+void stack_format_time_as_string(stack_time_t time, char *str, size_t len)
+	__attribute__((access (write_only, 2, 3)));
 double stack_db_to_scalar(double db);
 double stack_scalar_to_db(double db);
 stack_time_t stack_time_string_to_ns(const char *s);
-void stack_cue_id_to_string(cue_id_t cue_id, char *buffer, size_t buffer_size);
+void stack_cue_id_to_string(cue_id_t cue_id, char *buffer, size_t buffer_size)
+	__attribute__((access (write_only, 2, 3)));
 cue_id_t stack_cue_string_to_id(const char *s);
 
 // Functions: Cue Type Registration
@@ -208,10 +210,12 @@ void stack_cue_get_running_times(StackCue *cue, stack_time_t clocktime, stack_ti
 char *stack_cue_to_json(StackCue *cue);
 void stack_cue_free_json(StackCue *cue, char *json_data);
 void stack_cue_from_json(StackCue *cue, const char *json_data);
-bool stack_cue_get_error(StackCue *cue, char *message, size_t size);
+bool stack_cue_get_error(StackCue *cue, char *message, size_t size)
+	__attribute__((access (write_only, 2, 3)));
 const char* stack_cue_get_rendered_name(StackCue *cue);
 size_t stack_cue_get_active_channels(StackCue *cue, bool *active, bool live);
-size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples);
+size_t stack_cue_get_audio(StackCue *cue, float *buffer, size_t samples)
+	__attribute__((access (write_only, 2, 3)));
 GdkPixbuf* stack_cue_get_icon(StackCue *cue);
 void stack_cue_add_trigger(StackCue *cue, StackTrigger *trigger);
 void stack_cue_remove_trigger(StackCue *cue, StackTrigger *trigger);
@@ -233,9 +237,11 @@ void stack_cue_unset_tabs_base(StackCue *cue, GtkNotebook *notebook);
 char *stack_cue_to_json_base(StackCue *cue);
 void stack_cue_free_json_base(StackCue *cue, char *json_data);
 void stack_cue_from_json_base(StackCue *cue, const char *json_data);
-bool stack_cue_get_error_base(StackCue *cue, char *message, size_t size);
+bool stack_cue_get_error_base(StackCue *cue, char *message, size_t size)
+	__attribute__((access (write_only, 2, 3)));
 size_t stack_cue_get_active_channels_base(StackCue *cue, bool *active, bool live);
-size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples);
+size_t stack_cue_get_audio_base(StackCue *cue, float *buffer, size_t samples)
+	__attribute__((access (write_only, 2, 3)));
 const char* stack_cue_get_field_base(StackCue *cue, const char *field);
 GdkPixbuf* stack_cue_get_icon_base(StackCue *cue);
 StackCueStdList *stack_cue_get_children_base(StackCue *cue);
