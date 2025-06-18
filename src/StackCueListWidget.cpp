@@ -93,7 +93,6 @@ GtkWidget *stack_cue_list_widget_new()
 
 	// Drag drop
 	sclw->dragging = 0;
-	sclw->dragged_cue = STACK_CUE_UID_NONE;
 	sclw->drop_index = -1;
 	sclw->drag_start_x = -1;
 	sclw->drag_start_y = -1;
@@ -1362,7 +1361,6 @@ static void stack_cue_list_widget_motion(GtkWidget *widget, GdkEventMotion *even
 		if (fabs(event->x - sclw->drag_start_x) > 5 || fabs(event->y - sclw->drag_start_y) > 5)
 		{
 			sclw->dragging = 2;
-			sclw->dragged_cue = sclw->primary_selection;
 		}
 	}
 
@@ -1473,14 +1471,19 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				stack_cue_list_widget_toggle_selection(sclw, clicked_cue);
 			}
 
-			// Set the new primary row
-			stack_cue_list_widget_set_primary_selection(sclw, clicked_cue);
-
-			// If neither Shift or Control were held, we should remove all other
-			// selected rows
-			if (!(event->state & GDK_CONTROL_MASK) && !(event->state & GDK_SHIFT_MASK))
+			// If the clicked cue is already selected, don't change the selection immediately,
+			// as we could be initiating a drag
+			if (!stack_cue_list_widget_is_cue_selected(sclw, clicked_cue))
 			{
-				stack_cue_list_widget_reset_selection(sclw);
+				// Set the new primary row
+				stack_cue_list_widget_set_primary_selection(sclw, clicked_cue);
+
+				// If neither Shift or Control were held, we should remove all other
+				// selected rows
+				if (!(event->state & GDK_CONTROL_MASK) && !(event->state & GDK_SHIFT_MASK))
+				{
+					stack_cue_list_widget_reset_selection(sclw);
+				}
 			}
 
 			// If the clicked cue can have children and we are inside the expand/contract icon, then toggle
@@ -1501,6 +1504,7 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 	}
 	else if (event->type == GDK_BUTTON_RELEASE)
 	{
+		// If we're dragging a cue
 		if (sclw->dragging == 2)
 		{
 			// Determine if the cue has moved (from our perspective both the
@@ -1512,7 +1516,7 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				moved = true;
 			}
 
-			// Move the cue (if it's in a different location)
+			// Move the cue(s) (if it's in a different location)
 			if (moved)
 			{
 				// Because index and index + 1 essentially represent the same location, if
@@ -1539,7 +1543,6 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 					else
 					{
 						stack_log("stack_cue_list_widget_button(): No cue at index %d\n", new_index);
-						sclw->dragged_cue = STACK_CUE_UID_NONE;
 						sclw->dragging = 0;
 						return;
 					}
@@ -1553,10 +1556,36 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 					dest_is_child = true;
 				}
 
-				stack_log("stack_cue_list_widget_button(): Moving cue 0x%016llx %s cue 0x%016llx (%d) - child: %s\n", sclw->dragged_cue, before ? "before" : "after", dest_cue->uid, dest_cue->id, dest_is_child ? "true" : "false");
+				// Lock the cue list before we check/move anything
+				stack_cue_list_lock(sclw->cue_list);
 
-				if (stack_cue_get_by_uid(sclw->dragged_cue)->can_have_children && dest_is_child)
+				// Create a list of cues to move - we need this because if we move more than one cue
+				// to a point _after_ they're current position, then the iterator will break because
+				// the order changes
+				std::vector<StackCue*> cues_to_move;
+
+				// Iterate over all the selected cues and make sure everything is valid to move
+				bool valid = true;
+				for (auto iter = sclw->cue_list->cues->recursive_begin(); iter != sclw->cue_list->cues->recursive_end(); ++iter)
 				{
+					StackCue *moving_cue = *iter;
+					if (stack_cue_list_widget_is_cue_selected(sclw, moving_cue->uid))
+					{
+						if (moving_cue->can_have_children && dest_is_child)
+						{
+							valid = false;
+							break;
+						}
+						cues_to_move.push_back(moving_cue);
+					}
+				}
+
+				// If one of the destinations was invalid, display error and don't move anything
+				if (!valid)
+				{
+					// Early unlock otherwise the redraw locks the main thread
+					stack_cue_list_unlock(sclw->cue_list);
+
 					GtkWidget *message_dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Invalid destination");
 					gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "Cues with children can't be nested inside each other.");
 					gtk_window_set_title(GTK_WINDOW(message_dialog), "Error");
@@ -1565,14 +1594,32 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				}
 				else
 				{
-					stack_cue_list_lock(sclw->cue_list);
-					stack_cue_list_move(sclw->cue_list, stack_cue_get_by_uid(sclw->dragged_cue), dest_cue, before, dest_is_child);
+					// Move all of the selected cues
+					for (StackCue *moving_cue : cues_to_move)
+					{
+						// Skip unselected cues
+						if (!stack_cue_list_widget_is_cue_selected(sclw, moving_cue->uid))
+						{
+							continue;
+						}
+
+						// Move the cue
+#ifndef NDEBUG
+						stack_log("stack_cue_list_widget_button(): Moving cue 0x%016llx %s cue 0x%016llx (%d) - child: %s\n", moving_cue, before ? "before" : "after", dest_cue->uid, dest_cue->id, dest_is_child ? "true" : "false");
+#endif
+						stack_cue_list_move(sclw->cue_list, moving_cue, dest_cue, before, dest_is_child);
+
+						// After we've moved a cue, the next cue we move will appear after the one we've just moved
+						dest_cue = moving_cue;
+						before = false;
+					}
+
+					// Unlock the cue list
 					stack_cue_list_unlock(sclw->cue_list);
 				}
 			}
 
 			// Clear the dragging state
-			sclw->dragged_cue = STACK_CUE_UID_NONE;
 			sclw->dragging = 0;
 
 			// Redraw to remove overlay (we draw on top of the cache) and to
@@ -1583,6 +1630,22 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 				stack_cue_list_widget_update_list_cache(sclw, 0, 0);
 			}
 			gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+		}
+		// We weren't dragging
+		else
+		{
+			// If the cue that was clicked was already selected, and neither Shift
+			// nor Control were pressed, then the down event didn't deselect anything
+			// (as we could have been initiating a drag), so deselect now
+			cue_uid_t clicked_cue = stack_cue_list_widget_get_cue_at_point(sclw, event->x, event->y);
+			if (clicked_cue != STACK_CUE_UID_NONE && stack_cue_list_widget_is_cue_selected(sclw, clicked_cue) && !(event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)))
+			{
+				// Set the new primary row
+				stack_cue_list_widget_set_primary_selection(sclw, clicked_cue);
+
+				// Clear the rest of the selection
+				stack_cue_list_widget_reset_selection(sclw);
+			}
 		}
 
 		// Stop any dragging
