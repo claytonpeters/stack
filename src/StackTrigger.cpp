@@ -416,6 +416,26 @@ void stack_trigger_config_from_json_base(const char *json_data)
 {
 }
 
+// Performs the trigger action on the target cue
+void stack_trigger_do_action(StackTrigger *trigger)
+{
+	// Run the correct action
+	stack_cue_list_lock(trigger->cue->parent);
+	switch (stack_trigger_get_action(trigger))
+	{
+		case STACK_TRIGGER_ACTION_STOP:
+			stack_cue_stop(trigger->cue);
+			break;
+		case STACK_TRIGGER_ACTION_PAUSE:
+			stack_cue_pause(trigger->cue);
+			break;
+		case STACK_TRIGGER_ACTION_PLAY:
+			stack_cue_play(trigger->cue);
+			break;
+	}
+	stack_cue_list_unlock(trigger->cue->parent);
+}
+
 // Initialise the StackTrigger system
 void stack_trigger_initsystem()
 {

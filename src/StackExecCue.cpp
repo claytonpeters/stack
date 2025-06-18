@@ -108,7 +108,7 @@ void stack_exec_cue_set_command(StackExecCue *cue, const char *command)
 // UI CALLBACKS
 
 /// Called when the Command is changed
-static gboolean ecp_command_changed(GtkButton *widget, GdkEvent *event, gpointer user_data)
+static gboolean ecp_command_changed(GtkEntry *widget, GdkEvent *event, gpointer user_data)
 {
 	// Get the cue
 	StackExecCue *cue = STACK_EXEC_CUE(((StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(widget)))->selected_cue);
@@ -116,7 +116,7 @@ static gboolean ecp_command_changed(GtkButton *widget, GdkEvent *event, gpointer
 	// Get the parent window
 	StackAppWindow *window = (StackAppWindow*)gtk_widget_get_toplevel(GTK_WIDGET(cue->exec_tab));
 
-	stack_exec_cue_set_command(cue, gtk_entry_get_text(GTK_ENTRY(widget)));
+	stack_exec_cue_set_command(cue, gtk_entry_get_text(widget));
 
 	return false;
 }
@@ -219,7 +219,7 @@ static void stack_exec_cue_set_tabs(StackCue *cue, GtkNotebook *notebook)
 	char *command = NULL;
 	stack_property_get_string(stack_cue_get_property(cue, "command"), STACK_PROPERTY_VERSION_DEFINED, &command);
 
-	// Set the button text
+	// Set the command entry text
 	gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(sec_builder, "ecpCommand")), command != NULL ? command : "");
 
 	// Resume change callbacks on the properties

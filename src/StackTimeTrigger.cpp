@@ -106,25 +106,8 @@ gboolean stack_time_trigger_timer(void *user_data)
 			// If the trigger time has passed (and we haven't already fired), fire the action
 			if (time_trigger->next_trigger_ts != 0 && current_time >= time_trigger->next_trigger_ts && time_trigger->next_trigger_ts > time_trigger->last_trigger_ts)
 			{
-				// Get the cue and the action
-				StackCue *cue = STACK_TRIGGER(time_trigger)->cue;
-				StackTriggerAction action = stack_trigger_get_action(STACK_TRIGGER(time_trigger));
-
-				// Run the correct action
-				stack_cue_list_lock(cue->parent);
-				switch (action)
-				{
-					case STACK_TRIGGER_ACTION_STOP:
-						stack_cue_stop(cue);
-						break;
-					case STACK_TRIGGER_ACTION_PAUSE:
-						stack_cue_pause(cue);
-						break;
-					case STACK_TRIGGER_ACTION_PLAY:
-						stack_cue_play(cue);
-						break;
-				}
-				stack_cue_list_unlock(cue->parent);
+				// Trigger the cue action
+				stack_trigger_do_action(STACK_TRIGGER(time_trigger));
 
 				// Record when we were last triggered
 				time_trigger->last_trigger_ts = time_trigger->next_trigger_ts;
@@ -370,8 +353,6 @@ bool stack_time_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent,
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(parent));
 
 	// Callbacks
-	//gtk_builder_add_callback_symbol(builder, "ttd_key_button_clicked", G_CALLBACK(ttd_key_button_clicked));
-	//gtk_builder_add_callback_symbol(builder, "ttd_key_keypress", G_CALLBACK(ttd_key_keypress));
 	gtk_builder_connect_signals(builder, trigger);
 
 	// Set up response buttons

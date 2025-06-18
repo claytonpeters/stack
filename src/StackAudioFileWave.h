@@ -27,6 +27,7 @@ struct StackAudioFileWave
 StackAudioFileWave *stack_audio_file_create_wave(GFileInputStream *file);
 void stack_audio_file_destroy_wave(StackAudioFileWave *audio_file);
 void stack_audio_file_seek_wave(StackAudioFileWave *audio_file, stack_time_t pos);
-size_t stack_audio_file_read_wave(StackAudioFileWave *audio_file, float *buffer, size_t frames);
+size_t stack_audio_file_read_wave(StackAudioFileWave *audio_file, float *buffer, size_t frames)
+	__attribute__((access (write_only, 2, 3)));
 
 #endif

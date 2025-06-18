@@ -4,7 +4,7 @@
 // Includes:
 #include "StackTrigger.h"
 
-typedef struct StackTimeTrigger
+struct StackTimeTrigger
 {
 	// Superclass
 	StackTrigger super;
@@ -36,7 +36,7 @@ typedef struct StackTimeTrigger
 
 	// Buffer for our event text
 	char event_text[128];
-} StackKeyTrigger;
+};
 
 // Defines:
 #define STACK_TIME_TRIGGER(_t) ((StackTimeTrigger*)(_t))

@@ -50,10 +50,12 @@ void stack_audio_file_destroy(StackAudioFile *audio_file);
 void stack_audio_file_seek(StackAudioFile *audio_file, stack_time_t pos);
 
 // Reads frames from the audio file and converts them to float
-size_t stack_audio_file_read(StackAudioFile *audio_file, float *buffer, size_t frames);
+size_t stack_audio_file_read(StackAudioFile *audio_file, float *buffer, size_t frames)
+	__attribute__((access (write_only, 2, 3)));
 
 // Converts audio data from a given input format to float
-bool stack_audio_file_convert(StackSampleFormat format, const void *input, const size_t samples, float *output);
+bool stack_audio_file_convert(StackSampleFormat format, const void *input, const size_t samples, float *output)
+	__attribute__((access (write_only, 4, 3))) __attribute__((access (read_only, 2, 3)));
 
 // Converts a stack_time_t (nanoseconds) to a sample/frame index
 uint64_t stack_time_to_samples(stack_time_t t, uint32_t sample_rate);

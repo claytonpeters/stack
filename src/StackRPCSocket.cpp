@@ -6,7 +6,7 @@
 #include "StackLog.h"
 #include "StackCue.h"
 #include <unistd.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstdio>
 #include <sys/socket.h>
 #include <sys/un.h>

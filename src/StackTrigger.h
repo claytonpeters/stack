@@ -17,7 +17,7 @@ typedef enum StackTriggerAction
 	STACK_TRIGGER_ACTION_PLAY = 2,
 } StackTriggerAction;
 
-typedef struct StackTrigger
+struct StackTrigger
 {
 	const char *_class_name;
 
@@ -26,8 +26,7 @@ typedef struct StackTrigger
 
 	// What to do with the cue (Play/Pause/Stop)
 	StackTriggerAction action;
-
-} StackTrigger;
+};
 
 // Function typedefs:
 typedef StackTrigger*(*stack_trigger_create_t)(StackCue*);
@@ -95,6 +94,7 @@ bool stack_trigger_show_config_ui(StackTrigger *trigger, GtkWidget *parent, bool
 char* stack_trigger_config_to_json(const char *class_name);
 void stack_trigger_config_free_json(const char *class_name, char *json_data);
 void stack_trigger_config_from_json(const char *class_name, const char *json_data);
+void stack_trigger_do_action(StackTrigger *trigger);
 
 // Base trigger functions. These should not be called directly except from
 // within subclasses of StackTrigger

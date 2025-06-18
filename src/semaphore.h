@@ -1,3 +1,6 @@
+#ifndef _SEMAPHORE_H_INCLUDED
+#define _SEMAPHORE_H_INCLUDED
+
 // Includes:
 #include <mutex>
 #include <condition_variable>
@@ -57,3 +60,5 @@ class semaphore
 		// The current mutex counter
 		int count;
 };
+
+#endif
