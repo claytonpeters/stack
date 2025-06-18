@@ -69,7 +69,6 @@ struct StackCueListWidget
 
 	// Drag/drop
 	int32_t dragging;
-	cue_uid_t dragged_cue;
 	int32_t drag_index;
 	int32_t drop_index;
 	double drag_start_x;
