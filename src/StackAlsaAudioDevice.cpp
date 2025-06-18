@@ -342,11 +342,3 @@ void stack_alsa_audio_device_register()
 	StackAudioDeviceClass* pulse_audio_device_class = new StackAudioDeviceClass{ "StackAlsaAudioDevice", "StackAlsaAudioDevice", stack_alsa_audio_device_list_outputs, stack_alsa_audio_device_free_outputs, stack_alsa_audio_device_create, stack_alsa_audio_device_destroy, stack_alsa_audio_device_get_friendly_name };
 	stack_register_audio_device_class(pulse_audio_device_class);
 }
-
-// The entry point for the plugin that Stack calls
-extern "C" bool stack_init_plugin()
-{
-	stack_alsa_audio_device_register();
-	return true;
-}
-

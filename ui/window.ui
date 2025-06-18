@@ -955,7 +955,7 @@
                                     <property name="can-focus">True</property>
                                     <property name="hexpand">True</property>
                                     <property name="model">sawTriggersListStore</property>
-                                    <property name="activate-on-single-click">True</property>
+                                    <signal name="row-activated" handler="saw_cue_trigger_row_activated" swapped="no"/>
                                     <child internal-child="selection">
                                       <object class="GtkTreeSelection"/>
                                     </child>

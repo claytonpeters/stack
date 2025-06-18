@@ -5,6 +5,7 @@
 #include <cstring>
 #include "StackApp.h"
 #include "StackTrigger.h"
+#include "StackMidiDevice.h"
 #include "StackLog.h"
 
 // GTK stuff
@@ -17,6 +18,7 @@ static void stack_app_init(StackApp *app)
 	stack_cue_initsystem();
 	stack_trigger_initsystem();
 	stack_audio_device_initsystem();
+	stack_midi_device_initsystem();
 
 	//// LOAD PLUGINS
 

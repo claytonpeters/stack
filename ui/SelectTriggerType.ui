@@ -66,6 +66,7 @@
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
                     <property name="model">ttdListStore</property>
+                    <signal name="row-activated" handler="ttd_row_activated" swapped="no"/>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="ttdTreeViewSelection"/>
                     </child>

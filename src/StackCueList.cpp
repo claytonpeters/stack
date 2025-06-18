@@ -89,12 +89,6 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 	cue_list->kill_thread = true;
 	cue_list->pulse_thread.join();
 
-	// Destroy the audio device
-	if (cue_list->audio_device)
-	{
-		stack_audio_device_destroy(cue_list->audio_device);
-	}
-
 	// Lock the cue list
 	stack_cue_list_lock(cue_list);
 
@@ -110,6 +104,25 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		// Destroy the cue
 		stack_cue_destroy(cue);
 	}
+
+	// Unlock the cue list
+	stack_cue_list_unlock(cue_list);
+
+	// Destroy the audio device
+	if (cue_list->audio_device)
+	{
+		stack_audio_device_destroy(cue_list->audio_device);
+	}
+
+	// Destroy the MIDI devices
+	for (auto iter = cue_list->midi_devices.begin(); iter != cue_list->midi_devices.end(); ++iter)
+	{
+		stack_midi_device_destroy(iter->second);
+	}
+	cue_list->midi_devices.clear();
+
+	// Lock the cue list
+	stack_cue_list_lock(cue_list);
 
 	// If we've got a URI, free that
 	if (cue_list->uri)
@@ -159,6 +172,8 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 
 	// Free ourselves
 	delete cue_list;
+
+	stack_log("stack_cue_list_destroy(0x%016llx): Cue list destroyed\n", cue_list);
 }
 
 void stack_cue_list_set_audio_device(StackCueList *cue_list, StackAudioDevice *audio_device)
@@ -664,6 +679,17 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	root["cues"] = Json::Value(Json::ValueType::arrayValue);
 	root["config"] = Json::Value(Json::ValueType::objectValue);
 
+	// Save all our MIDI devices
+	root["midi_devices"] = Json::Value(Json::ValueType::objectValue);
+	for (auto midi_patch : cue_list->midi_devices)
+	{
+		Json::Value midi_device_root;
+		char *midi_device_json_data = stack_midi_device_to_json(midi_patch.second);
+		stack_json_read_string(midi_device_json_data, &midi_device_root);
+		stack_midi_device_free_json(midi_patch.second, midi_device_json_data);
+		root["midi_devices"][midi_patch.first] = midi_device_root;
+	}
+
 	// Iterate over all the cues
 	for (auto cue : *cue_list->cues)
 	{
@@ -898,6 +924,33 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 		}
 	}
 
+	// Set up MIDI devices
+	progress_callback(cue_list, 0.95, "Initialising MIDI devices...", progress_user_data);
+	if (cue_list_root.isMember("midi_devices"))
+	{
+		Json::Value& mdev_root = cue_list_root["midi_devices"];
+
+		if (mdev_root.isObject())
+		{
+			auto patches = mdev_root.getMemberNames();
+			for (auto patch : patches)
+			{
+				// Call the appropriate overloaded function
+				StackMidiDevice *mdev = stack_midi_device_new(mdev_root[patch]["class"].asString().c_str(), "", "");
+				stack_midi_device_from_json(mdev, mdev_root[patch].toStyledString().c_str());
+				stack_cue_list_add_midi_device(cue_list, patch.c_str(), mdev);
+			}
+		}
+		else
+		{
+			stack_log("stack_cue_list_new_from_file(): 'midi_devices' is not an object\n");
+		}
+	}
+	else
+	{
+		stack_log("stack_cue_list_new_from_file(): Missing 'midi_devices' option\n");
+	}
+
 	// If we have some cues...
 	if (cue_list_root.isMember("cues"))
 	{
@@ -957,7 +1010,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 				if (progress_callback)
 				{
 					// We count the first 20% as parsing the cue list
-					double progress = 0.2 + ((double)prepared_cues * 0.8 / (double)cue_count);
+					double progress = 0.2 + ((double)prepared_cues * 0.7 / (double)cue_count);
 					progress_callback(cue_list, progress, "Initialising cues...", progress_user_data);
 				}
 			}
@@ -973,6 +1026,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 	}
 
 	// Set up the audio device
+	progress_callback(cue_list, 0.9, "Initialising audio device...", progress_user_data);
 	if (cue_list_root.isMember("audio_device_class"))
 	{
 		const char *audio_device_class_name = cue_list_root["audio_device_class"].asCString();
@@ -1491,6 +1545,60 @@ StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid
 		StackChannelRMSData *old_rms_data = rms_iter->second;
 		return old_rms_data;
 	}
+}
+
+size_t stack_cue_list_get_midi_device_count(StackCueList *cue_list)
+{
+	return cue_list->midi_devices.size();
+}
+
+StackMidiDevice *stack_cue_list_get_midi_device(StackCueList *cue_list, const char *patch_name)
+{
+	StackMidiDevicePatchMap::iterator iter = cue_list->midi_devices.find(patch_name);
+	if (iter == cue_list->midi_devices.end())
+	{
+		return NULL;
+	}
+
+	return iter->second;
+}
+
+bool stack_cue_list_add_midi_device(StackCueList *cue_list, const char *patch_name, StackMidiDevice *device)
+{
+	// Make sure the device doesn't already exist
+	if (stack_cue_list_get_midi_device(cue_list, patch_name) != NULL)
+	{
+		return false;
+	}
+
+	// Add the device
+	stack_log("stack_cue_list_add_midi_device(): Adding MIDI device with patch %s\n", patch_name);
+	cue_list->midi_devices[patch_name] = device;
+	return true;
+}
+
+bool stack_cue_list_delete_midi_device(StackCueList *cue_list, const char *patch_name)
+{
+	// Find the device, returning false if not found
+	StackMidiDevicePatchMap::iterator iter = cue_list->midi_devices.find(patch_name);
+	if (iter == cue_list->midi_devices.end())
+	{
+		return false;
+	}
+
+	// Remove the device
+	cue_list->midi_devices.erase(iter);
+	return true;
+}
+
+StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_begin(StackCueList *cue_list)
+{
+	return cue_list->midi_devices.begin();
+}
+
+StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_end(StackCueList *cue_list)
+{
+	return cue_list->midi_devices.end();
 }
 
 StackCueStdList::recursive_iterator& StackCueStdList::recursive_iterator::leave_child(bool forward)

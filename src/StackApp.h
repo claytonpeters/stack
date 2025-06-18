@@ -9,6 +9,12 @@
 #include "StackLevelMeter.h"
 #include "StackCueListWidget.h"
 
+// For opening on a specific tab on the Show Settings dialog
+#define STACK_SETTINGS_TAB_DEFAULT -1
+#define STACK_SETTINGS_TAB_SHOW    0
+#define STACK_SETTINGS_TAB_AUDIO   1
+#define STACK_SETTINGS_TAB_MIDI    2
+
 struct StackApp
 {
 	GtkApplication parent;
@@ -82,8 +88,9 @@ StackApp *stack_app_new(void);
 StackAppWindow* stack_app_window_new(StackApp *app);
 void stack_app_window_open(StackAppWindow *window, GFile *file);
 StackCue* stack_select_cue_dialog(StackAppWindow *window, StackCue *current, StackCue *hide);
-size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data);
-void sss_show_dialog(StackAppWindow* window);
+size_t saw_get_audio_from_cuelist(size_t samples, float *buffer, void *user_data)
+	__attribute__((access (write_only, 2, 1)));
+void sss_show_dialog(StackAppWindow* window, StackCueList *cue_list, int tab = STACK_SETTINGS_TAB_DEFAULT);
 bool src_show_dialog(StackAppWindow* window);
 StackAppWindow *saw_get_window_for_cue_list(StackCueList *cue_list);
 StackAppWindow *saw_get_window_for_cue(StackCue *cue);

@@ -15,10 +15,14 @@ typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*
 // Includes
 #include "StackCue.h"
 #include "StackAudioDevice.h"
+#include "StackMidiDevice.h"
 #include "StackRPCSocket.h"
 #include <mutex>
 #include <thread>
 #include <cstdint>
+
+// Typedefs:
+typedef std::map<std::string, StackMidiDevice*> StackMidiDevicePatchMap;
 
 // Define StackCueStdList as a custom std::list<StackCue*> that has a custom
 // recursive_iterator that descends in to child cues
@@ -146,6 +150,9 @@ struct StackCueList
 	// and a map between virtual channels and device channels)
 	StackAudioDevice *audio_device;
 
+	// Midi Devices map (patch name -> device)
+	StackMidiDevicePatchMap midi_devices;
+
 	// The thread which handles pulsing the cue list
 	std::thread pulse_thread;
 	bool kill_thread;
@@ -226,6 +233,12 @@ bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_r
 void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels);
 StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid);
 StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid_t uid, size_t channels);
+size_t stack_cue_list_get_midi_device_count(StackCueList *cue_list);
+StackMidiDevice *stack_cue_list_get_midi_device(StackCueList *cue_list, const char *patch_name);
+bool stack_cue_list_add_midi_device(StackCueList *cue_list, const char *patch_name, StackMidiDevice *device);
+bool stack_cue_list_delete_midi_device(StackCueList *cue_list, const char *patch_name);
+StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_begin(StackCueList *cue_list);
+StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_end(StackCueList *cue_list);
 
 // Defines:
 #define STACK_CUE_LIST(_c) ((StackCueList*)(_c))
