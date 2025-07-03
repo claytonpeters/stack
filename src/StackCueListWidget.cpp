@@ -14,17 +14,19 @@ G_DEFINE_TYPE(StackCueListWidget, stack_cue_list_widget, GTK_TYPE_WIDGET)
 static guint signal_selection_changed = 0;
 static guint signal_primary_selection_changed = 0;
 
-// Relevant geometry for columns
-typedef struct SCLWColumnGeometry
-{
-	double cue_x;
-	double scriptref_x;
-	double name_x;
-	double name_width;
-	double post_x;
-	double action_x;
-	double pre_x;
-} SCLWColumnGeometry;
+/**
+ * We should:
+ *  - make SCLW a parent widget which does very little
+ *  - have two sub-widgets:
+ *    - a vbox to separate the two widgets (DONE)
+ *    - a separate header widget (INITIAL IMPL DONE) for the top of the vbox
+ *    - a scrolledwindow+viewport for the bottom part of the vbox (DONE)
+ *    - a list widget in the viewport which has the functionality of what SCLW currently has
+ *  - remove any manual scrolling code (DONE)
+ *  - remove any reference to scroll_offset and use the offset from the scrolled window (DONE)
+ *  - adjust the code so that it renders only what the scrolled window asks for (DONE)
+ *  - update the code that needs to scroll the window to use set_vadjustment (DONE)
+ **/
 
 typedef struct SCLWUpdateCue
 {
@@ -35,7 +37,7 @@ typedef struct SCLWUpdateCue
 
 // Pre-defs:
 static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, guint width, guint height);
-static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields);
+static bool stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields);
 
 void stack_cue_list_widget_reload_icons(StackCueListWidget *sclw)
 {
@@ -75,13 +77,11 @@ GtkWidget *stack_cue_list_widget_new()
 	sclw->cue_flags = SCLWCueFlagsMap();
 	stack_cue_list_widget_set_cue_list(sclw, NULL);
 
-	sclw->header_cr = NULL;
-	sclw->header_surface = NULL;
 	sclw->list_cr = NULL;
 	sclw->list_surface = NULL;
-	sclw->header_cache_width = -1;
 	sclw->list_cache_width = -1;
 	sclw->list_cache_height = -1;
+	sclw->rendered_scroll_offset = -1;
 
 	// Load some icons
 	sclw->icon_play = NULL;
@@ -103,6 +103,49 @@ GtkWidget *stack_cue_list_widget_new()
 	return widget;
 }
 
+static int32_t stack_cue_list_widget_get_visible_area(StackCueListWidget *sclw)
+{
+	GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(sclw));
+	if (parent == NULL)
+	{
+		return 0;
+	}
+
+	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(parent));
+	if (adjustment == NULL)
+	{
+		return 0;
+	}
+
+	return (int32_t)gtk_adjustment_get_page_size(adjustment);
+}
+
+static int32_t stack_cue_list_widget_get_scroll_offset(StackCueListWidget *sclw)
+{
+	GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(sclw));
+	if (parent == NULL)
+	{
+		return 0;
+	}
+
+	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(parent));
+	if (adjustment == NULL)
+	{
+		return 0;
+	}
+
+	int32_t scroll_offset = (int32_t)gtk_adjustment_get_value(adjustment);
+	int32_t page_size = (int32_t)gtk_adjustment_get_page_size(adjustment);
+	return scroll_offset;
+}
+
+static void stack_cue_list_widget_set_scroll_offset(StackCueListWidget *sclw, int32_t scroll_offset)
+{
+	GtkWidget *parent = gtk_widget_get_parent(GTK_WIDGET(sclw));
+	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(parent));
+	gtk_adjustment_set_value(adjustment, (double)scroll_offset);
+}
+
 // Queues a redraw of the widget. Designed to be called from
 // gdk_threads_add_idle so as to be UI-thread-safe
 static gboolean stack_cue_list_widget_idle_redraw(gpointer user_data)
@@ -118,23 +161,6 @@ static gboolean stack_cue_list_widget_idle_redraw(gpointer user_data)
 	}
 
 	return G_SOURCE_REMOVE;
-}
-
-void stack_cue_list_widget_set_cue_list(StackCueListWidget *sclw, StackCueList *cue_list)
-{
-	// Tidy up
-	sclw->cue_list = cue_list;
-	sclw->top_cue = STACK_CUE_UID_NONE;
-	sclw->top_cue_is_placeholder = false;
-	sclw->scroll_offset = 0;
-	sclw->primary_selection = STACK_CUE_UID_NONE;
-
-	// Update the top cue
-	stack_cue_list_widget_recalculate_top_cue(sclw);
-
-	// Redraw
-	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
-	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
 }
 
 void stack_cue_list_widget_set_row_height(StackCueListWidget *sclw, guint row_height)
@@ -221,7 +247,7 @@ StackCue *stack_cue_list_get_cue_at_index(StackCueListWidget *sclw, uint32_t sea
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw)
 {
 	StackCue *placeholder = NULL;
-	StackCue *cue = stack_cue_list_get_cue_at_index(sclw, sclw->scroll_offset / sclw->row_height, &placeholder);
+	StackCue *cue = stack_cue_list_get_cue_at_index(sclw, stack_cue_list_widget_get_scroll_offset(sclw) / sclw->row_height, &placeholder);
 	if (cue == NULL)
 	{
 		if (placeholder == NULL)
@@ -283,7 +309,37 @@ int32_t stack_cue_list_widget_get_visible_count(StackCueListWidget *sclw)
 	return count;
 }
 
-/// @brief Returns the height in pixels required to draw every visible cue in hte list
+void stack_cue_list_widget_update_height(StackCueListWidget *sclw)
+{
+	// Calculate the height of all the cues in the cue stack
+	int32_t cues_height = sclw->row_height * stack_cue_list_widget_get_visible_count(sclw);
+
+	if (cues_height > 0)
+	{
+		gtk_widget_set_size_request(GTK_WIDGET(sclw), gtk_widget_get_allocated_width(GTK_WIDGET(sclw)), cues_height);
+	}
+}
+
+void stack_cue_list_widget_set_cue_list(StackCueListWidget *sclw, StackCueList *cue_list)
+{
+	// Tidy up
+	sclw->cue_list = cue_list;
+	sclw->top_cue = STACK_CUE_UID_NONE;
+	sclw->top_cue_is_placeholder = false;
+	sclw->primary_selection = STACK_CUE_UID_NONE;
+
+	// Update the top cue
+	stack_cue_list_widget_recalculate_top_cue(sclw);
+
+	// Update the widget height
+	stack_cue_list_widget_update_height(sclw);
+
+	// Redraw
+	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
+	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
+}
+
+/// @brief Returns the height in pixels required to draw every visible cue in the list
 /// @param sclw The cue list widget
 /// @return The height in pixels
 int32_t stack_cue_list_widget_get_list_height(StackCueListWidget *sclw)
@@ -353,19 +409,23 @@ bool stack_cue_list_widget_ensure_cue_visible(StackCueListWidget *sclw, cue_uid_
 	}
 
 	// Get the height of the list area
-	guint height = gtk_widget_get_allocated_height(GTK_WIDGET(sclw)) - sclw->header_height;
+	guint height = stack_cue_list_widget_get_visible_area(sclw);
 
-	// If the top of the cue is off the top
-	if (cue_y - sclw->scroll_offset < 0)
+	bool off_top = cue_y - stack_cue_list_widget_get_scroll_offset(sclw) < 0;
+	bool off_bottom = cue_y + sclw->row_height - stack_cue_list_widget_get_scroll_offset(sclw) > height;
+
+	if (off_top)
 	{
-		sclw->scroll_offset = cue_y;
+		stack_cue_list_widget_set_scroll_offset(sclw, cue_y);
 		redraw = true;
 	}
-	// If the bottom of the cue if off the bottom
-	else if (cue_y + sclw->row_height - sclw->scroll_offset > height)
+	else if (off_bottom)
 	{
-		sclw->scroll_offset = cue_y - height + sclw->row_height;
-		redraw = true;
+		if (!off_top && height > sclw->row_height)
+		{
+			stack_cue_list_widget_set_scroll_offset(sclw, cue_y - height + sclw->row_height);
+			redraw = true;
+		}
 	}
 
 	if (redraw)
@@ -413,10 +473,10 @@ bool stack_cue_list_widget_is_cue_visible(StackCueListWidget *sclw, cue_uid_t cu
 	}
 
 	// Get the height of the list area
-	guint height = gtk_widget_get_allocated_height(GTK_WIDGET(sclw)) - sclw->header_height;
+	guint height = gtk_widget_get_allocated_height(GTK_WIDGET(sclw));
 
 	// If the bottom of the cue is off the top, or the top of the cue is off the bottom
-	if ((cue_y + sclw->row_height - sclw->scroll_offset < 0) || (cue_y - sclw->scroll_offset > (int32_t)height))
+	if ((cue_y + sclw->row_height - stack_cue_list_widget_get_scroll_offset(sclw) < 0) || (cue_y - sclw->scroll_offset > (int32_t)height))
 	{
 		return false;
 	}
@@ -426,19 +486,19 @@ bool stack_cue_list_widget_is_cue_visible(StackCueListWidget *sclw, cue_uid_t cu
 
 int32_t stack_cue_list_widget_get_index_at_point(StackCueListWidget *sclw, int32_t x, int32_t y)
 {
-	// If we don't have a cue list, or the point is in the header
-	if (sclw->cue_list == NULL || y < sclw->header_height)
+	// If we don't have a cue list
+	if (sclw->cue_list == NULL)
 	{
 		return -1;
 	}
 
 	// For now (with no expanded cues this is trivial)
-	return (y - sclw->header_height + sclw->scroll_offset) / sclw->row_height;
+	return y / sclw->row_height;
 }
 
 cue_uid_t stack_cue_list_widget_get_cue_at_point(StackCueListWidget *sclw, int32_t x, int32_t y)
 {
-	int32_t row_y = -sclw->scroll_offset + sclw->header_height;
+	int32_t row_y = 0;
 
 	for (auto citer = sclw->cue_list->cues->recursive_begin(); citer != sclw->cue_list->cues->recursive_end(); )
 	{
@@ -503,7 +563,7 @@ void stack_cue_list_widget_update_cue(StackCueListWidget *sclw, cue_uid_t cue_ui
 	}
 }
 
-static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold, GtkStyleContext *style_context)
+void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold, GtkStyleContext *style_context)
 {
 	PangoContext *pc = gtk_widget_get_pango_context(GTK_WIDGET(sclw));
 	PangoFontDescription *fd = pango_context_get_font_description(pc);
@@ -522,34 +582,6 @@ static void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t 
 
 	// Tidy up
 	g_object_unref(pl);
-}
-
-static void stack_cue_list_widget_render_header(StackCueListWidget *sclw, cairo_t *cr, double x, double width, const char *text, bool align_center)
-{
-	GtkWidgetPath *path = gtk_widget_path_new();
-	gtk_widget_path_append_type(path, G_TYPE_NONE);
-	gtk_widget_path_iter_set_object_name(path, -1, "treeview");
-	gtk_widget_path_iter_add_class(path, -1, "view");
-	gtk_widget_path_append_type(path, G_TYPE_NONE);
-	gtk_widget_path_iter_set_object_name(path, -1, "header");
-	gtk_widget_path_append_type(path, G_TYPE_NONE);
-	gtk_widget_path_iter_set_object_name(path, -1, "button");
-	gtk_widget_path_iter_set_state(path, -1, GTK_STATE_FLAG_NORMAL);
-	GtkStyleContext *sc = gtk_style_context_new();
-	gtk_style_context_set_path(sc, path);
-	gtk_style_context_set_parent(sc, NULL);
-	gtk_style_context_set_state(sc, gtk_widget_path_iter_get_state(path, -1));
-
-	// Draw background
-	gtk_render_background(sc, cr, x, 0, width, sclw->header_height);
-	gtk_render_frame(sc, cr, x, 0, width, sclw->header_height);
-
-	// Render text
-	stack_cue_list_widget_render_text(sclw, cr, x + (align_center ? 0 : 8), 0, width, sclw->header_height, text, align_center, true, sc);
-
-	// Tidy up
-	gtk_widget_path_unref(path);
-	g_object_unref(sc);
 }
 
 static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, const char *text, double pct, GtkStyleContext *style_context)
@@ -578,7 +610,7 @@ static void stack_cue_list_widget_render_time(StackCueListWidget *sclw, cairo_t 
 	stack_cue_list_widget_render_text(sclw, cr, x, y, width, sclw->row_height, text, true, false, style_context);
 }
 
-static void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWColumnGeometry *geom)
+void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWColumnGeometry *geom)
 {
 	// Get width
 	guint width = gtk_widget_get_allocated_width(GTK_WIDGET(sclw));
@@ -593,45 +625,6 @@ static void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWCol
 	geom->name_width = geom->pre_x - geom->name_x;
 }
 
-static void stack_cue_list_widget_update_header_cache(StackCueListWidget *sclw, guint width)
-{
-	// Tidy up existing objects
-	if (sclw->header_surface != NULL)
-	{
-		cairo_surface_destroy(sclw->header_surface);
-	}
-	if (sclw->header_cr != NULL)
-	{
-		cairo_destroy(sclw->header_cr);
-	}
-
-	// Create new Cairo objects
-	sclw->header_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, sclw->header_height);
-	sclw->header_cr = cairo_create(sclw->header_surface);
-	sclw->header_cache_width = width;
-
-	// Set up for text
-	cairo_set_antialias(sclw->header_cr, CAIRO_ANTIALIAS_DEFAULT);
-	cairo_set_font_size(sclw->header_cr, 14.0);
-	cairo_set_line_width(sclw->header_cr, 1.0);
-
-	// Get some geometry
-	SCLWColumnGeometry geom;
-	stack_cue_list_widget_get_geometry(sclw, &geom);
-
-	// Render header
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, 0, geom.cue_x, "", false);
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.cue_x, sclw->cue_width, "Cue", true);
-	if (sclw->scriptref_width > 0)
-	{
-		stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.scriptref_x, sclw->scriptref_width, "Script Ref.", true);
-	}
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.name_x, geom.name_width, "Name", false);
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.pre_x, sclw->pre_width, "Pre-wait", true);
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.action_x, sclw->action_width, "Action", true);
-	stack_cue_list_widget_render_header(sclw, sclw->header_cr, geom.post_x, sclw->post_width, "Post-wait", true);
-}
-
 void stack_cue_list_widget_list_modified(StackCueListWidget *sclw)
 {
 	// Check that the currently selected cue is still valid
@@ -643,6 +636,9 @@ void stack_cue_list_widget_list_modified(StackCueListWidget *sclw)
 
 	// Re-calculate which cue is at the top as it could have changed
 	stack_cue_list_widget_recalculate_top_cue(sclw);
+
+	// Set the full size of the list
+	stack_cue_list_widget_update_height(sclw);
 
 	// Force a full redraw
 	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
@@ -695,26 +691,27 @@ static void stack_cue_list_widget_render_placeholder(StackCueListWidget *sclw, S
 	g_object_unref(style_context);
 }
 
-static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields)
+// row_y here is in pixel co-ordinates of the cache
+static bool stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields)
 {
 	char buffer[32];
 
 	if (sclw == NULL || cue == NULL)
 	{
-		return;
+		return false;
 	}
 
 	// If we don't currently have a cache, just render the entire thing
 	if (sclw->list_surface == NULL || sclw->list_cr == NULL)
 	{
 		stack_cue_list_widget_update_list_cache(sclw, 0, 0);
-		return;
+		return true;
 	}
 
 	// We shouldn't be drawing cues that are children of unexpanded cues
 	if (cue->parent_cue != NULL && !stack_cue_list_widget_is_cue_expanded(sclw, cue->parent_cue->uid))
 	{
-		return;
+		return false;
 	}
 
 	if (row_y < 0)
@@ -722,15 +719,15 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 		int32_t calc_row_y = stack_cue_list_widget_get_cue_y(sclw, cue->uid);
 		if (calc_row_y == -1)
 		{
-			return;
+			return false;
 		}
-		row_y = calc_row_y - sclw->scroll_offset;
+		row_y = calc_row_y - stack_cue_list_widget_get_scroll_offset(sclw);
 	}
 
 	// Stop drawing if we're off the top or bottom of the view
 	if (row_y + sclw->row_height < 0 || row_y >= (double)sclw->list_cache_height)
 	{
-		return;
+		return false;
 	}
 
 	// Preparre to fill the background
@@ -970,6 +967,8 @@ static void stack_cue_list_widget_update_row(StackCueListWidget *sclw, StackCue 
 	// Tidy up
 	gtk_widget_path_unref(path);
 	g_object_unref(style_context);
+
+	return true;
 }
 
 static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, guint width, guint height)
@@ -991,7 +990,7 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 	}
 	if (height == 0)
 	{
-		height = gtk_widget_get_allocated_height(GTK_WIDGET(sclw)) - sclw->header_height;
+		height = stack_cue_list_widget_get_visible_area(sclw);
 	}
 
 	// Create new Cairo objects
@@ -1032,14 +1031,15 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 	stack_cue_list_lock(sclw->cue_list);
 
 	// If we don't have a top cue currently, work it out
-	if (sclw->top_cue == STACK_CUE_UID_NONE)
-	{
+	//if (sclw->top_cue == STACK_CUE_UID_NONE)
+	//{
 		stack_cue_list_widget_recalculate_top_cue(sclw);
-	}
+	//}
 
 	// Get an iterator over the cue list
 	size_t count = 0;
-	double row_y = (double)-(sclw->scroll_offset);
+	//double row_y = (double)-(stack_cue_list_widget_get_scroll_offset(sclw));
+	double row_y = -fmod(stack_cue_list_widget_get_scroll_offset(sclw), sclw->row_height);
 	bool found_first = false;
 
 	for (auto citer = sclw->cue_list->cues->recursive_begin(); citer != sclw->cue_list->cues->recursive_end(); )
@@ -1063,13 +1063,18 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 
 		if (found_first)
 		{
-			stack_cue_list_widget_update_row(sclw, cue, &geom, row_y, 0);
+			bool rendered = stack_cue_list_widget_update_row(sclw, cue, &geom, row_y, 0);
+			if (!rendered)
+			{
+				break;
+			}
 			if (cue->can_have_children && stack_cue_list_widget_is_cue_expanded(sclw, cue->uid) && stack_cue_get_children(cue)->size() == 0)
 			{
 				// Draw the placeholder and increment Y to account for its space
 				row_y += (double)sclw->row_height;
 				stack_cue_list_widget_render_placeholder(sclw, &geom, row_y);
 			}
+			row_y += (double)sclw->row_height;
 		}
 
 		if (!found_first && cue->can_have_children && stack_cue_list_widget_is_cue_expanded(sclw, cue->uid) && stack_cue_get_children(cue)->size() == 0)
@@ -1080,8 +1085,11 @@ static void stack_cue_list_widget_update_list_cache(StackCueListWidget *sclw, gu
 
 		// Increment to the next cue
 		++citer;
-		row_y += (double)sclw->row_height;
+		//row_y += (double)sclw->row_height;
 	}
+
+	// Store what we rendered
+	sclw->rendered_scroll_offset = stack_cue_list_widget_get_scroll_offset(sclw);
 
 	// Unlock the cue list
 	stack_cue_list_unlock(sclw->cue_list);
@@ -1094,7 +1102,8 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 
 	// Get details
 	guint width = gtk_widget_get_allocated_width(widget);
-	guint height = gtk_widget_get_allocated_height(widget);
+	//guint height = gtk_widget_get_allocated_height(widget);
+	guint height = stack_cue_list_widget_get_visible_area(sclw);
 
 	// Set up
 	cairo_set_antialias(cr, CAIRO_ANTIALIAS_DEFAULT);
@@ -1111,32 +1120,21 @@ static gboolean stack_cue_list_widget_draw(GtkWidget *widget, cairo_t *cr)
 		stack_cue_list_widget_set_row_height(sclw, (text_size / PANGO_SCALE) + 13);
 	}
 
-	// Update header cache if necessary
-	if (sclw->header_surface == NULL || sclw->header_cache_width != width)
-	{
-		stack_cue_list_widget_update_header_cache(sclw, width);
-	}
-
-	// Render the header
-	cairo_set_source_surface(cr, sclw->header_surface, 0, 0);
-	cairo_rectangle(cr, 0.0, 0.0, width, sclw->header_height);
-	cairo_fill(cr);
-
 	// Update list cache if necessary
-	if (sclw->list_surface == NULL || sclw->list_cache_width != width || sclw->list_cache_height != height - sclw->header_height)
+	if (sclw->list_surface == NULL || sclw->list_cache_width != width || sclw->list_cache_height != height || sclw->rendered_scroll_offset != stack_cue_list_widget_get_scroll_offset(sclw))
 	{
-		stack_cue_list_widget_update_list_cache(sclw, width, height - sclw->header_height);
+		stack_cue_list_widget_update_list_cache(sclw, width, height);
 	}
 
 	// Render the list
-	cairo_set_source_surface(cr, sclw->list_surface, 0, sclw->header_height);
-	cairo_rectangle(cr, 0.0, sclw->header_height, width, height - sclw->header_height);
+	cairo_set_source_surface(cr, sclw->list_surface, 0, stack_cue_list_widget_get_scroll_offset(sclw));
+	cairo_rectangle(cr, 0.0, stack_cue_list_widget_get_scroll_offset(sclw), sclw->list_cache_width, sclw->list_cache_height);
 	cairo_fill(cr);
 
 	// Draw drag overlay if necessary
 	if (sclw->dragging == 2)
 	{
-		double drop_y = (sclw->drop_index * sclw->row_height) - sclw->scroll_offset + sclw->header_height;
+		double drop_y = (sclw->drop_index * sclw->row_height);
 
 		cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
 		cairo_move_to(cr, 0.0, drop_y);
@@ -1305,6 +1303,9 @@ void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t 
 {
 	stack_cue_list_widget_toggle_flag(sclw, new_uid, SCLW_FLAG_EXPANDED);
 
+	// Recalculate the height of the widget
+	stack_cue_list_widget_update_height(sclw);
+
 	// Redraw the entire list
 	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
 	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
@@ -1323,7 +1324,6 @@ void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw)
 
 	// Redraw the entire list
 	guint width = gtk_widget_get_allocated_width(GTK_WIDGET(sclw));
-	stack_cue_list_widget_update_header_cache(sclw, width);
 	stack_cue_list_widget_update_list_cache(sclw, 0, 0);
 	gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
 }
@@ -1653,43 +1653,6 @@ static void stack_cue_list_widget_button(GtkWidget *widget, GdkEventButton *even
 	}
 }
 
-static void stack_cue_list_widget_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
-{
-	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
-	int32_t new_scroll_offset = sclw->scroll_offset;
-
-	if (event->direction == GDK_SCROLL_UP)
-	{
-		new_scroll_offset = sclw->scroll_offset - 5;
-		if (new_scroll_offset < 0)
-		{
-			new_scroll_offset = 0;
-		}
-	}
-	else if (event->direction == GDK_SCROLL_DOWN)
-	{
-		const int32_t full_list_height = stack_cue_list_widget_get_list_height(sclw);
-		guint list_display_height = gtk_widget_get_allocated_height(widget) - sclw->header_height;
-
-		// Only scroll if the list is longer than the widget is tall
-		if (full_list_height - sclw->scroll_offset > list_display_height)
-		{
-			new_scroll_offset = sclw->scroll_offset + 5;
-		}
-	}
-
-	// Only redraw if we've changed
-	if (new_scroll_offset != sclw->scroll_offset)
-	{
-		sclw->scroll_offset = new_scroll_offset;
-
-		// Recalculate what's on display and redraw
-		stack_cue_list_widget_recalculate_top_cue(sclw);
-		stack_cue_list_widget_update_list_cache(sclw, 0, 0);
-		gdk_threads_add_idle(stack_cue_list_widget_idle_redraw, sclw);
-	}
-}
-
 gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
 	StackCueListWidget *sclw = STACK_CUE_LIST_WIDGET(widget);
@@ -1771,9 +1734,19 @@ gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, 
 	{
 		if (sclw->primary_selection != STACK_CUE_UID_NONE)
 		{
-			if (stack_cue_list_widget_is_cue_expanded(sclw, sclw->primary_selection))
+			// See if the current primary selection is a child
+			StackCue *cue = stack_cue_get_by_uid(sclw->primary_selection);
+			if (cue != NULL && cue->parent_cue != NULL)
 			{
-				stack_cue_list_widget_toggle_expansion(sclw, sclw->primary_selection);
+				// Jump to the parent cue
+				stack_cue_list_widget_select_single_cue(sclw, cue->parent_cue->uid);
+			}
+			else
+			{
+				if (stack_cue_list_widget_is_cue_expanded(sclw, sclw->primary_selection))
+				{
+					stack_cue_list_widget_toggle_expansion(sclw, sclw->primary_selection);
+				}
 			}
 		}
 	}
@@ -1827,8 +1800,7 @@ gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, 
 			// Get an iterator at the current cue
 			auto iter = stack_cue_list_recursive_iter_at(sclw->cue_list, sclw->primary_selection, NULL);
 
-			const guint list_display_height = gtk_widget_get_allocated_height(widget) - sclw->header_height;
-
+			const guint list_display_height = stack_cue_list_widget_get_visible_area(sclw);
 			size_t count = list_display_height / sclw->row_height;
 
 			// Move the iterator backward
@@ -1892,8 +1864,7 @@ gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, 
 			// Get an iterator at the current cue
 			auto iter = stack_cue_list_recursive_iter_at(sclw->cue_list, sclw->primary_selection, NULL);
 
-			const guint list_display_height = gtk_widget_get_allocated_height(widget) - sclw->header_height;
-
+			const guint list_display_height = stack_cue_list_widget_get_visible_area(sclw);
 			size_t count = list_display_height / sclw->row_height;
 
 			// Move the iterator forward
@@ -1989,7 +1960,7 @@ static void stack_cue_list_widget_init(StackCueListWidget *sclw)
 	g_signal_connect(sclw, "button-press-event", G_CALLBACK(stack_cue_list_widget_button), NULL);
 	g_signal_connect(sclw, "button-release-event", G_CALLBACK(stack_cue_list_widget_button), NULL);
 	g_signal_connect(sclw, "motion-notify-event", G_CALLBACK(stack_cue_list_widget_motion), NULL);
-	g_signal_connect(sclw, "scroll-event", G_CALLBACK(stack_cue_list_widget_scroll), NULL);
+	//g_signal_connect(sclw, "scroll-event", G_CALLBACK(stack_cue_list_widget_scroll), NULL);
 	g_signal_connect(sclw, "key-press-event", G_CALLBACK(stack_cue_list_widget_key_press), NULL);
 	g_signal_connect(sclw, "focus-in-event", G_CALLBACK(stack_cue_list_widget_focus), NULL);
 	g_signal_connect(sclw, "focus-out-event", G_CALLBACK(stack_cue_list_widget_focus), NULL);
@@ -2012,7 +1983,7 @@ static void stack_cue_list_widget_realize(GtkWidget *widget)
 	attr.height = allocation.height;
 	attr.wclass = GDK_INPUT_OUTPUT;
 	attr.window_type = GDK_WINDOW_CHILD;
-	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK | GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK | GDK_FOCUS_CHANGE_MASK;
+	attr.event_mask = gtk_widget_get_events(widget) | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK | GDK_FOCUS_CHANGE_MASK;
 	attr.visual = gtk_widget_get_visual(widget);
 
 	GdkWindow *parent = gtk_widget_get_parent_window(widget);

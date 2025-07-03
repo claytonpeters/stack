@@ -1823,6 +1823,24 @@ extern "C" void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointe
 	// No need to update the UI on this one (currently)
 }
 
+// TODO: This feels like a bit of a bodge
+extern "C" gboolean saw_cue_list_scrolled(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
+{
+	// Get the window
+	StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	gtk_widget_queue_draw(GTK_WIDGET(window->sclw));
+	return false;
+}
+
+extern "C" gboolean saw_cue_list_scroll_child(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
+{
+	stack_log("SCROLL\n");
+	// Get the window
+	//StackAppWindow *window = STACK_APP_WINDOW(user_data);
+	//gtk_widget_queue_draw(GTK_WIDGET(window->sclw));
+	return false;
+}
+
 extern "C" void saw_escape_pressed(void* widget, gpointer user_data)
 {
 	// Last time escape was pressed (note: static!)
@@ -1990,10 +2008,15 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Setup custom list view
 	window->sclw = STACK_CUE_LIST_WIDGET(stack_cue_list_widget_new());
+	window->sclhw = STACK_CUE_LIST_HEADER_WIDGET(stack_cue_list_header_widget_new(window->sclw));
 	window->sclw->cue_list = window->cue_list;
-	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawCueListPlaceholder")));
-	gtk_paned_add1(GTK_PANED(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(window->sclw));
+	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListViewport")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawSclwPlaceholder")));
+	gtk_container_add(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListViewport")), GTK_WIDGET(window->sclw));
+	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawSclhwPlaceholder")));
+	gtk_box_pack_start(GTK_BOX(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(window->sclhw), false, false, 0);
+	gtk_box_reorder_child(GTK_BOX(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(window->sclhw), 0);
 	gtk_widget_set_visible(GTK_WIDGET(window->sclw), true);
+	gtk_widget_set_visible(GTK_WIDGET(window->sclhw), true);
 
 	// Master Out Meter: Get the UI item to add the cue to
 	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));

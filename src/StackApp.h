@@ -53,6 +53,7 @@ struct StackAppWindow
 
 	// Our cue list widget
 	StackCueListWidget *sclw;
+	StackCueListHeaderWidget *sclhw;
 
 	// Our builder that contains our controls
 	GtkBuilder *builder;

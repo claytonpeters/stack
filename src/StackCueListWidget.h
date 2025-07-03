@@ -19,6 +19,8 @@
 
 typedef std::map<cue_uid_t, uint32_t> SCLWCueFlagsMap;
 
+struct StackCueListHeaderWidget;
+
 struct StackCueListWidget
 {
 	GtkWidget super;
@@ -59,13 +61,11 @@ struct StackCueListWidget
 	GdkPixbuf *icon_closed;
 
 	// Cairo objects for cached items
-	cairo_t *header_cr;
-	cairo_surface_t *header_surface;
 	cairo_t *list_cr;
 	cairo_surface_t *list_surface;
-	int32_t header_cache_width;
 	int32_t list_cache_width;
 	int32_t list_cache_height;
+	int32_t rendered_scroll_offset;
 
 	// Drag/drop
 	int32_t dragging;
@@ -83,14 +83,50 @@ struct StackCueListWidgetClass
 	GtkWidgetClass super;
 };
 
+struct StackCueListHeaderWidget
+{
+	GtkWidget super;
+	GdkWindow *window;
+	StackCueListWidget *sclw;
+
+	// Cairo objects for cached items
+	cairo_t *header_cr;
+	cairo_surface_t *header_surface;
+	int32_t header_cache_width;
+};
+
+struct StackCueListHeaderWidgetClass
+{
+	GtkWidgetClass super;
+};
+
+// Relevant geometry for columns
+struct SCLWColumnGeometry
+{
+	double cue_x;
+	double scriptref_x;
+	double name_x;
+	double name_width;
+	double post_x;
+	double action_x;
+	double pre_x;
+};
+
 // Define our macro for casting
 #define STACK_CUE_LIST_WIDGET(obj)       G_TYPE_CHECK_INSTANCE_CAST(obj, stack_cue_list_widget_get_type(), StackCueListWidget)
 #define STACK_CUE_LIST_WIDGET_CLASS(cls) G_TYPE_CHECK_CLASS_CAST(cls, stack_cue_list_widget_get_type(), StackCueListWidgetClass)
 #define IS_STACK_CUE_LIST_WIDGET(obj)    G_TYPE_CHECK_INSTANCE_TYPE(obj, stack_cue_list_widget_get_type())
 
+#define STACK_CUE_LIST_HEADER_WIDGET(obj)       G_TYPE_CHECK_INSTANCE_CAST(obj, stack_cue_list_header_widget_get_type(), StackCueListHeaderWidget)
+#define STACK_CUE_LIST_HEADER_WIDGET_CLASS(cls) G_TYPE_CHECK_CLASS_CAST(cls, stack_cue_list_header_widget_get_type(), StackCueListWHeaderidgetClass)
+#define IS_STACK_CUE_LIST_HEADER_WIDGET(obj)    G_TYPE_CHECK_INSTANCE_TYPE(obj, stack_cue_list_header_widget_get_type())
+
 // Additional functions:
 GType stack_cue_list_widget_get_type();
 GtkWidget *stack_cue_list_widget_new();
+
+GType stack_cue_list_header_widget_get_type();
+GtkWidget *stack_cue_list_header_widget_new(StackCueListWidget *sclw);
 
 // Functions:
 void stack_cue_list_widget_set_cue_list(StackCueListWidget *sclw, StackCueList *cue_list);
@@ -106,6 +142,7 @@ void stack_cue_list_widget_toggle_selection(StackCueListWidget *sclw, cue_uid_t 
 void stack_cue_list_widget_toggle_expansion(StackCueListWidget *sclw, cue_uid_t new_uid);
 void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw);
 gboolean stack_cue_list_widget_key_press(GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+void stack_cue_list_widget_get_geometry(StackCueListWidget *sclw, SCLWColumnGeometry *geom);
 
 // Internal only:
 void stack_cue_list_widget_recalculate_top_cue(StackCueListWidget *sclw);
