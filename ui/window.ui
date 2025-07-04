@@ -493,10 +493,11 @@
                   <object class="GtkLabel" id="sawCueListPlaceholder">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Cue List Placeholder</property>
                   </object>
                   <packing>
-                    <property name="resize">True</property>
-                    <property name="shrink">False</property>
+                    <property name="resize">False</property>
+                    <property name="shrink">True</property>
                   </packing>
                 </child>
                 <child>

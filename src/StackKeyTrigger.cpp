@@ -27,7 +27,7 @@ void stack_key_trigger_remove_handler(StackKeyTrigger *trigger)
 	// Remove any signal handler we set
 	if (trigger->handler_id != 0 && trigger->sclw != NULL)
 	{
-		g_signal_handler_disconnect(trigger->sclw, trigger->handler_id);
+		g_signal_handler_disconnect(trigger->sclw->content, trigger->handler_id);
 		stack_log("stack_key_trigger_remove_handler(): Handler removed\n");
 		trigger->sclw = NULL;
 		trigger->handler_id = 0;
@@ -74,12 +74,12 @@ void stack_key_trigger_set_handler(StackKeyTrigger *trigger, guint event_type, g
 			// Set up the handler
 			if (event_type == GDK_KEY_PRESS)
 			{
-				trigger->handler_id = g_signal_connect(window->sclw, "key-press-event", G_CALLBACK(stack_key_trigger_run_action), (gpointer)trigger);
+				trigger->handler_id = g_signal_connect(window->sclw->content, "key-press-event", G_CALLBACK(stack_key_trigger_run_action), (gpointer)trigger);
 				stack_log("stack_key_trigger_set_handler(): Key press signal attached, handler %d\n", trigger->handler_id);
 			}
 			else if (event_type == GDK_KEY_RELEASE)
 			{
-				trigger->handler_id = g_signal_connect(window->sclw, "key-release-event", G_CALLBACK(stack_key_trigger_run_action), (gpointer)trigger);
+				trigger->handler_id = g_signal_connect(window->sclw->content, "key-release-event", G_CALLBACK(stack_key_trigger_run_action), (gpointer)trigger);
 				stack_log("stack_key_trigger_set_handler(): Key release signal attached, handler %d\n", trigger->handler_id);
 			}
 			else

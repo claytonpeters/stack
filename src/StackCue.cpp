@@ -124,7 +124,9 @@ void stack_cue_init(StackCue *cue, StackCueList *cue_list)
 	stack_cue_add_property(cue, post_trigger);
 	stack_property_set_changed_callback(post_trigger, stack_cue_ccb, cue);
 
+#ifndef NDEBUG
 	stack_log("stack_cue_init() called - initialised cue UID %016lx\n", cue->uid);
+#endif
 }
 
 void stack_cue_add_property(StackCue *cue, StackProperty *property)
@@ -393,7 +395,9 @@ void stack_cue_destroy(StackCue *cue)
 		return;
 	}
 
+#ifndef NDEBUG
 	stack_log("stack_cue_destroy(0x%p): Destroying cue %016lx\n", (void*)cue, cue->uid);
+#endif
 
 	// Locate the class
 	auto iter = cue_class_map.find(string(cue->_class_name));

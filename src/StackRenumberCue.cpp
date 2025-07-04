@@ -38,7 +38,7 @@ bool src_show_dialog(StackAppWindow *window)
 			StackCue *cue = *iter;
 
 			// If the cue is selected
-			if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+			if (stack_cue_list_content_widget_is_cue_selected(window->sclw->content, cue->uid))
 			{
 				// Set the new cue ID
 				stack_cue_set_id(cue, new_cue_id);
