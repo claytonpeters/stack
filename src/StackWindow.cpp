@@ -100,7 +100,7 @@ static void saw_update_selected_cue(gpointer user_data)
 	StackCue *cue = window->selected_cue;
 	if (cue)
 	{
-		stack_cue_list_widget_update_cue(window->sclw, cue->uid, 0);
+		stack_cue_list_content_widget_update_cue(window->sclw->content, cue->uid, 0);
 	}
 }
 
@@ -113,7 +113,7 @@ static gboolean saw_update_cue_main_thread(gpointer user_data)
 {
 	// Update the list data
 	StackCueListUpdateData* data = (StackCueListUpdateData*)user_data;
-	stack_cue_list_widget_update_cue(data->window->sclw, data->cue->uid, 0);
+	stack_cue_list_content_widget_update_cue(data->window->sclw->content, data->cue->uid, 0);
 
 	// Tidy up
 	delete data;
@@ -142,7 +142,7 @@ extern "C" void saw_cue_state_changed(StackCueList *cue_list, StackCue *cue, voi
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
 	// Update the UI
-	stack_cue_list_widget_update_cue(window->sclw, cue->uid, 0);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, cue->uid, 0);
 }
 
 // Updates a pre/post wait time on the properties panel
@@ -303,7 +303,7 @@ static void saw_select_first_cue(StackAppWindow *window)
 	StackCue *cue = *(window->cue_list->cues->begin());
 	if (cue != NULL)
 	{
-		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, cue->uid);
 	}
 }
 
@@ -313,14 +313,14 @@ static void saw_select_last_cue(StackAppWindow *window)
 	StackCue *cue = *(--(window->cue_list->cues->end()));
 	if (cue != NULL)
 	{
-		stack_cue_list_widget_select_single_cue(window->sclw, cue->uid);
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, cue->uid);
 	}
 }
 
 // Selects the next cue in the list
 static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = false)
 {
-	cue_uid_t old_uid = window->sclw->primary_selection;
+	cue_uid_t old_uid = window->sclw->content->primary_selection;
 
 	// If there is a selection
 	if (old_uid != STACK_CUE_UID_NONE)
@@ -377,12 +377,12 @@ static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = fa
 				}
 				else
 				{
-					stack_cue_list_widget_select_single_cue(window->sclw, next_cue->uid);
+					stack_cue_list_content_widget_select_single_cue(window->sclw->content, next_cue->uid);
 				}
 			}
 			else
 			{
-				stack_cue_list_widget_select_single_cue(window->sclw, next_cue->uid);
+				stack_cue_list_content_widget_select_single_cue(window->sclw->content, next_cue->uid);
 			}
 		}
 	}
@@ -615,7 +615,7 @@ extern "C" void saw_file_new_clicked(void* widget, gpointer user_data)
 	window->cue_list = stack_cue_list_new(2);
 	window->cue_list->state_change_func = saw_cue_state_changed;
 	window->cue_list->state_change_func_data = (void*)window;
-	stack_cue_list_widget_set_cue_list(window->sclw, window->cue_list);
+	stack_cue_list_content_widget_set_cue_list(window->sclw->content, window->cue_list);
 
 	// Refresh the cue list
 	gtk_window_set_title(GTK_WINDOW(window), "Stack");
@@ -650,7 +650,7 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	{
 		StackCue *cue = *iter;
 
-		bool is_selected = stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid);
+		bool is_selected = stack_cue_list_content_widget_is_cue_selected(window->sclw->content, cue->uid);
 
 		// If the current cue is not selected, and the previous cue was, mark
 		// this cue as the new selection
@@ -687,7 +687,7 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 	{
 		StackCue *cue = *iter;
-		if (stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+		if (stack_cue_list_content_widget_is_cue_selected(window->sclw->content, cue->uid))
 		{
 			// If this is the currently primary selection, deselect it properly
 			if (cue == window->selected_cue)
@@ -726,13 +726,13 @@ extern "C" void saw_edit_delete_clicked(void* widget, gpointer user_data)
 	}
 
 	// Redraw the whole list widget
-	stack_cue_list_widget_list_modified(window->sclw);
+	stack_cue_list_content_widget_list_modified(window->sclw->content);
 
 	// If we have a new selection, select it, otherwise select the last cue in
 	// the cue list
 	if (new_selection != STACK_CUE_UID_NONE)
 	{
-		stack_cue_list_widget_select_single_cue(window->sclw, new_selection);
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, new_selection);
 	}
 	else
 	{
@@ -777,7 +777,7 @@ extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
 	// in textboxes. If the cue list is not focussed, re-emit the signal for the
 	// focussed widget
 	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
-	if (active != GTK_WIDGET(window->sclw))
+	if (active != GTK_WIDGET(window->sclw->content))
 	{
 		g_signal_emit_by_name((gpointer)active, "copy-clipboard");
 		return;
@@ -796,7 +796,7 @@ extern "C" void saw_edit_copy_clicked(void* widget, gpointer user_data)
 		for (auto cue : *window->cue_list->cues)
 		{
 			// Skip past unselected cues
-			if (!stack_cue_list_widget_is_cue_selected(window->sclw, cue->uid))
+			if (!stack_cue_list_content_widget_is_cue_selected(window->sclw->content, cue->uid))
 			{
 				continue;
 			}
@@ -841,7 +841,7 @@ extern "C" void saw_edit_cut_clicked(void* widget, gpointer user_data)
 	// in textboxes. If the cue list is not focussed, re-emit the signal for the
 	// focussed widget
 	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
-	if (active != GTK_WIDGET(window->sclw))
+	if (active != GTK_WIDGET(window->sclw->content))
 	{
 		g_signal_emit_by_name((gpointer)active, "cut-clipboard");
 		return;
@@ -867,7 +867,7 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 	// in textboxes. If the cue list is not focussed, re-emit the signal for the
 	// focussed widget
 	GtkWidget *active = gtk_window_get_focus(GTK_WINDOW(window));
-	if (active != GTK_WIDGET(window->sclw))
+	if (active != GTK_WIDGET(window->sclw->content))
 	{
 		g_signal_emit_by_name((gpointer)active, "paste-clipboard");
 		return;
@@ -936,10 +936,10 @@ extern "C" void saw_edit_paste_clicked(void* widget, gpointer user_data)
 			stack_cue_list_unlock(window->cue_list);
 
 			// Select the new cue
-			stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
+			stack_cue_list_content_widget_select_single_cue(window->sclw->content, new_cue->uid);
 
 			// Tell the cue list to redraw
-			stack_cue_list_widget_list_modified(window->sclw);
+			stack_cue_list_content_widget_list_modified(window->sclw->content);
 		}
 	}
 
@@ -954,20 +954,20 @@ extern "C" gboolean saw_edit_select_all_clicked(void* widget, gpointer user_data
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
 	// Only do this if the cue list has focus
-	if (gtk_window_get_focus(GTK_WINDOW(window)) == GTK_WIDGET(window->sclw))
+	if (gtk_window_get_focus(GTK_WINDOW(window)) == GTK_WIDGET(window->sclw->content))
 	{
 		for (auto iter = window->cue_list->cues->recursive_begin(); iter != window->cue_list->cues->recursive_end(); ++iter)
 		{
 			StackCue *cue = *iter;
 
 			// Skip unexpanded cues with children
-			if (cue->can_have_children && !stack_cue_list_widget_is_cue_expanded(window->sclw, cue->uid) && stack_cue_get_children(cue)->size() != 0)
+			if (cue->can_have_children && !stack_cue_list_content_widget_is_cue_expanded(window->sclw->content, cue->uid) && stack_cue_get_children(cue)->size() != 0)
 			{
 				++iter;
 				iter.leave_child(true);
 				--iter;
 			}
-			stack_cue_list_widget_add_to_selection(window->sclw, cue->uid);
+			stack_cue_list_content_widget_add_to_selection(window->sclw->content, cue->uid);
 		}
 
 		// Don't let GTK pass on the event
@@ -1011,10 +1011,10 @@ static void saw_generic_add_cue(StackAppWindow *window, const char *type)
 	stack_cue_list_unlock(window->cue_list);
 
 	// Select the new cue
-	stack_cue_list_widget_select_single_cue(window->sclw, new_cue->uid);
+	stack_cue_list_content_widget_select_single_cue(window->sclw->content, new_cue->uid);
 
 	// Tell the cue list to redraw
-	stack_cue_list_widget_list_modified(window->sclw);
+	stack_cue_list_content_widget_list_modified(window->sclw->content);
 }
 
 // Menu callback via signal for adding any plugin cue type
@@ -1045,7 +1045,7 @@ extern "C" void saw_cue_renumber_clicked(void* widget, gpointer user_data)
 		for (auto cue : *window->cue_list->cues)
 		{
 			// Update the row
-			stack_cue_list_widget_update_cue(window->sclw, cue->uid, 0);
+			stack_cue_list_content_widget_update_cue(window->sclw->content, cue->uid, 0);
 		}
 
 		// Unlock the cue list
@@ -1104,7 +1104,7 @@ extern "C" void saw_help_about_clicked(void* widget, gpointer user_data)
 	// Build an about dialog
 	GtkAboutDialog *about = GTK_ABOUT_DIALOG(gtk_about_dialog_new());
 	gtk_about_dialog_set_program_name(about, "Stack");
-	gtk_about_dialog_set_version(about, "Version 0.1.20250618-1");
+	gtk_about_dialog_set_version(about, "Version 0.1.20250704-1");
 	gtk_about_dialog_set_copyright(about, "Copyright (c) 2025 Clayton Peters");
 	gtk_about_dialog_set_comments(about, "A GTK+ based sound cueing application for theatre");
 	gtk_about_dialog_set_website(about, "https://github.com/claytonpeters/stack");
@@ -1129,7 +1129,7 @@ extern "C" void saw_cue_play_clicked(void* widget, gpointer user_data)
 		stack_cue_list_lock(window->cue_list);
 		stack_cue_play(window->selected_cue);
 		stack_cue_list_unlock(window->cue_list);
-		stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
+		stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
 		// Select the next cue that isn't automatically triggered by a follow
 		saw_select_next_cue(window, true);
 	}
@@ -1146,7 +1146,7 @@ extern "C" void saw_cue_pause_clicked(void* widget, gpointer user_data)
 		stack_cue_list_lock(window->cue_list);
 		stack_cue_pause(window->selected_cue);
 		stack_cue_list_unlock(window->cue_list);
-		stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
+		stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
 	}
 }
 
@@ -1161,7 +1161,7 @@ extern "C" void saw_cue_stop_clicked(void* widget, gpointer user_data)
 		stack_cue_list_lock(window->cue_list);
 		stack_cue_stop(window->selected_cue);
 		stack_cue_list_unlock(window->cue_list);
-		stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
+		stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
 	}
 }
 
@@ -1518,7 +1518,7 @@ static gboolean saw_ui_timer(gpointer user_data)
 		if (cue->state == STACK_CUE_STATE_PAUSED || (cue->state >= STACK_CUE_STATE_PLAYING_PRE && cue->state <= STACK_CUE_STATE_PLAYING_POST))
 		{
 			// Update the row (times only)
-			stack_cue_list_widget_update_cue(window->sclw, cue->uid, 4);
+			stack_cue_list_content_widget_update_cue(window->sclw->content, cue->uid, 4);
 
 			// Update active cue panel
 			saw_add_or_update_active_cue_widget(window, cue);
@@ -1639,7 +1639,7 @@ extern "C" gboolean saw_cue_number_changed(GtkWidget *widget, GdkEvent *event, g
 	char cue_number[32];
 	stack_cue_id_to_string(window->selected_cue->id, cue_number, 32);
 	gtk_entry_set_text(GTK_ENTRY(widget), cue_number);
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 2);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 2);
 
 	return false;
 }
@@ -1662,7 +1662,7 @@ extern "C" void saw_cue_color_changed(GtkColorButton *widget, gpointer user_data
 	stack_cue_set_color(window->selected_cue, r, g, b);
 
 	// Update the UI
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
 }
 
 // Cue property change (done on focus-out)
@@ -1681,7 +1681,7 @@ extern "C" gboolean saw_cue_name_changed(GtkWidget *widget, GdkEvent *event, gpo
 	stack_cue_set_name(window->selected_cue, gtk_entry_get_text(GTK_ENTRY(widget)));
 
 	// Update the UI
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 3);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 3);
 
 	return false;
 }
@@ -1702,7 +1702,7 @@ extern "C" gboolean saw_cue_script_ref_changed(GtkWidget *widget, GdkEvent *even
 	stack_cue_set_script_ref(window->selected_cue, gtk_entry_get_text(GTK_ENTRY(widget)));
 
 	// Update the UI
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 5);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 5);
 
 	return false;
 }
@@ -1727,7 +1727,7 @@ extern "C" gboolean saw_cue_notes_changed(GtkWidget *widget, GdkEvent *event, gp
 	stack_cue_set_notes(window->selected_cue, gtk_text_buffer_get_text(buffer, &start, &end, false));
 
 	// Update the UI
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 0);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
 
 	return false;
 }
@@ -1749,7 +1749,7 @@ extern "C" gboolean saw_cue_prewait_changed(GtkWidget *widget, GdkEvent *event, 
 
 	// Update the UI
 	saw_ucp_wait(window, window->selected_cue, true);
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 4);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 4);
 
 	return false;
 }
@@ -1771,7 +1771,7 @@ extern "C" gboolean saw_cue_postwait_changed(GtkWidget *widget, GdkEvent *event,
 
 	// Update the UI
 	saw_ucp_wait(window, window->selected_cue, false);
-	stack_cue_list_widget_update_cue(window->sclw, window->selected_cue->uid, 4);
+	stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 4);
 
 	return false;
 }
@@ -1821,24 +1821,6 @@ extern "C" void saw_cue_postwait_trigger_changed(GtkRadioButton *widget, gpointe
 	stack_cue_set_post_trigger(window->selected_cue, trigger);
 
 	// No need to update the UI on this one (currently)
-}
-
-// TODO: This feels like a bit of a bodge
-extern "C" gboolean saw_cue_list_scrolled(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
-{
-	// Get the window
-	StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	gtk_widget_queue_draw(GTK_WIDGET(window->sclw));
-	return false;
-}
-
-extern "C" gboolean saw_cue_list_scroll_child(GtkWidget *widget, GdkEventScroll *event, gpointer user_data)
-{
-	stack_log("SCROLL\n");
-	// Get the window
-	//StackAppWindow *window = STACK_APP_WINDOW(user_data);
-	//gtk_widget_queue_draw(GTK_WIDGET(window->sclw));
-	return false;
 }
 
 extern "C" void saw_escape_pressed(void* widget, gpointer user_data)
@@ -1931,7 +1913,7 @@ void saw_file_dropped(GtkWidget *widget, GdkDragContext *context, gint x, gint y
 			// Update that last row in the list store with the basics of the cue
 			if (new_cue != NULL)
 			{
-				stack_cue_list_widget_update_cue(window->sclw, new_cue->uid, 0);
+				stack_cue_list_content_widget_update_cue(window->sclw->content, new_cue->uid, 0);
 			}
 
 			// Iterate
@@ -2008,15 +1990,10 @@ static void stack_app_window_init(StackAppWindow *window)
 
 	// Setup custom list view
 	window->sclw = STACK_CUE_LIST_WIDGET(stack_cue_list_widget_new());
-	window->sclhw = STACK_CUE_LIST_HEADER_WIDGET(stack_cue_list_header_widget_new(window->sclw));
-	window->sclw->cue_list = window->cue_list;
-	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListViewport")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawSclwPlaceholder")));
-	gtk_container_add(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListViewport")), GTK_WIDGET(window->sclw));
-	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawSclhwPlaceholder")));
-	gtk_box_pack_start(GTK_BOX(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(window->sclhw), false, false, 0);
-	gtk_box_reorder_child(GTK_BOX(gtk_builder_get_object(window->builder, "sawCueListVBox")), GTK_WIDGET(window->sclhw), 0);
+	stack_cue_list_content_widget_set_cue_list(window->sclw->content, window->cue_list);
+	gtk_container_remove(GTK_CONTAINER(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(gtk_builder_get_object(window->builder, "sawCueListPlaceholder")));
+	gtk_paned_add1(GTK_PANED(gtk_builder_get_object(window->builder, "sawVPanel")), GTK_WIDGET(window->sclw));
 	gtk_widget_set_visible(GTK_WIDGET(window->sclw), true);
-	gtk_widget_set_visible(GTK_WIDGET(window->sclhw), true);
 
 	// Master Out Meter: Get the UI item to add the cue to
 	GtkBox *active_cues = GTK_BOX(gtk_builder_get_object(window->builder, "sawActiveCuesBox"));
@@ -2094,14 +2071,14 @@ static void stack_app_window_init(StackAppWindow *window)
 	window->notebook = GTK_NOTEBOOK(gtk_builder_get_object(window->builder, "sawCuePropsTabs"));
 
 	// Set up signal handler for drag-drop in cue list
-	g_signal_connect(window->sclw, "drag-data-received", G_CALLBACK(saw_file_dropped), (gpointer)window);
-	g_signal_connect(window->sclw, "primary-selection-changed", G_CALLBACK(saw_cue_selected), (gpointer)window);
-	g_signal_connect(window->sclw, "key-press-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
-	g_signal_connect(window->sclw, "key-release-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
+	g_signal_connect(window->sclw->content, "drag-data-received", G_CALLBACK(saw_file_dropped), (gpointer)window);
+	g_signal_connect(window->sclw->content, "primary-selection-changed", G_CALLBACK(saw_cue_selected), (gpointer)window);
+	g_signal_connect(window->sclw->content, "key-press-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
+	g_signal_connect(window->sclw->content, "key-release-event", G_CALLBACK(saw_cue_list_key_event), (gpointer)window);
 
 	// Set up a drop target to handle files being dropped
-	gtk_drag_dest_set(GTK_WIDGET(window->sclw), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
-	gtk_drag_dest_add_uri_targets(GTK_WIDGET(window->sclw));
+	gtk_drag_dest_set(GTK_WIDGET(window->sclw->content), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
+	gtk_drag_dest_add_uri_targets(GTK_WIDGET(window->sclw->content));
 
 	// Set up clipboard
 	window->clipboard_target = gtk_target_entry_new(stack_cue_data_atom_name, 0, 1000);
@@ -2114,7 +2091,7 @@ static void stack_app_window_init(StackAppWindow *window)
 	saw_setup_default_device(window);
 
 	// Set the focus to the cue list
-	gtk_widget_grab_focus(GTK_WIDGET(window->sclw));
+	gtk_widget_grab_focus(GTK_WIDGET(window->sclw->content));
 }
 
 extern "C" void ttd_row_activated(GtkTreeView *self, GtkTreePath* path, GtkTreeViewColumn *column, gpointer user_data)
@@ -2433,7 +2410,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 		StackCueList *old_cue_list = window->cue_list;
 		window->cue_list = sld.new_cue_list;
 		window->loading_cue_list = NULL;
-		stack_cue_list_widget_set_cue_list(window->sclw, window->cue_list);
+		stack_cue_list_content_widget_set_cue_list(window->sclw->content, window->cue_list);
 
 		// Destroy the old cue list (do this after setting thew new one, so that
 		// any still-running event callbacks always have a valid cue list available)
@@ -2452,7 +2429,7 @@ void stack_app_window_open(StackAppWindow *window, GFile *file)
 
 		// Set the focus to the cue list and select the first cue so we're
 		// ready for playback
-		gtk_widget_grab_focus(GTK_WIDGET(window->sclw));
+		gtk_widget_grab_focus(GTK_WIDGET(window->sclw->content));
 		saw_select_first_cue(window);
 	}
 

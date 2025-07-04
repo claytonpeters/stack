@@ -5,9 +5,9 @@
 // Provides an implementation of stack_cue_list_header_widget_get_type
 G_DEFINE_TYPE(StackCueListHeaderWidget, stack_cue_list_header_widget, GTK_TYPE_WIDGET)
 
-void stack_cue_list_widget_render_text(StackCueListWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold, GtkStyleContext *style_context);
+void stack_cue_list_content_widget_render_text(StackCueListContentWidget *sclw, cairo_t *cr, double x, double y, double width, double height, const char *text, bool align_center, bool bold, GtkStyleContext *style_context);
 
-GtkWidget *stack_cue_list_header_widget_new(StackCueListWidget *sclw)
+GtkWidget *stack_cue_list_header_widget_new(StackCueListContentWidget *sclw)
 {
 	// Create the new object
 	GtkWidget *widget = GTK_WIDGET(g_object_new(stack_cue_list_header_widget_get_type(), NULL, NULL));
@@ -39,14 +39,14 @@ static void stack_cue_list_header_widget_render(StackCueListHeaderWidget *sclhw,
 	gtk_render_frame(sc, cr, x, 0, width, sclhw->sclw->header_height);
 
 	// Render text
-	stack_cue_list_widget_render_text(sclhw->sclw, cr, x + (align_center ? 0 : 8), 0, width, sclhw->sclw->header_height, text, align_center, true, sc);
+	stack_cue_list_content_widget_render_text(sclhw->sclw, cr, x + (align_center ? 0 : 8), 0, width, sclhw->sclw->header_height, text, align_center, true, sc);
 
 	// Tidy up
 	gtk_widget_path_unref(path);
 	g_object_unref(sc);
 }
 
-static void stack_cue_list_header_widget_update_cache(StackCueListHeaderWidget *sclhw, guint width)
+void stack_cue_list_header_widget_update_cache(StackCueListHeaderWidget *sclhw, guint width)
 {
 	// Tidy up existing objects
 	if (sclhw->header_surface != NULL)
@@ -56,6 +56,11 @@ static void stack_cue_list_header_widget_update_cache(StackCueListHeaderWidget *
 	if (sclhw->header_cr != NULL)
 	{
 		cairo_destroy(sclhw->header_cr);
+	}
+
+	if (width == 0)
+	{
+		width = gtk_widget_get_allocated_width(GTK_WIDGET(sclhw));
 	}
 
 	// Create new Cairo objects
@@ -70,7 +75,7 @@ static void stack_cue_list_header_widget_update_cache(StackCueListHeaderWidget *
 
 	// Get some geometry
 	SCLWColumnGeometry geom;
-	stack_cue_list_widget_get_geometry(sclhw->sclw, &geom);
+	stack_cue_list_content_widget_get_geometry(sclhw->sclw, &geom);
 
 	// Render header
 	stack_cue_list_header_widget_render(sclhw, sclhw->header_cr, 0, geom.cue_x, "", false);
