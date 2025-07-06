@@ -119,7 +119,6 @@ static int32_t stack_cue_list_content_widget_get_scroll_offset(StackCueListConte
 	}
 
 	int32_t scroll_offset = (int32_t)gtk_adjustment_get_value(adjustment);
-	int32_t page_size = (int32_t)gtk_adjustment_get_page_size(adjustment);
 	return scroll_offset;
 }
 
@@ -169,7 +168,7 @@ void stack_cue_list_content_widget_set_row_height(StackCueListContentWidget *scl
 /// @param search_index The index
 /// @param placeholder_for If the entry at the index is a placeholder, return the cue it's a placeholder for
 /// @return A cue if a cue was found or NULL if there was an error or if the entry at the index was a placeholder
-StackCue *stack_cue_list_get_cue_at_index(StackCueListContentWidget *sclw, uint32_t search_index, StackCue **placeholder_for)
+StackCue *stack_cue_list_content_widget_get_cue_at_index(StackCueListContentWidget *sclw, uint32_t search_index, StackCue **placeholder_for)
 {
 	if (sclw->cue_list == NULL)
 	{
@@ -230,8 +229,10 @@ StackCue *stack_cue_list_get_cue_at_index(StackCueListContentWidget *sclw, uint3
 
 void stack_cue_list_content_widget_recalculate_top_cue(StackCueListContentWidget *sclw)
 {
+	stack_log("recalcuate: %d / %d\n", stack_cue_list_content_widget_get_scroll_offset(sclw), sclw->row_height);
+
 	StackCue *placeholder = NULL;
-	StackCue *cue = stack_cue_list_get_cue_at_index(sclw, stack_cue_list_content_widget_get_scroll_offset(sclw) / sclw->row_height, &placeholder);
+	StackCue *cue = stack_cue_list_content_widget_get_cue_at_index(sclw, stack_cue_list_content_widget_get_scroll_offset(sclw) / sclw->row_height, &placeholder);
 	if (cue == NULL)
 	{
 		if (placeholder == NULL)
@@ -1508,7 +1509,7 @@ static void stack_cue_list_content_widget_button(GtkWidget *widget, GdkEventButt
 
 				bool dest_is_child = false;
 				StackCue *placeholder_for = NULL;
-				StackCue *dest_cue = stack_cue_list_get_cue_at_index(sclw, new_index, &placeholder_for);
+				StackCue *dest_cue = stack_cue_list_content_widget_get_cue_at_index(sclw, new_index, &placeholder_for);
 				if (dest_cue == NULL)
 				{
 					if (placeholder_for != NULL)
@@ -1937,7 +1938,6 @@ static void stack_cue_list_content_widget_init(StackCueListContentWidget *sclw)
 	g_signal_connect(sclw, "button-press-event", G_CALLBACK(stack_cue_list_content_widget_button), NULL);
 	g_signal_connect(sclw, "button-release-event", G_CALLBACK(stack_cue_list_content_widget_button), NULL);
 	g_signal_connect(sclw, "motion-notify-event", G_CALLBACK(stack_cue_list_content_widget_motion), NULL);
-	//g_signal_connect(sclw, "scroll-event", G_CALLBACK(stack_cue_list_content_widget_scroll), NULL);
 	g_signal_connect(sclw, "key-press-event", G_CALLBACK(stack_cue_list_content_widget_key_press), NULL);
 	g_signal_connect(sclw, "focus-in-event", G_CALLBACK(stack_cue_list_content_widget_focus), NULL);
 	g_signal_connect(sclw, "focus-out-event", G_CALLBACK(stack_cue_list_content_widget_focus), NULL);

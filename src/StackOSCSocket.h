@@ -72,4 +72,5 @@ bool stack_osc_socket_set_address_prefix(StackOSCSocket *osc_socket, const char 
 // Functions: helpers
 bool stack_osc_socket_is_address_prefix_valid(const char *address_prefix);
 void stack_osc_message_free(StackOSCMessage *message);
+
 #endif
