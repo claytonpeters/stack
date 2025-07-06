@@ -498,6 +498,16 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 				cue_list->osc_enabled = true;
 				cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, "/", cue_list);
 			}
+			else if (cue_list->osc_enabled && osc_enabled)
+			{
+				// OSC remaining enabled - check if anything changed
+				if (strcmp(osc_bind_address, stack_osc_socket_get_bind_address(cue_list->osc_socket)) != 0 ||
+					osc_port != stack_osc_socket_get_port(cue_list->osc_socket))
+				{
+					stack_osc_socket_destroy(cue_list->osc_socket);
+					cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, "/", cue_list);
+				}
+			}
 			// Unlock
 			stack_cue_list_unlock(cue_list);
 		}
