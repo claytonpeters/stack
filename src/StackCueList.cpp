@@ -1414,11 +1414,11 @@ StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue)
 StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
 {
 	// Iterate over all the cues
-	for (auto cue : *cue_list->cues)
+	for (auto iter = cue_list->cues->recursive_begin(); iter != cue_list->cues->recursive_end(); ++iter)
 	{
-		if (cue->uid == uid)
+		if ((*iter)->uid == uid)
 		{
-			return cue;
+			return *iter;
 		}
 	}
 
@@ -1430,11 +1430,11 @@ StackCue *stack_cue_list_get_first_cue_with_id(StackCueList *cue_list, const cha
 	cue_id_t cue_id = stack_cue_string_to_id(id);
 
 	// Iterate over all the cues
-	for (auto cue : *cue_list->cues)
+	for (auto iter = cue_list->cues->recursive_begin(); iter != cue_list->cues->recursive_end(); ++iter)
 	{
-		if (cue->id == cue_id)
+		if ((*iter)->id == cue_id)
 		{
-			return cue;
+			return *iter;
 		}
 	}
 
