@@ -229,8 +229,6 @@ StackCue *stack_cue_list_content_widget_get_cue_at_index(StackCueListContentWidg
 
 void stack_cue_list_content_widget_recalculate_top_cue(StackCueListContentWidget *sclw)
 {
-	stack_log("recalcuate: %d / %d\n", stack_cue_list_content_widget_get_scroll_offset(sclw), sclw->row_height);
-
 	StackCue *placeholder = NULL;
 	StackCue *cue = stack_cue_list_content_widget_get_cue_at_index(sclw, stack_cue_list_content_widget_get_scroll_offset(sclw) / sclw->row_height, &placeholder);
 	if (cue == NULL)
