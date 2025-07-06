@@ -28,6 +28,10 @@ struct StackGroupCue
 
 	// Tracking of played cue UIDs
 	std::list<cue_uid_t> *played_cues;
+
+	// Stop should only stop child cues if not called during a pulse (i.e.
+	// only when a user asks). This allows zero-length cues to work properly
+	bool in_pulse;
 };
 
 // Functions: Group cue functions

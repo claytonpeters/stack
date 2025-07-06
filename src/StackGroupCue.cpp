@@ -65,6 +65,7 @@ static StackCue* stack_group_cue_create(StackCueList *cue_list)
 	cue->group_tab = NULL;
 	cue->cues = new StackCueStdList;
 	cue->played_cues = new std::list<cue_uid_t>;
+	cue->in_pulse = false;
 
 	// Initialise superclass variables
 	stack_cue_set_name(STACK_CUE(cue), "Group");
@@ -136,7 +137,7 @@ static void stack_group_cue_trigger_children(StackGroupCue *gcue)
 	// Get the current action
 	int32_t action = STACK_GROUP_CUE_ENTER;
 	stack_property_get_int32(stack_cue_get_property(STACK_CUE(gcue), "action"), STACK_PROPERTY_VERSION_LIVE, &action);
-	
+
 	switch (action)
 	{
 		case STACK_GROUP_CUE_ENTER:
@@ -165,7 +166,7 @@ static void stack_group_cue_trigger_children(StackGroupCue *gcue)
 					stack_property_get_int64(stack_cue_get_property(child, "post_time"), STACK_PROPERTY_VERSION_DEFINED, &child_post_time);
 					stack_property_set_int64(stack_cue_get_property(STACK_CUE(gcue), "action_time"), STACK_PROPERTY_VERSION_DEFINED, child_pre_time + child_action_time + child_post_time);
 
-					// We also need to set the live time here as we could already be playing by the time this is caled
+					// We also need to set the live time here as we could already be playing by the time this is called
 					stack_property_set_int64(stack_cue_get_property(STACK_CUE(gcue), "action_time"), STACK_PROPERTY_VERSION_LIVE, child_pre_time + child_action_time + child_post_time);
 
 					stack_cue_play(child);
@@ -180,7 +181,7 @@ static void stack_group_cue_trigger_children(StackGroupCue *gcue)
 
 			// Start first cue, and then keep track of what we have and haven't played
 			stack_cue_play(first_cue);
-			
+
 			// Add the cue to the list of played cues
 			gcue->played_cues->push_front(first_cue->uid);
 			break;
@@ -316,11 +317,14 @@ static void stack_group_cue_stop(StackCue *cue)
 	// Call the superclass
 	stack_cue_stop_base(cue);
 
-	for (auto child : *STACK_GROUP_CUE(cue)->cues)
+	if (!STACK_GROUP_CUE(cue)->in_pulse)
 	{
-		if ((child->state >= STACK_CUE_STATE_PLAYING_PRE && child->state <= STACK_CUE_STATE_PLAYING_POST) || child->state == STACK_CUE_STATE_PAUSED)
+		for (auto child : *STACK_GROUP_CUE(cue)->cues)
 		{
-			stack_cue_stop(child);
+			if ((child->state >= STACK_CUE_STATE_PLAYING_PRE && child->state <= STACK_CUE_STATE_PLAYING_POST) || child->state == STACK_CUE_STATE_PAUSED)
+			{
+				stack_cue_stop(child);
+			}
 		}
 	}
 }
@@ -333,13 +337,25 @@ static void stack_group_cue_pulse(StackCue *cue, stack_time_t clocktime)
 	// Get the cue state before the base class potentially updates it
 	StackCueState pre_pulse_state = cue->state;
 
-	// Call superclass
+	// Call the superclass pulse - note that this can call stop() on the
+	// group cue, so we keep track fo whether we're in a pulse or not so
+	// as not to stop cues that should have fired soon (e.g. zero-length
+	// cues)
+	gcue->in_pulse = true;
 	stack_cue_pulse_base(cue, clocktime);
+	gcue->in_pulse = false;
 
 	// Note that we don't lock/unlock the cue list here as StackCueList has
 	// already done this prior to calling this function
 
+	// If we went from stopped/pre to playing then trigger the children
 	if (cue->state == STACK_CUE_STATE_PLAYING_ACTION && pre_pulse_state != STACK_CUE_STATE_PLAYING_ACTION)
+	{
+		stack_group_cue_trigger_children(gcue);
+	}
+	// If we jumped straight from pre to stopped/post then trigger children - we're probably just
+	// a zero length cue
+	if ((cue->state == STACK_CUE_STATE_PLAYING_POST || cue->state == STACK_CUE_STATE_STOPPED) && pre_pulse_state == STACK_CUE_STATE_PLAYING_PRE)
 	{
 		stack_group_cue_trigger_children(gcue);
 	}
@@ -383,8 +399,8 @@ static void stack_group_cue_pulse(StackCue *cue, stack_time_t clocktime)
 							child = *citer;
 							stack_cue_play(child);
 							gcue->played_cues->push_front(child->uid);
+							break;
 						}
-						break;
 					}
 				}
 			}
@@ -403,7 +419,7 @@ static void stack_group_cue_pulse(StackCue *cue, stack_time_t clocktime)
 				{
 					remaining_set.erase(played);
 				}
-				
+
 				// If there's nothing left, stop
 				if (remaining_set.empty())
 				{
