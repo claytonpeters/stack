@@ -22,7 +22,18 @@
       <column type="gchararray"/>
     </columns>
   </object>
+  <object class="GtkListStore" id="sssNetworkListStore">
+    <columns>
+      <!-- column-name Patch -->
+      <column type="gchararray"/>
+      <!-- column-name Host -->
+      <column type="gchararray"/>
+      <!-- column-name Port -->
+      <column type="guint"/>
+    </columns>
+  </object>
   <object class="GtkDialog" id="StackShowSettingsDialog">
+    <property name="height-request">400</property>
     <property name="can-focus">False</property>
     <property name="title" translatable="yes">Show Settings</property>
     <property name="type-hint">dialog</property>
@@ -499,6 +510,251 @@
               </object>
               <packing>
                 <property name="position">2</property>
+                <property name="tab-fill">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkBox" id="sssNetworkBox">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkBox" id="sssNetworkPatchBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="margin-left">8</property>
+                    <property name="margin-right">8</property>
+                    <property name="margin-start">8</property>
+                    <property name="margin-end">8</property>
+                    <property name="margin-top">8</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <child>
+                      <object class="GtkToolbar" id="sssNetworkToolbar">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="vexpand">True</property>
+                        <property name="orientation">vertical</property>
+                        <property name="toolbar-style">icons</property>
+                        <property name="show-arrow">False</property>
+                        <property name="icon_size">2</property>
+                        <child>
+                          <object class="GtkToolButton" id="sssAddNetworkButton">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Add Trigger</property>
+                            <property name="label" translatable="yes">Add Trigger</property>
+                            <property name="icon-name">list-add</property>
+                            <signal name="clicked" handler="sss_network_add_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="homogeneous">True</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkToolButton" id="sssEditNetworkButton">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Edit Trigger</property>
+                            <property name="label" translatable="yes">Edit Trigger</property>
+                            <property name="icon-name">gtk-edit</property>
+                            <signal name="clicked" handler="sss_network_edit_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="homogeneous">True</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkToolButton" id="sssDeleteNetworkButton">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Delete Trigger</property>
+                            <property name="label" translatable="yes">Delete Trigger</property>
+                            <property name="icon-name">list-remove</property>
+                            <signal name="clicked" handler="sss_network_remove_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="homogeneous">True</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkScrolledWindow" id="sssNetworkScrollWindow">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="shadow-type">in</property>
+                        <child>
+                          <object class="GtkTreeView" id="sssNetworkTreeView">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="hexpand">True</property>
+                            <property name="model">sssNetworkListStore</property>
+                            <property name="search-column">0</property>
+                            <property name="activate-on-single-click">True</property>
+                            <child internal-child="selection">
+                              <object class="GtkTreeSelection"/>
+                            </child>
+                            <child>
+                              <object class="GtkTreeViewColumn" id="sssNetworkPatchColumn">
+                                <property name="resizable">True</property>
+                                <property name="title" translatable="yes">Patch</property>
+                                <property name="clickable">True</property>
+                                <child>
+                                  <object class="GtkCellRendererText"/>
+                                  <attributes>
+                                    <attribute name="text">0</attribute>
+                                  </attributes>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkTreeViewColumn" id="sssNetworkHostColumn">
+                                <property name="title" translatable="yes">Host</property>
+                                <property name="clickable">True</property>
+                                <child>
+                                  <object class="GtkCellRendererText"/>
+                                  <attributes>
+                                    <attribute name="text">1</attribute>
+                                  </attributes>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkTreeViewColumn" id="sssMidiDeviceColumn1">
+                                <property name="resizable">True</property>
+                                <property name="title" translatable="yes">Port</property>
+                                <property name="clickable">True</property>
+                                <child>
+                                  <object class="GtkCellRendererText"/>
+                                  <attributes>
+                                    <attribute name="text">2</attribute>
+                                  </attributes>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="sssCheckEnableOSC">
+                    <property name="label" translatable="yes">Enable inbound OSC</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="receives-default">False</property>
+                    <property name="tooltip-text" translatable="yes">Enables the control of this show over the network using Open Sound Control (OSC)</property>
+                    <property name="margin-left">8</property>
+                    <property name="margin-start">8</property>
+                    <property name="draw-indicator">True</property>
+                    <signal name="toggled" handler="sss_enable_osc_toggled" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="padding">8</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="margin-left">31</property>
+                    <property name="margin-right">8</property>
+                    <property name="margin-start">40</property>
+                    <property name="margin-end">8</property>
+                    <property name="spacing">8</property>
+                    <child>
+                      <object class="GtkLabel" id="sssLabelOSCBindAddress">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">_Bind Address:</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="sssEntryOSCBindAddress">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="tooltip-text" translatable="yes">The address of the interface to bind on, or 0.0.0.0 for all interfaces </property>
+                      </object>
+                      <packing>
+                        <property name="expand">True</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="sssLabelOSCPort">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">_Port:</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="sssEntryOSCPort">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="tooltip-text" translatable="yes">The UDP port number to listen for OSC messages on</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">4</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="sssNetworkLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Network</property>
+              </object>
+              <packing>
+                <property name="position">3</property>
                 <property name="tab-fill">False</property>
               </packing>
             </child>

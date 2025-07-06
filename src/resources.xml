@@ -8,6 +8,7 @@
 	<file>ui/StackRenumberCue.ui</file>
 	<file>ui/StackShowSettings.ui</file>
 	<file>ui/StackAddMidiDevice.ui</file>
+	<file>ui/StackAddNetworkPatch.ui</file>
 	<file>ui/window.ui</file>
 	<file>ui/stack.css</file>
 	<file>icons/stack-icon-256.png</file>

@@ -17,12 +17,20 @@ typedef void(*stack_cue_list_load_callback_t)(StackCueList*, double, const char*
 #include "StackAudioDevice.h"
 #include "StackMidiDevice.h"
 #include "StackRPCSocket.h"
+#include "StackOSCSocket.h"
 #include <mutex>
 #include <thread>
 #include <cstdint>
 
+struct StackNetworkPatch
+{
+	char *host;
+	uint16_t port;
+};
+
 // Typedefs:
 typedef std::map<std::string, StackMidiDevice*> StackMidiDevicePatchMap;
+typedef std::map<std::string, StackNetworkPatch*> StackNetworkPatchMap;
 
 // Define StackCueStdList as a custom std::list<StackCue*> that has a custom
 // recursive_iterator that descends in to child cues
@@ -153,6 +161,9 @@ struct StackCueList
 	// Midi Devices map (patch name -> device)
 	StackMidiDevicePatchMap midi_devices;
 
+	// Network patches map (patch name -> patch)
+	StackNetworkPatchMap network_patches;
+
 	// The thread which handles pulsing the cue list
 	std::thread pulse_thread;
 	bool kill_thread;
@@ -197,15 +208,24 @@ struct StackCueList
 	// Remote control for the cue list
 	StackRPCSocket *rpc_socket;
 #endif
+
+	// OSC support
+	bool osc_enabled;
+	StackOSCSocket *osc_socket;
+
+	// The currently active cue (i.e. the one to receive a Go)
+	cue_uid_t active_cue;
 };
 
-// Functions: Cue list count
+// Functions: Creation and destruction
 StackCueList *stack_cue_list_new(uint16_t channels);
 StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_audio_request_t audio_callback, void *audio_callback_user_data, stack_cue_list_load_callback_t progress_callback = NULL, void *progress_user_data = NULL);
 StackCue *stack_cue_list_create_cue_from_json(StackCueList *cue_list, Json::Value &json, bool construct);
 StackCue *stack_cue_list_create_cue_from_json_string(StackCueList *cue_list, const char* json, bool construct);
 bool stack_cue_list_save(StackCueList *cue_list, const char *uri);
 void stack_cue_list_destroy(StackCueList *cue_list);
+
+// Functions:
 void stack_cue_list_set_audio_device(StackCueList *cue_list, StackAudioDevice *audio_device);
 size_t stack_cue_list_count(StackCueList *cue_list);
 void stack_cue_list_append(StackCueList *cue_list, StackCue *cue);
@@ -214,31 +234,58 @@ StackCueStdList::recursive_iterator stack_cue_list_recursive_iter_at(StackCueLis
 void stack_cue_list_pulse(StackCueList *cue_list);
 void stack_cue_list_lock(StackCueList *cue_list);
 void stack_cue_list_unlock(StackCueList *cue_list);
-void stack_cue_list_stop_all(StackCueList *cue_list);
 cue_uid_t stack_cue_list_remap(StackCueList *cue_list, cue_uid_t old_uid);
 void stack_cue_list_changed(StackCueList *cue_list, StackCue *cue, StackProperty *property);
 void stack_cue_list_state_changed(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_remove(StackCueList *cue_list, StackCue *cue);
 void stack_cue_list_move(StackCueList *cue_list, StackCue *cue, StackCue *dest, bool before, bool dest_in_child);
+
+// List control
+void stack_cue_list_go(StackCueList *cue_list);
+cue_uid_t stack_cue_list_next_cue(StackCueList *cue_list);
+cue_uid_t stack_cue_list_prev_cue(StackCueList *cue_list);
+void stack_cue_list_goto(StackCueList *cue_list, cue_uid_t uid);
+void stack_cue_list_stop_all(StackCueList *cue_list);
+
+// Functions: Cue finding
 StackCue *stack_cue_list_get_cue_after(StackCueList *cue_list, StackCue *cue);
 StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid);
+StackCue *stack_cue_list_get_first_cue_with_id(StackCueList *cue_list, const char *id);
 StackCue *stack_cue_list_get_cue_by_index(StackCueList *cue_list, size_t index);
 cue_id_t stack_cue_list_get_next_cue_number(StackCueList *cue_list);
+StackCue* stack_cue_list_find_cue_after_active(StackCueList *cue_list, bool skip_automatic = false);
+
+// Functions: Show information
 const char *stack_cue_list_get_show_name(StackCueList *cue_list);
 const char *stack_cue_list_get_show_designer(StackCueList *cue_list);
 const char *stack_cue_list_get_show_revision(StackCueList *cue_list);
 bool stack_cue_list_set_show_name(StackCueList *cue_list, const char *show_name);
 bool stack_cue_list_set_show_designer(StackCueList *cue_list, const char *show_designer);
 bool stack_cue_list_set_show_revision(StackCueList *cue_list, const char *show_revision);
+
+// Functions: Audio throughput
 void stack_cue_list_get_audio(StackCueList *cue_list, float *buffer, size_t samples, size_t channel_count, size_t *channels);
+
+// Functions: Cue RMS Data
 StackChannelRMSData *stack_cue_list_get_rms_data(StackCueList *cue_list, cue_uid_t uid);
 StackChannelRMSData *stack_cue_list_add_rms_data(StackCueList *cue_list, cue_uid_t uid, size_t channels);
+
+// Functions: MIDI devices
 size_t stack_cue_list_get_midi_device_count(StackCueList *cue_list);
 StackMidiDevice *stack_cue_list_get_midi_device(StackCueList *cue_list, const char *patch_name);
 bool stack_cue_list_add_midi_device(StackCueList *cue_list, const char *patch_name, StackMidiDevice *device);
 bool stack_cue_list_delete_midi_device(StackCueList *cue_list, const char *patch_name);
 StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_begin(StackCueList *cue_list);
 StackMidiDevicePatchMap::const_iterator stack_cue_list_midi_devices_end(StackCueList *cue_list);
+
+// Functions: Network patches
+size_t stack_cue_list_get_network_patch_count(StackCueList *cue_list);
+StackNetworkPatch *stack_cue_list_get_network_patch(StackCueList *cue_list, const char *patch_name);
+bool stack_cue_list_add_network_patch(StackCueList *cue_list, const char *patch_name, const char *host, uint16_t port);
+bool stack_cue_list_delete_network_patch(StackCueList *cue_list, const char *patch_name);
+void stack_cue_list_clear_network_patches(StackCueList *cue_list);
+StackNetworkPatchMap::const_iterator stack_cue_list_network_patches_begin(StackCueList *cue_list);
+StackNetworkPatchMap::const_iterator stack_cue_list_network_patches_end(StackCueList *cue_list);
 
 // Defines:
 #define STACK_CUE_LIST(_c) ((StackCueList*)(_c))

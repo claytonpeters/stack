@@ -1173,6 +1173,7 @@ void stack_cue_list_content_widget_select_single_cue(StackCueListContentWidget *
 	{
 		stack_log("stack_cue_list_content_widget_select_single_cue(): Cue %016llx does not exist\n", new_uid);
 		new_uid = STACK_CUE_UID_NONE;
+		return;
 	}
 
 	stack_cue_list_content_widget_set_primary_selection(sclw, new_uid);
@@ -1186,6 +1187,9 @@ void stack_cue_list_content_widget_set_primary_selection(StackCueListContentWidg
 		cue_uid_t old_uid = sclw->primary_selection;
 		sclw->primary_selection = new_uid;
 		StackCue *new_cue = stack_cue_get_by_uid(new_uid);
+
+		// Update the active cue in the playlist
+		stack_cue_list_goto(sclw->cue_list, new_uid);
 
 		// If the new cue is a child and the parent is not expanded, we should expand
 		if (new_cue != NULL && new_cue->parent_cue != NULL && !stack_cue_list_content_widget_is_cue_expanded(sclw, new_cue->parent_cue->uid))
@@ -1906,6 +1910,7 @@ gboolean stack_cue_list_content_widget_key_press(GtkWidget *widget, GdkEventKey 
 		{
 			stack_cue_list_content_widget_select_single_cue(sclw, new_cue_uid);
 		}
+		stack_cue_list_goto(sclw->cue_list, new_cue_uid);
 	}
 
 	// Prevent default Gtk Widget handling of keypresses when necessary

@@ -130,7 +130,7 @@ paned.horizontal > separator
 button
 {
 	color: @theme_fg_color;
-	background: -gtk-gradient(linear, left top, left bottom, from(@theme_bg_color), to (@half_color));
+	background: -gtk-gradient(linear, left top, left bottom, from(@half_color), to (@theme_bg_color));
 	border: 1px solid @edge_color;
 	border-radius: 3px;
 	box-shadow: inset 0 1px rgba(255, 255, 255, 0.1);
@@ -335,6 +335,11 @@ label
 	color: @theme_fg_color;
 }
 
+label:disabled
+{
+	color: #888;
+}
+
 entry
 {
 	background: -gtk-gradient(linear, left top, left bottom, from(#ddd), to (#fff));
@@ -349,6 +354,12 @@ entry
 entry:focus
 {
 	box-shadow: inset 0px 0px 3px 1px @focus_color;
+}
+
+entry:disabled
+{
+	background: -gtk-gradient(linear, left top, left bottom, from(@theme_bg_color), to (@half_color));
+	color: #888;
 }
 
 check, radio

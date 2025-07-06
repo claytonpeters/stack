@@ -14,6 +14,7 @@
 #define STACK_SETTINGS_TAB_SHOW    0
 #define STACK_SETTINGS_TAB_AUDIO   1
 #define STACK_SETTINGS_TAB_MIDI    2
+#define STACK_SETTINGS_TAB_NETWORK 3
 
 struct StackApp
 {

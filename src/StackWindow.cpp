@@ -320,71 +320,12 @@ static void saw_select_last_cue(StackAppWindow *window)
 // Selects the next cue in the list
 static void saw_select_next_cue(StackAppWindow *window, bool skip_automatic = false)
 {
-	cue_uid_t old_uid = window->sclw->content->primary_selection;
-
-	// If there is a selection
-	if (old_uid != STACK_CUE_UID_NONE)
+	stack_cue_list_goto(window->cue_list, window->sclw->content->primary_selection);
+	StackCue *next_cue = stack_cue_list_find_cue_after_active(window->cue_list, skip_automatic);
+	if (next_cue != NULL)
 	{
-		// Get the current cue (before moving)
-		StackCue *old_cue = stack_cue_get_by_uid(old_uid);
-
-		// Get the cue that the current cue thinks should be the next cue
-		StackCue *next_cue = stack_cue_get_next_cue(window->selected_cue);
-
-		if (old_cue != next_cue)
-		{
-			// If we're skipping past cues that are triggered by auto-
-			// continue/follow on the cue before them
-			if (skip_automatic)
-			{
-				// Start searching
-				bool searching = true;
-				bool reached_end = false;
-				while (searching)
-				{
-					// Examine the cue
-					int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
-					stack_property_get_int32(stack_cue_get_property(old_cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_trigger);
-
-					// If this cue we would trigger the next cue
-					if (cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE)
-					{
-						// We need to keep searching forward. Get the "next" cue, so
-						// the loop can check to see if we need to skip again on the
-						// next ieration
-						old_cue = next_cue;
-						next_cue = stack_cue_get_next_cue(old_cue);
-
-						if (next_cue == old_cue)
-						{
-							// If we can't move any further forward, stop searching
-							searching = false;
-							reached_end = true;
-						}
-					}
-					else
-					{
-						// The previous doesn't auto trigger, stop searching
-						searching = false;
-					}
-				}
-
-				// If we reached the end of the cue list
-				if (reached_end)
-				{
-					// Just select the last cue
-					saw_select_last_cue(window);
-				}
-				else
-				{
-					stack_cue_list_content_widget_select_single_cue(window->sclw->content, next_cue->uid);
-				}
-			}
-			else
-			{
-				stack_cue_list_content_widget_select_single_cue(window->sclw->content, next_cue->uid);
-			}
-		}
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, next_cue->uid);
+		stack_cue_list_goto(window->cue_list, next_cue->uid);
 	}
 }
 
@@ -1124,15 +1065,9 @@ extern "C" void saw_cue_play_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	if (window->selected_cue != NULL)
-	{
-		stack_cue_list_lock(window->cue_list);
-		stack_cue_play(window->selected_cue);
-		stack_cue_list_unlock(window->cue_list);
-		stack_cue_list_content_widget_update_cue(window->sclw->content, window->selected_cue->uid, 0);
-		// Select the next cue that isn't automatically triggered by a follow
-		saw_select_next_cue(window, true);
-	}
+	stack_cue_list_goto(window->cue_list, window->sclw->content->primary_selection);
+	stack_cue_list_go(window->cue_list);
+	stack_cue_list_content_widget_select_single_cue(window->sclw->content, window->cue_list->active_cue);
 }
 
 // Menu/toolbar callback
@@ -1542,6 +1477,12 @@ static gboolean saw_ui_timer(gpointer user_data)
 
 	// Unlock the cue list
 	stack_cue_list_unlock(window->cue_list);
+
+	// TODO: This is a bodge, it should be a callback from the cue list
+	if (window->sclw->content->primary_selection != window->cue_list->active_cue)
+	{
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, window->cue_list->active_cue);
+	}
 
 	return true;
 }

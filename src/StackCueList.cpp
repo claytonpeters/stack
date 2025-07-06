@@ -64,6 +64,10 @@ StackCueList *stack_cue_list_new(uint16_t channels)
 	cue_list->rpc_socket = stack_rpc_socket_create(NULL, NULL, cue_list);
 #endif
 
+	// Disable OSC support by default
+	cue_list->osc_enabled = false;
+	cue_list->osc_socket = NULL;
+
 	return cue_list;
 }
 
@@ -84,6 +88,12 @@ void stack_cue_list_destroy(StackCueList *cue_list)
 		stack_rpc_socket_destroy(cue_list->rpc_socket);
 	}
 #endif
+
+	// Close the OSC socket next to stop any remote access
+	if (cue_list->osc_enabled && cue_list->osc_socket)
+	{
+		stack_osc_socket_destroy(cue_list->osc_socket);
+	}
 
 	// Stop the pulse thread
 	cue_list->kill_thread = true;
@@ -613,6 +623,81 @@ void stack_cue_list_unlock(StackCueList *cue_list)
 	cue_list->lock.unlock();
 }
 
+void stack_cue_list_go(StackCueList *cue_list)
+{
+	StackCue *cue = stack_cue_list_get_cue_by_uid(cue_list, cue_list->active_cue);
+	if (cue)
+	{
+		stack_cue_play(cue);
+	}
+
+	StackCue *next_cue = stack_cue_list_find_cue_after_active(cue_list, true);
+	if (next_cue)
+	{
+		cue_list->active_cue = next_cue->uid;
+	}
+}
+
+cue_uid_t stack_cue_list_next_cue(StackCueList *cue_list)
+{
+	if (cue_list->active_cue == STACK_CUE_UID_NONE)
+	{
+		cue_list->active_cue = (*cue_list->cues->begin())->uid;
+	}
+	else
+	{
+		// Get an iterator at the current cue
+		auto iter = stack_cue_list_recursive_iter_at(cue_list, cue_list->active_cue, NULL);
+
+		// Move the iterator on one more
+		++iter;
+
+		// If we're not at the end of the cue list, set the new active_cue
+		if (iter != cue_list->cues->recursive_end())
+		{
+			cue_list->active_cue = (*iter)->uid;
+		}
+	}
+
+	return cue_list->active_cue;
+}
+
+cue_uid_t stack_cue_list_prev_cue(StackCueList *cue_list)
+{
+	if (cue_list->active_cue == STACK_CUE_UID_NONE)
+	{
+		if (cue_list->cues->size() != 0)
+		{
+			cue_list->active_cue = (*cue_list->cues->begin())->uid;
+		}
+	}
+	else
+	{
+		// Get an iterator at the current cue
+		auto iter = stack_cue_list_recursive_iter_at(cue_list, cue_list->active_cue, NULL);
+
+		// Move the iterator back one
+		--iter;
+
+		// If we're not at the end of the cue list, set the new active cue
+		if (iter != cue_list->cues->recursive_end())
+		{
+			cue_list->active_cue = (*iter)->uid;
+		}
+	}
+
+	return cue_list->active_cue;
+}
+
+void stack_cue_list_goto(StackCueList *cue_list, cue_uid_t uid)
+{
+	StackCue *cue = stack_cue_list_get_cue_by_uid(cue_list, uid);
+	if (cue)
+	{
+		cue_list->active_cue = uid;
+	}
+}
+
 /// Stops all the cues in the cue list
 /// @param cue_list The cue list
 void stack_cue_list_stop_all(StackCueList *cue_list)
@@ -633,6 +718,69 @@ void stack_cue_list_stop_all(StackCueList *cue_list)
 
 	// Unlock the cue list
 	stack_cue_list_unlock(cue_list);
+}
+
+// Selects the next cue in the list
+StackCue* stack_cue_list_find_cue_after_active(StackCueList *cue_list, bool skip_automatic)
+{
+	cue_uid_t old_uid = cue_list->active_cue;
+
+	// If we don't have an active cue, return
+	if (old_uid == STACK_CUE_UID_NONE)
+	{
+		return NULL;
+	}
+
+	// Get the current cue (before moving)
+	StackCue *old_cue = stack_cue_get_by_uid(old_uid);
+
+	// Get the cue that the current cue thinks should be the next cue
+	StackCue *next_cue = stack_cue_get_next_cue(old_cue);
+
+	// There's not a next cue to go to
+	if (old_cue == next_cue)
+	{
+		return old_cue;
+	}
+
+	// If we're skipping past cues that are triggered by auto-
+	// continue/follow on the cue before them
+	if (!skip_automatic)
+	{
+		return next_cue;
+	}
+
+	// Start searching
+	bool searching = true;
+	while (searching)
+	{
+		// Examine the cue
+		int32_t cue_post_trigger = STACK_CUE_WAIT_TRIGGER_NONE;
+		stack_property_get_int32(stack_cue_get_property(old_cue, "post_trigger"), STACK_PROPERTY_VERSION_DEFINED, &cue_post_trigger);
+
+		// If this cue we would trigger the next cue
+		if (cue_post_trigger != STACK_CUE_WAIT_TRIGGER_NONE)
+		{
+			// We need to keep searching forward. Get the "next" cue, so
+			// the loop can check to see if we need to skip again on the
+			// next ieration
+			old_cue = next_cue;
+			next_cue = stack_cue_get_next_cue(old_cue);
+
+			if (next_cue == old_cue)
+			{
+				// If we can't move any further forward, stop searching
+				searching = false;
+			}
+		}
+		else
+		{
+			// The previous doesn't auto trigger, stop searching
+			searching = false;
+		}
+	}
+
+	return next_cue;
 }
 
 /// Saves the cue list to a file
@@ -688,6 +836,29 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 		stack_json_read_string(midi_device_json_data, &midi_device_root);
 		stack_midi_device_free_json(midi_patch.second, midi_device_json_data);
 		root["midi_devices"][midi_patch.first] = midi_device_root;
+	}
+
+	// Save all our network patches
+	root["network_patches"] = Json::Value(Json::ValueType::objectValue);
+	for (auto network_patch : cue_list->network_patches)
+	{
+		Json::Value network_patch_root = Json::Value(Json::ValueType::objectValue);
+		network_patch_root["host"] = network_patch.second->host;
+		network_patch_root["port"] = network_patch.second->port;
+		root["network_patches"][network_patch.first] = network_patch_root;
+	}
+
+	// Save our OSC info
+	root["osc"] = Json::Value(Json::ValueType::objectValue);
+	if (cue_list->osc_enabled && cue_list->osc_socket)
+	{
+		root["osc"]["enabled"] = true;
+		root["osc"]["bind_address"] = cue_list->osc_socket->bind_addr;
+		root["osc"]["bind_port"] = cue_list->osc_socket->bind_port;
+	}
+	else
+	{
+		root["osc"]["enabled"] = false;
 	}
 
 	// Iterate over all the cues
@@ -925,7 +1096,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 	}
 
 	// Set up MIDI devices
-	progress_callback(cue_list, 0.95, "Initialising MIDI devices...", progress_user_data);
+	progress_callback(cue_list, 0.04, "Initialising MIDI devices...", progress_user_data);
 	if (cue_list_root.isMember("midi_devices"))
 	{
 		Json::Value& mdev_root = cue_list_root["midi_devices"];
@@ -937,8 +1108,11 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 			{
 				// Call the appropriate overloaded function
 				StackMidiDevice *mdev = stack_midi_device_new(mdev_root[patch]["class"].asString().c_str(), "", "");
-				stack_midi_device_from_json(mdev, mdev_root[patch].toStyledString().c_str());
-				stack_cue_list_add_midi_device(cue_list, patch.c_str(), mdev);
+				if (mdev)
+				{
+					stack_midi_device_from_json(mdev, mdev_root[patch].toStyledString().c_str());
+					stack_cue_list_add_midi_device(cue_list, patch.c_str(), mdev);
+				}
 			}
 		}
 		else
@@ -949,6 +1123,39 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 	else
 	{
 		stack_log("stack_cue_list_new_from_file(): Missing 'midi_devices' option\n");
+	}
+
+	// Set up network_patches
+	progress_callback(cue_list, 0.05, "Initialising network patches...", progress_user_data);
+	if (cue_list_root.isMember("network_patches"))
+	{
+		Json::Value& network_patches_root = cue_list_root["network_patches"];
+
+		if (network_patches_root.isObject())
+		{
+			auto patches = network_patches_root.getMemberNames();
+			for (auto patch : patches)
+			{
+				if (network_patches_root[patch].isMember("host") && network_patches_root[patch].isMember("port"))
+				{
+					stack_cue_list_add_network_patch(cue_list, patch.c_str(),
+					 network_patches_root[patch]["host"].asString().c_str(),
+					 network_patches_root[patch]["port"].asUInt());
+				}
+				else
+				{
+					stack_log("stack_cue_list_new_from_file(): Network patch missing 'host' or 'port'\n");
+				}
+			}
+		}
+		else
+		{
+			stack_log("stack_cue_list_new_from_file(): 'network_patches' is not an object\n");
+		}
+	}
+	else
+	{
+		stack_log("stack_cue_list_new_from_file(): Missing 'network_patches' option\n");
 	}
 
 	// If we have some cues...
@@ -1010,7 +1217,7 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 				if (progress_callback)
 				{
 					// We count the first 20% as parsing the cue list
-					double progress = 0.2 + ((double)prepared_cues * 0.7 / (double)cue_count);
+					double progress = 0.1 + ((double)prepared_cues * 0.8 / (double)cue_count);
 					progress_callback(cue_list, progress, "Initialising cues...", progress_user_data);
 				}
 			}
@@ -1048,6 +1255,45 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 		}
 
 		cue_list->audio_device = stack_audio_device_new(audio_device_class_name, audio_device_name, cue_list->channels, sample_rate, audio_callback, audio_callback_user_data);
+	}
+
+	// Initialise OSC
+	progress_callback(cue_list, 0.95, "Initialising OSC...", progress_user_data);
+	if (cue_list_root.isMember("osc"))
+	{
+		if (cue_list_root["osc"].isMember("enabled") && cue_list_root["osc"]["enabled"].asBool())
+		{
+			cue_list->osc_enabled = true;
+		}
+		else
+		{
+			cue_list->osc_enabled = false;
+		}
+
+		if (cue_list->osc_enabled)
+		{
+			if (!cue_list_root["osc"].isMember("bind_address"))
+			{
+				stack_log("stack_cue_list_new_from_file(): OSC section missing 'bind_address' option\n");
+			}
+			else if (!cue_list_root["osc"].isMember("bind_port"))
+			{
+				stack_log("stack_cue_list_new_from_file(): OSC section missing 'bind_port' option\n");
+			}
+			else
+			{
+				cue_list->osc_socket = stack_osc_socket_create(cue_list_root["osc"]["bind_address"].asCString(), cue_list_root["osc"]["bind_port"].asUInt(), "/", cue_list);
+				if (cue_list->osc_socket == NULL)
+				{
+					cue_list->osc_enabled = false;
+					stack_log("stack_cue_list_new_from_file(): Failed to create OSC socket\n");
+				}
+			}
+		}
+	}
+	else
+	{
+		stack_log("stack_cue_list_new_from_file(): Missing 'osc' option\n");
 	}
 
 	// Flag that the cue list hasn't changed
@@ -1171,6 +1417,22 @@ StackCue *stack_cue_list_get_cue_by_uid(StackCueList *cue_list, cue_uid_t uid)
 	for (auto cue : *cue_list->cues)
 	{
 		if (cue->uid == uid)
+		{
+			return cue;
+		}
+	}
+
+	return NULL;
+}
+
+StackCue *stack_cue_list_get_first_cue_with_id(StackCueList *cue_list, const char *id)
+{
+	cue_id_t cue_id = stack_cue_string_to_id(id);
+
+	// Iterate over all the cues
+	for (auto cue : *cue_list->cues)
+	{
+		if (cue->id == cue_id)
 		{
 			return cue;
 		}
@@ -1561,6 +1823,86 @@ StackMidiDevice *stack_cue_list_get_midi_device(StackCueList *cue_list, const ch
 	}
 
 	return iter->second;
+}
+
+size_t stack_cue_list_get_network_patch_count(StackCueList *cue_list)
+{
+	return cue_list->network_patches.size();
+}
+
+StackNetworkPatch *stack_cue_list_get_network_patch(StackCueList *cue_list, const char *patch_name)
+{
+	StackNetworkPatchMap::iterator iter = cue_list->network_patches.find(patch_name);
+	if (iter == cue_list->network_patches.end())
+	{
+		return NULL;
+	}
+
+	return iter->second;
+}
+
+bool stack_cue_list_add_network_patch(StackCueList *cue_list, const char *patch_name, const char *host, uint16_t port)
+{
+	// Make sure the device doesn't already exist
+	if (stack_cue_list_get_network_patch(cue_list, patch_name) != NULL)
+	{
+		return false;
+	}
+
+	StackNetworkPatch *network_patch = new StackNetworkPatch;
+	network_patch->host = strdup(host);
+	network_patch->port = port;
+
+	// Add the device
+	stack_log("stack_cue_list_add_network_patch(): Adding Network Patch with patch %s\n", patch_name);
+	cue_list->network_patches[patch_name] = network_patch;
+	return true;
+}
+
+bool stack_cue_list_delete_network_patch(StackCueList *cue_list, const char *patch_name)
+{
+	// Find the device, returning false if not found
+	StackNetworkPatchMap::iterator iter = cue_list->network_patches.find(patch_name);
+	if (iter == cue_list->network_patches.end())
+	{
+		return false;
+	}
+
+	// Tidy up
+	if (iter->second->host)
+	{
+		free(iter->second->host);
+	}
+
+	// Remove the device
+	cue_list->network_patches.erase(iter);
+	return true;
+}
+
+void stack_cue_list_clear_network_patches(StackCueList *cue_list)
+{
+	// Destroy all the network patches
+	for (auto iter = cue_list->network_patches.begin(); iter != cue_list->network_patches.end(); ++iter)
+	{
+		// Tidy up
+		if (iter->second->host)
+		{
+			free(iter->second->host);
+		}
+		delete iter->second;
+	}
+
+	cue_list->network_patches.clear();
+}
+
+StackNetworkPatchMap::const_iterator stack_cue_list_network_patches_begin(StackCueList *cue_list)
+{
+	return cue_list->network_patches.begin();
+}
+
+StackNetworkPatchMap::const_iterator stack_cue_list_network_patches_end(StackCueList *cue_list)
+{
+	return cue_list->network_patches.end();
 }
 
 bool stack_cue_list_add_midi_device(StackCueList *cue_list, const char *patch_name, StackMidiDevice *device)

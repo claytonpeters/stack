@@ -15,6 +15,10 @@
 #define SAMD_FIELD_CHANGED     6
 #define SAMD_FIELD_DESCRIPTION 7
 
+#define SANP_FIELD_PATCH       0
+#define SANP_FIELD_HOST        1
+#define SANP_FIELD_PORT        2
+
 struct StackShowSettingsDialogData
 {
 	GtkDialog *dialog;
@@ -28,6 +32,13 @@ struct StackAddMidiDeviceDialogData
 	GtkDialog *dialog;
 	GtkBuilder *builder;
 	bool midi_device_changed;
+};
+
+struct StackAddNetworkPatchDialogData
+{
+	StackShowSettingsDialogData *parent_data;
+	GtkDialog *dialog;
+	GtkBuilder *builder;
 };
 
 extern "C" void sss_audio_provider_changed(GtkComboBox *widget, gpointer user_data)
@@ -88,6 +99,20 @@ extern "C" void sss_channels_changed(GtkComboBox *widget, gpointer user_data)
 	dialog_data->audio_device_changed = true;
 }
 
+void sss_enable_osc_widgets(StackShowSettingsDialogData *dialog_data, bool enabled)
+{
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssLabelOSCBindAddress")), enabled);
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssEntryOSCBindAddress")), enabled);
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssLabelOSCPort")), enabled);
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssEntryOSCPort")), enabled);
+}
+
+extern "C" void sss_enable_osc_toggled(GtkToggleButton *widget, gpointer user_data)
+{
+	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
+	sss_enable_osc_widgets(dialog_data, gtk_toggle_button_get_active(widget));
+}
+
 // TODO: Once we've rearchitected what we pass to StackAudioDevice in terms of
 // function pointer and user_data (see the other TODO at the bottom of this
 // function), then StackAppWindow here should become a generic GtkWindow* so
@@ -120,8 +145,10 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 	GtkComboBox *audio_devices_combo = GTK_COMBO_BOX(gtk_builder_get_object(dialog_data.builder, "sssAudioDeviceCombo"));
 	GtkComboBoxText *sample_rate_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data.builder, "sssSampleRateCombo"));
 	GtkComboBoxText *channels_combo = GTK_COMBO_BOX_TEXT(gtk_builder_get_object(dialog_data.builder, "sssChannelsCombo"));
-	GtkListStore *liststore = GTK_LIST_STORE(gtk_builder_get_object(dialog_data.builder, "sssMidiListStore"));
-	GtkTreeModel *tree_model = GTK_TREE_MODEL(liststore);
+	GtkListStore *midi_liststore = GTK_LIST_STORE(gtk_builder_get_object(dialog_data.builder, "sssMidiListStore"));
+	GtkListStore *network_liststore = GTK_LIST_STORE(gtk_builder_get_object(dialog_data.builder, "sssNetworkListStore"));
+	GtkTreeModel *midi_tree_model = GTK_TREE_MODEL(midi_liststore);
+	GtkTreeModel *network_tree_model = GTK_TREE_MODEL(network_liststore);
 
 	// Iterate over audio providers
 	for (auto class_iter : *stack_audio_device_class_get_map())
@@ -165,7 +192,7 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 	for (auto iter = stack_cue_list_midi_devices_begin(cue_list); iter != stack_cue_list_midi_devices_end(cue_list); ++iter)
 	{
 		GtkTreeIter new_item;
-		gtk_list_store_append(liststore, &new_item);
+		gtk_list_store_append(midi_liststore, &new_item);
 
 		const StackMidiDeviceClass *device_class = stack_midi_device_get_class(iter->second->_class_name);
 
@@ -173,7 +200,7 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 		snprintf(buffer, 256, "%s %s", iter->second->descriptor.name, iter->second->descriptor.desc);
 
 		// Set the contents of the item
-		gtk_list_store_set(liststore, &new_item,
+		gtk_list_store_set(midi_liststore, &new_item,
 			SAMD_FIELD_PATCH, iter->first.c_str(),
 			SAMD_FIELD_TYPE, device_class->get_friendly_name_func(),
 			SAMD_FIELD_DEVICE, buffer,
@@ -183,6 +210,31 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 			SAMD_FIELD_CHANGED, false,
 			SAMD_FIELD_DESCRIPTION, iter->second->descriptor.desc,
 			-1);
+	}
+
+	// Fill in the network patches list
+	for (auto iter = stack_cue_list_network_patches_begin(cue_list); iter != stack_cue_list_network_patches_end(cue_list); ++iter)
+	{
+		GtkTreeIter new_item;
+		gtk_list_store_append(network_liststore, &new_item);
+
+		// Set the contents of the item
+		gtk_list_store_set(network_liststore, &new_item,
+			SANP_FIELD_PATCH, iter->first.c_str(),
+			SANP_FIELD_HOST, iter->second->host,
+			SANP_FIELD_PORT, iter->second->port,
+			-1);
+	}
+
+	// Populate the inbound OSC details
+	sss_enable_osc_widgets(&dialog_data, cue_list->osc_enabled);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(dialog_data.builder, "sssCheckEnableOSC")), cue_list->osc_enabled);
+	if (cue_list->osc_enabled)
+	{
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCBindAddress")), cue_list->osc_socket->bind_addr);
+		char port_buffer[16];
+		snprintf(port_buffer, 16, "%u", cue_list->osc_socket->bind_port);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCPort")), port_buffer);
 	}
 
 	if (tab != STACK_SETTINGS_TAB_DEFAULT)
@@ -267,6 +319,38 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 			dialog_succeeded = true;
 		}
 
+		// Get the OSC settings and validate them
+		bool osc_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(dialog_data.builder, "sssCheckEnableOSC")));
+		const gchar *osc_bind_address = gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCBindAddress")));
+		int32_t osc_port = atoi(gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCPort"))));
+		if (dialog_succeeded && osc_enabled)
+		{
+			GtkWidget *message_dialog = NULL;
+
+			// Validate bind address
+			if (osc_bind_address == 0 || strlen(osc_bind_address) == 0)
+			{
+				message_dialog = gtk_message_dialog_new(GTK_WINDOW(dialog_data.dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Invalid OSC bind address");
+				gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "If OSC is enabled, you must specify a bind address.\nYou can use 0.0.0.0 to bind on all interfaces.");
+			}
+
+			// Validate port
+			if (osc_port <= 0 || osc_port >= 65535)
+			{
+				message_dialog = gtk_message_dialog_new(GTK_WINDOW(dialog_data.dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Invalid OSC port");
+				gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "If OSC is enabled, you must specify a valid port number from 1-65535.");
+			}
+
+			// Show error message if we have one
+			if (message_dialog != NULL)
+			{
+				gtk_window_set_title(GTK_WINDOW(message_dialog), "Error");
+				gtk_dialog_run(GTK_DIALOG(message_dialog));
+				gtk_widget_destroy(message_dialog);
+				dialog_succeeded = false;
+			}
+		}
+
 		if (dialog_succeeded)
 		{
 			// Save show settings
@@ -276,7 +360,7 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 
 			// Iterate over the items in the liststore
 			GtkTreeIter new_devices_iter;
-			for (bool iter_result = gtk_tree_model_get_iter_first(tree_model, &new_devices_iter); iter_result; iter_result = gtk_tree_model_iter_next(tree_model, &new_devices_iter))
+			for (bool iter_result = gtk_tree_model_get_iter_first(midi_tree_model, &new_devices_iter); iter_result; iter_result = gtk_tree_model_iter_next(midi_tree_model, &new_devices_iter))
 			{
 				// Get the details about the device from the list
 				GValue name_value = G_VALUE_INIT;
@@ -284,11 +368,11 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 				GValue device_value = G_VALUE_INIT;
 				GValue changed_value = G_VALUE_INIT;
 				GValue desc_value = G_VALUE_INIT;
-				gtk_tree_model_get_value(tree_model, &new_devices_iter, SAMD_FIELD_PATCH, &name_value);
-				gtk_tree_model_get_value(tree_model, &new_devices_iter, SAMD_FIELD_CLASSNAME, &classname_value);
-				gtk_tree_model_get_value(tree_model, &new_devices_iter, SAMD_FIELD_HWDEVICE, &device_value);
-				gtk_tree_model_get_value(tree_model, &new_devices_iter, SAMD_FIELD_CHANGED, &changed_value);
-				gtk_tree_model_get_value(tree_model, &new_devices_iter, SAMD_FIELD_DESCRIPTION, &desc_value);
+				gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, SAMD_FIELD_PATCH, &name_value);
+				gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, SAMD_FIELD_CLASSNAME, &classname_value);
+				gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, SAMD_FIELD_HWDEVICE, &device_value);
+				gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, SAMD_FIELD_CHANGED, &changed_value);
+				gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, SAMD_FIELD_DESCRIPTION, &desc_value);
 				const char *name = g_value_get_string(&name_value);
 				const char *classname = g_value_get_string(&classname_value);
 				const char *device = g_value_get_string(&device_value);
@@ -340,11 +424,11 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 				bool found = false;
 
 				// Iterate over the items in the liststore
-				for (bool iter_result = gtk_tree_model_get_iter_first(tree_model, &new_devices_iter); iter_result; iter_result = gtk_tree_model_iter_next(tree_model, &new_devices_iter))
+				for (bool iter_result = gtk_tree_model_get_iter_first(midi_tree_model, &new_devices_iter); iter_result; iter_result = gtk_tree_model_iter_next(midi_tree_model, &new_devices_iter))
 				{
 					// Get the patch name from the list
 					GValue name_value = G_VALUE_INIT;
-					gtk_tree_model_get_value(tree_model, &new_devices_iter, 0, &name_value);
+					gtk_tree_model_get_value(midi_tree_model, &new_devices_iter, 0, &name_value);
 
 					// Compare it
 					if (strcmp(g_value_get_string(&name_value), iter->first.c_str()) == 0)
@@ -359,6 +443,27 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 					// Add to the list of devices to remove (we can't modify the map whilst iterating)
 					to_remove.push_back(iter->first);
 				}
+			}
+
+			// It's easiest to just clear the patches and re-add them whilst the list is locked
+
+			stack_cue_list_clear_network_patches(cue_list);
+			// Iterate over the items in the network liststore
+			GtkTreeIter new_patches_iter;
+			for (bool iter_result = gtk_tree_model_get_iter_first(network_tree_model, &new_patches_iter); iter_result; iter_result = gtk_tree_model_iter_next(network_tree_model, &new_patches_iter))
+			{
+				// Get the details about the device from the list
+				GValue name_value = G_VALUE_INIT;
+				GValue host_value = G_VALUE_INIT;
+				GValue port_value = G_VALUE_INIT;
+				gtk_tree_model_get_value(network_tree_model, &new_patches_iter, SANP_FIELD_PATCH, &name_value);
+				gtk_tree_model_get_value(network_tree_model, &new_patches_iter, SANP_FIELD_HOST, &host_value);
+				gtk_tree_model_get_value(network_tree_model, &new_patches_iter, SANP_FIELD_PORT, &port_value);
+				const char *name = g_value_get_string(&name_value);
+				const char *host = g_value_get_string(&host_value);
+				guint port = g_value_get_uint(&port_value);
+
+				stack_cue_list_add_network_patch(cue_list, name, host, port);
 			}
 
 			// Unlock
@@ -379,6 +484,20 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 				stack_midi_device_destroy(device);
 			}
 
+			// Update OSC config
+			if (cue_list->osc_enabled && !osc_enabled)
+			{
+				// Disabling OSC
+				stack_osc_socket_destroy(cue_list->osc_socket);
+				cue_list->osc_socket = NULL;
+				cue_list->osc_enabled = false;
+			}
+			else if (!cue_list->osc_enabled && osc_enabled)
+			{
+				// Enabling OSC
+				cue_list->osc_enabled = true;
+				cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, "/", cue_list);
+			}
 			// Unlock
 			stack_cue_list_unlock(cue_list);
 		}
@@ -646,4 +765,186 @@ extern "C" void samd_midi_device_changed(GtkComboBox *widget, gpointer user_data
 {
 	StackAddMidiDeviceDialogData *dialog_data = (StackAddMidiDeviceDialogData*)user_data;
 	dialog_data->midi_device_changed = true;
+}
+
+bool sanp_validate_settings(StackAddNetworkPatchDialogData *network_dialog_data, GtkTreeIter *location)
+{
+	// Get the widgets we need to look at
+	GtkEntry *patch_name_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data->builder, "sanpPatchNameEntry"));
+	GtkEntry *host_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data->builder, "sanpHostEntry"));
+	GtkEntry *port_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data->builder, "sanpPortEntry"));
+
+	// Pull the Text from the boxes
+	const gchar *patch_name = gtk_entry_get_text(patch_name_entry);
+	const gchar *host = gtk_entry_get_text(host_entry);
+	const gchar *port = gtk_entry_get_text(port_entry);
+	guint port_number = (guint)atoi(port);
+
+	// Determine if everything was selected
+	GtkWidget *message_dialog = NULL;
+	if (strlen(patch_name) == 0)
+	{
+		message_dialog = gtk_message_dialog_new(GTK_WINDOW(network_dialog_data->dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "No patch name entered");
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "You must enter a name for the network patch to save the settings.");
+	}
+	else if (strlen(host) == 0)
+	{
+		message_dialog = gtk_message_dialog_new(GTK_WINDOW(network_dialog_data->dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "No host entered");
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "You must enter a hostname or IP address to save the settings.");
+	}
+	else if (strlen(port) == 0 || port == 0)
+	{
+		message_dialog = gtk_message_dialog_new(GTK_WINDOW(network_dialog_data->dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "No port entered");
+		gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "You must enter a port number to save the settings.");
+	}
+
+	if (message_dialog != NULL)
+	{
+		gtk_window_set_title(GTK_WINDOW(message_dialog), "Error");
+		gtk_dialog_run(GTK_DIALOG(message_dialog));
+		gtk_widget_destroy(message_dialog);
+		return false;
+	}
+	else
+	{
+		GtkListStore *liststore = GTK_LIST_STORE(gtk_builder_get_object(network_dialog_data->parent_data->builder, "sssNetworkListStore"));
+		GtkTreeIter new_item;
+
+		// If a location wasn't given, add a new item
+		if (location == NULL)
+		{
+			location = &new_item;
+			gtk_list_store_append(liststore, location);
+		}
+
+		// Set the contents of the item
+		gtk_list_store_set(liststore, location,
+			SANP_FIELD_PATCH, patch_name,
+			SANP_FIELD_HOST, host,
+			SANP_FIELD_PORT, port_number,
+			-1);
+
+		return true;
+	}
+}
+
+void sanp_dialog_init(StackAddNetworkPatchDialogData *network_dialog_data, StackShowSettingsDialogData *dialog_data)
+{
+	network_dialog_data->parent_data = dialog_data;
+	network_dialog_data->builder = gtk_builder_new_from_resource("/org/stack/ui/StackAddNetworkPatch.ui");
+	network_dialog_data->dialog = GTK_DIALOG(gtk_builder_get_object(network_dialog_data->builder, "StackAddNetworkPatchDialog"));
+	gtk_window_set_transient_for(GTK_WINDOW(network_dialog_data->dialog), GTK_WINDOW(dialog_data->dialog));
+	gtk_dialog_add_buttons(network_dialog_data->dialog, "OK", 1, "Cancel", 2, NULL);
+	gtk_dialog_set_default_response(network_dialog_data->dialog, 2);
+
+	// Connect the signals
+	gtk_builder_connect_signals(network_dialog_data->builder, (gpointer)network_dialog_data);
+}
+
+extern "C" void sss_network_add_clicked(void *widget, gpointer user_data)
+{
+	// Initialise the dialog
+	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
+	StackAddNetworkPatchDialogData network_dialog_data;
+	sanp_dialog_init(&network_dialog_data, dialog_data);
+
+	// Loop until there are no error saving or Cancel is clicked
+	bool dialog_succeeded = false;
+	while (!dialog_succeeded)
+	{
+		// This call blocks until the dialog is closed with a button
+		gint result = gtk_dialog_run(network_dialog_data.dialog);
+
+		// If the user hit Cancel then break out of the loop
+		if (result == 2)
+		{
+			dialog_succeeded = true;
+			break;
+		}
+
+		// Validate and update
+		dialog_succeeded = sanp_validate_settings(&network_dialog_data, NULL);
+	}
+
+	// Destroy the dialog
+	gtk_widget_destroy(GTK_WIDGET(network_dialog_data.dialog));
+	g_object_unref(network_dialog_data.builder);
+}
+
+extern "C" void sss_network_edit_clicked(void *widget, gpointer user_data)
+{
+	// Initialise the dialog
+	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
+	StackAddNetworkPatchDialogData network_dialog_data;
+	sanp_dialog_init(&network_dialog_data, dialog_data);
+
+	// Get the current selection
+	GtkListStore *liststore = GTK_LIST_STORE(gtk_builder_get_object(dialog_data->builder, "sssNetworkListStore"));
+	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(dialog_data->builder, "sssNetworkTreeView"));
+	GtkTreeSelection *selection = gtk_tree_view_get_selection(treeview);
+	GtkTreeIter iter;
+	if (!gtk_tree_selection_get_selected(selection, NULL, &iter))
+	{
+		// Nothing was selected
+		return;
+	}
+
+	// Get the contents of the list store
+	gchar *patch_name = NULL, *host = NULL;
+	guint port = 0;
+	gtk_tree_model_get(GTK_TREE_MODEL(liststore), &iter, SANP_FIELD_PATCH, &patch_name, -1);
+	gtk_tree_model_get(GTK_TREE_MODEL(liststore), &iter, SANP_FIELD_HOST, &host, -1);
+	gtk_tree_model_get(GTK_TREE_MODEL(liststore), &iter, SANP_FIELD_PORT, &port, -1);
+	char port_buffer[16];
+	snprintf(port_buffer, sizeof(port_buffer), "%u", port);
+
+	// Get the widgets we need to look at
+	GtkEntry *patch_name_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data.builder, "sanpPatchNameEntry"));
+	GtkEntry *host_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data.builder, "sanpHostEntry"));
+	GtkEntry *port_entry = GTK_ENTRY(gtk_builder_get_object(network_dialog_data.builder, "sanpPortEntry"));
+
+	// Set the values
+	gtk_entry_set_text(patch_name_entry, patch_name);
+	gtk_entry_set_text(host_entry, host);
+	gtk_entry_set_text(port_entry, port_buffer);
+
+	// Loop until there are no error saving or Cancel is clicked
+	bool dialog_succeeded = false;
+	while (!dialog_succeeded)
+	{
+		// This call blocks until the dialog is closed with a button
+		gint result = gtk_dialog_run(network_dialog_data.dialog);
+
+		// If the user hit Cancel then break out of the loop
+		if (result == 2)
+		{
+			dialog_succeeded = true;
+			break;
+		}
+
+		// Validate and update
+		dialog_succeeded = sanp_validate_settings(&network_dialog_data, &iter);
+	}
+
+	// Destroy the dialog
+	gtk_widget_destroy(GTK_WIDGET(network_dialog_data.dialog));
+	g_object_unref(network_dialog_data.builder);
+}
+
+extern "C" void sss_network_remove_clicked(void *widget, gpointer user_data)
+{
+	StackShowSettingsDialogData *dialog_data = (StackShowSettingsDialogData*)user_data;
+
+	// Get the selected item
+	GtkListStore *liststore = GTK_LIST_STORE(gtk_builder_get_object(dialog_data->builder, "sssNetworkListStore"));
+	GtkTreeView *treeview = GTK_TREE_VIEW(gtk_builder_get_object(dialog_data->builder, "sssNetworkTreeView"));
+	GtkTreeSelection *selection = gtk_tree_view_get_selection(treeview);
+	GtkTreeIter iter;
+	if (!gtk_tree_selection_get_selected(selection, NULL, &iter))
+	{
+		return;
+	}
+
+	// Remove from the list store
+	gtk_list_store_remove(liststore, &iter);
 }

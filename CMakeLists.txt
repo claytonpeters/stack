@@ -15,7 +15,7 @@ add_custom_command(
 	ARGS --generate-source --target=src/resources.c src/resources.xml
 	VERBATIM
 	MAIN_DEPENDENCY src/resources.xml
-	DEPENDS ui/SelectTriggerType.ui ui/SelectCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/StackAddMidiDevice.ui ui/window.ui ui/stack.css icons/stack-icon-256.png icons/cuelist-open.png icons/cuelist-closed.png
+	DEPENDS ui/SelectTriggerType.ui ui/SelectCue.ui ui/StackGroupCue.ui ui/StackLoading.ui ui/StackRenumberCue.ui ui/StackShowSettings.ui ui/StackAddMidiDevice.ui ui/StackAddNetworkPatch.ui ui/window.ui ui/stack.css icons/stack-icon-256.png icons/cuelist-open.png icons/cuelist-closed.png
 )
 add_custom_target(resources-target DEPENDS src/resources.c)
 set_source_files_properties(src/resources.c PROPERTIES GENERATED TRUE)
@@ -85,6 +85,19 @@ add_custom_command(
 add_custom_target(stackmidicue-resources-target DEPENDS src/stackmidicue-resources.c)
 set_source_files_properties(src/stackmidicue-resources.c PROPERTIES GENERATED TRUE)
 
+# Compile resource target: StackOSCCue
+add_custom_command(
+	OUTPUT src/stackosccue-resources.c
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	COMMAND ${GLIB_COMPILE_RESOURCES}
+	ARGS --generate-source --target=src/stackosccue-resources.c src/stackosccue-resources.xml
+	VERBATIM
+	MAIN_DEPENDENCY src/stackosccue-resources.xml
+	DEPENDS ui/StackOSCCue.ui
+)
+add_custom_target(stackosccue-resources-target DEPENDS src/stackosccue-resources.c)
+set_source_files_properties(src/stackosccue-resources.c PROPERTIES GENERATED TRUE)
+
 # Compile resource target: StackKeyTrigger
 add_custom_command(
 	OUTPUT src/stackkeytrigger-resources.c
@@ -124,7 +137,7 @@ add_custom_command(
 add_custom_target(stackmiditrigger-resources-target DEPENDS src/stackmiditrigger-resources.c)
 set_source_files_properties(src/stackmiditrigger-resources.c PROPERTIES GENERATED TRUE)
 
-set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkHelper.cpp src/StackJson.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackTrigger.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackCueListHeaderWidget.cpp src/StackCueListContentWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackMidiEvent.cpp src/StackMidiDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/StackAudioFileOgg.cpp src/StackAudioFileFLAC.cpp src/MPEGAudioFile.cpp src/StackAudioLevelsTab.cpp src/resources.c)
+set(STACK_SOURCES src/StackLog.cpp src/StackProperty.cpp src/StackRingBuffer.cpp src/StackGtkHelper.cpp src/StackJson.cpp src/StackCue.cpp src/StackCueBase.cpp src/StackCueHelper.cpp src/StackCueList.cpp src/StackTrigger.cpp src/StackGroupCue.cpp src/StackApp.cpp src/StackWindow.cpp src/StackCueListWidget.cpp src/StackCueListHeaderWidget.cpp src/StackCueListContentWidget.cpp src/StackShowSettings.cpp src/main.cpp src/StackAudioDevice.cpp src/StackMidiEvent.cpp src/StackMidiDevice.cpp src/StackRenumberCue.cpp src/StackResampler.cpp src/StackLevelMeter.cpp src/StackAudioPreview.cpp src/StackAudioFile.cpp src/StackAudioFileWave.cpp src/StackAudioFileMP3.cpp src/StackAudioFileOgg.cpp src/StackAudioFileFLAC.cpp src/MPEGAudioFile.cpp src/StackAudioLevelsTab.cpp src/StackOSCSocket.cpp src/resources.c)
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 add_library(StackPulseAudioDevice SHARED src/StackPulseAudioDevice.cpp)
@@ -138,6 +151,8 @@ add_library(StackExecCue SHARED src/StackExecCue.cpp src/stackexeccue-resources.
 add_dependencies(StackExecCue stackexeccue-resources-target)
 add_library(StackMidiCue SHARED src/StackMidiCue.cpp src/stackmidicue-resources.c)
 add_dependencies(StackMidiCue stackmidicue-resources-target)
+add_library(StackOSCCue SHARED src/StackOSCCue.cpp src/stackosccue-resources.c)
+add_dependencies(StackOSCCue stackosccue-resources-target)
 add_library(StackKeyTrigger SHARED src/StackKeyTrigger.cpp src/stackkeytrigger-resources.c)
 add_library(StackTimeTrigger SHARED src/StackTimeTrigger.cpp src/stacktimetrigger-resources.c)
 add_library(StackMidiTrigger SHARED src/StackMidiTrigger.cpp src/stackmiditrigger-resources.c)
