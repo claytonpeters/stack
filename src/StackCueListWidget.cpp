@@ -71,6 +71,7 @@ GtkWidget *stack_cue_list_widget_new()
 	GtkViewport *viewport = GTK_VIEWPORT(gtk_bin_get_child(GTK_BIN(sclw->scrolled)));
 	gtk_container_set_focus_hadjustment(GTK_CONTAINER(viewport), adjustment);
 	gtk_container_set_focus_vadjustment(GTK_CONTAINER(viewport), adjustment);
+	g_object_unref(adjustment);
 
 	// Make everything visible
 	gtk_widget_set_visible(GTK_WIDGET(sclw->header), true);

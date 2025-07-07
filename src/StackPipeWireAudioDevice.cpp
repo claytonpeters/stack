@@ -252,14 +252,14 @@ size_t stack_pipewire_audio_device_list_outputs(StackAudioDeviceDesc **outputs)
 	size_t output_count = data.outputs.size() + 1;
 
 	// Duplicate the outputs into the array, but set the first entry to "system default"
-	StackAudioDeviceDesc *result = new StackAudioDeviceDesc[output_count + 1];
+	StackAudioDeviceDesc *result = new StackAudioDeviceDesc[output_count];
 	result[0].min_channels = 1;
 	result[0].max_channels = 32;
 	result[0].name = strdup("");
 	result[0].desc = strdup("System Default");
 	result[0].num_rates = 0;
 	result[0].rates = NULL;
-	memcpy(&result[1], &data.outputs[0], output_count * sizeof(StackAudioDeviceDesc));
+	memcpy(&result[1], &data.outputs[0], (output_count - 1) * sizeof(StackAudioDeviceDesc));
 
 	// Return the result
 	*outputs = result;
@@ -291,6 +291,8 @@ void stack_pipewire_audio_device_destroy(StackAudioDevice *device)
 	if (pdev->stream != NULL)
 	{
 		pw_thread_loop_lock(audio_connection->loop.threaded);
+		pw_stream_disconnect(pdev->stream);
+		pw_stream_flush(pdev->stream, false);
 		pw_stream_destroy(pdev->stream);
 		pdev->stream = NULL;
 		pw_thread_loop_unlock(audio_connection->loop.threaded);
