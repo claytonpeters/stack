@@ -281,35 +281,54 @@ void stack_osc_socket_dispatch_message(StackOSCSocket *osc_socket, StackOSCMessa
 {
 	StackCueList *cue_list = osc_socket->cue_list;
 
-	if (strcmp(message->address, "/cue/play") == 0)
+	// Ensure the message address is at least as long as our message prefix,
+	// or it definitely doesn't match
+	const size_t expected_prefix_length = strlen(osc_socket->address_prefix);
+	if (strlen(message->address) < expected_prefix_length)
+	{
+		stack_log("stack_osc_socket_dispatch_message(): Unknown address '%s'\n", message->address);
+		return;
+	}
+
+	// Validate the prefix
+	if (memcmp(message->address, osc_socket->address_prefix, expected_prefix_length) != 0)
+	{
+		stack_log("stack_osc_socket_dispatch_message(): Unknown address '%s'\n", message->address);
+		return;
+	}
+
+	// Grab a pointer to the unprefixed part of the message's address
+	const char *unprefixed_address = &message->address[expected_prefix_length];
+
+	if (strcmp(unprefixed_address, "cue/play") == 0)
 	{
 		stack_osc_socket_dispatch_cue_play(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/cue/pause") == 0)
+	else if (strcmp(unprefixed_address, "cue/pause") == 0)
 	{
 		stack_osc_socket_dispatch_cue_pause(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/cue/stop") == 0)
+	else if (strcmp(unprefixed_address, "cue/stop") == 0)
 	{
 		stack_osc_socket_dispatch_cue_stop(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/list/stopall") == 0)
+	else if (strcmp(unprefixed_address, "list/stopall") == 0)
 	{
 		stack_osc_socket_dispatch_list_stopall(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/list/go") == 0)
+	else if (strcmp(unprefixed_address, "list/go") == 0)
 	{
 		stack_osc_socket_dispatch_list_go(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/list/next") == 0)
+	else if (strcmp(unprefixed_address, "list/next") == 0)
 	{
 		stack_osc_socket_dispatch_list_next(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/list/previous") == 0)
+	else if (strcmp(unprefixed_address, "list/previous") == 0)
 	{
 		stack_osc_socket_dispatch_list_previous(osc_socket, message);
 	}
-	else if (strcmp(message->address, "/list/goto") == 0)
+	else if (strcmp(unprefixed_address, "list/goto") == 0)
 	{
 		stack_osc_socket_dispatch_list_goto(osc_socket, message);
 	}
@@ -556,7 +575,7 @@ bool stack_osc_socket_is_address_prefix_valid(const char *address_prefix)
 	size_t length = strlen(address_prefix);
 
 	// Early checks
-	if (length == 0 || address_prefix[0] != '/')
+	if (length == 0 || address_prefix[0] != '/' || address_prefix[length - 1] != '/')
 	{
 		return false;
 	}

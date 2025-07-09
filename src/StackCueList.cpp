@@ -853,8 +853,9 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	if (cue_list->osc_enabled && cue_list->osc_socket)
 	{
 		root["osc"]["enabled"] = true;
-		root["osc"]["bind_address"] = cue_list->osc_socket->bind_addr;
-		root["osc"]["bind_port"] = cue_list->osc_socket->bind_port;
+		root["osc"]["bind_address"] = stack_osc_socket_get_bind_address(cue_list->osc_socket);
+		root["osc"]["bind_port"] = stack_osc_socket_get_port(cue_list->osc_socket);
+		root["osc"]["address_prefix"] = stack_osc_socket_get_address_prefix(cue_list->osc_socket);
 	}
 	else
 	{
@@ -1282,7 +1283,12 @@ StackCueList *stack_cue_list_new_from_file(const char *uri, stack_audio_device_a
 			}
 			else
 			{
-				cue_list->osc_socket = stack_osc_socket_create(cue_list_root["osc"]["bind_address"].asCString(), cue_list_root["osc"]["bind_port"].asUInt(), "/", cue_list);
+				const char *address_prefix = "/";
+				if (cue_list_root["osc"].isMember("address_prefix"))
+				{
+					address_prefix = cue_list_root["osc"]["address_prefix"].asCString();
+				}
+				cue_list->osc_socket = stack_osc_socket_create(cue_list_root["osc"]["bind_address"].asCString(), cue_list_root["osc"]["bind_port"].asUInt(), address_prefix, cue_list);
 				if (cue_list->osc_socket == NULL)
 				{
 					cue_list->osc_enabled = false;

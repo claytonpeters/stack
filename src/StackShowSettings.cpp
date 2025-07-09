@@ -105,6 +105,8 @@ void sss_enable_osc_widgets(StackShowSettingsDialogData *dialog_data, bool enabl
 	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssEntryOSCBindAddress")), enabled);
 	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssLabelOSCPort")), enabled);
 	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssEntryOSCPort")), enabled);
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssLabelOSCAddressPrefix")), enabled);
+	gtk_widget_set_sensitive(GTK_WIDGET(gtk_builder_get_object(dialog_data->builder, "sssEntryOSCAddressPrefix")), enabled);
 }
 
 extern "C" void sss_enable_osc_toggled(GtkToggleButton *widget, gpointer user_data)
@@ -231,10 +233,11 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(dialog_data.builder, "sssCheckEnableOSC")), cue_list->osc_enabled);
 	if (cue_list->osc_enabled)
 	{
-		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCBindAddress")), cue_list->osc_socket->bind_addr);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCBindAddress")), stack_osc_socket_get_bind_address(cue_list->osc_socket));
 		char port_buffer[16];
-		snprintf(port_buffer, 16, "%u", cue_list->osc_socket->bind_port);
+		snprintf(port_buffer, 16, "%u", stack_osc_socket_get_port(cue_list->osc_socket));
 		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCPort")), port_buffer);
+		gtk_entry_set_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCAddressPrefix")), stack_osc_socket_get_address_prefix(cue_list->osc_socket));
 	}
 
 	if (tab != STACK_SETTINGS_TAB_DEFAULT)
@@ -323,6 +326,7 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 		bool osc_enabled = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_builder_get_object(dialog_data.builder, "sssCheckEnableOSC")));
 		const gchar *osc_bind_address = gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCBindAddress")));
 		int32_t osc_port = atoi(gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCPort"))));
+		const gchar *osc_address_prefix = gtk_entry_get_text(GTK_ENTRY(gtk_builder_get_object(dialog_data.builder, "sssEntryOSCAddressPrefix")));
 		if (dialog_succeeded && osc_enabled)
 		{
 			GtkWidget *message_dialog = NULL;
@@ -339,6 +343,13 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 			{
 				message_dialog = gtk_message_dialog_new(GTK_WINDOW(dialog_data.dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Invalid OSC port");
 				gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "If OSC is enabled, you must specify a valid port number from 1-65535.");
+			}
+
+			// Validate address prefix
+			if (!stack_osc_socket_is_address_prefix_valid(osc_address_prefix))
+			{
+				message_dialog = gtk_message_dialog_new(GTK_WINDOW(dialog_data.dialog), GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "Invalid OSC address prefix");
+				gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(message_dialog), "If OSC is enabled, you must specify an OSC address prefix, which must start with a forward slash.");
 			}
 
 			// Show error message if we have one
@@ -496,16 +507,17 @@ void sss_show_dialog(StackAppWindow *window, StackCueList *cue_list, int tab)
 			{
 				// Enabling OSC
 				cue_list->osc_enabled = true;
-				cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, "/", cue_list);
+				cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, osc_address_prefix, cue_list);
 			}
 			else if (cue_list->osc_enabled && osc_enabled)
 			{
 				// OSC remaining enabled - check if anything changed
 				if (strcmp(osc_bind_address, stack_osc_socket_get_bind_address(cue_list->osc_socket)) != 0 ||
-					osc_port != stack_osc_socket_get_port(cue_list->osc_socket))
+					osc_port != stack_osc_socket_get_port(cue_list->osc_socket) ||
+					strcmp(osc_address_prefix, stack_osc_socket_get_address_prefix(cue_list->osc_socket)))
 				{
 					stack_osc_socket_destroy(cue_list->osc_socket);
-					cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, "/", cue_list);
+					cue_list->osc_socket = stack_osc_socket_create(osc_bind_address, osc_port, osc_address_prefix, cue_list);
 				}
 			}
 			// Unlock
