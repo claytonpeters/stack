@@ -93,6 +93,7 @@ struct StackCueListHeaderWidget
 	cairo_t *header_cr;
 	cairo_surface_t *header_surface;
 	int32_t header_cache_width;
+	int32_t header_cache_height;
 };
 
 struct StackCueListHeaderWidgetClass

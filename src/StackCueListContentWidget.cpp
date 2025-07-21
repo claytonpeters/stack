@@ -22,6 +22,7 @@ typedef struct SCLWUpdateCue
 
 // Pre-defs:
 static bool stack_cue_list_content_widget_update_row(StackCueListContentWidget *sclw, StackCue *cue, SCLWColumnGeometry *geom, double row_y, const int32_t fields);
+void stack_cue_list_content_widget_update_height(StackCueListContentWidget *sclw);
 
 void stack_cue_list_content_widget_reload_icons(StackCueListContentWidget *sclw)
 {
@@ -52,10 +53,10 @@ GtkWidget *stack_cue_list_content_widget_new()
 
 	sclw->row_height = 24;
 	sclw->header_height = 27;
-	sclw->cue_width = 60;
-	sclw->pre_width = 85;
-	sclw->action_width = 85;
-	sclw->post_width = 85;
+	sclw->cue_width = 60; // height * 2.5
+	sclw->pre_width = 85; // height * 3.5
+	sclw->action_width = 85; // height * 3.5
+	sclw->post_width = 85; // height * 3.5
 	sclw->scriptref_width = 0;
 
 	sclw->cue_flags = SCLWCueFlagsMap();
@@ -152,11 +153,20 @@ void stack_cue_list_content_widget_set_row_height(StackCueListContentWidget *scl
 	sclw->row_height = row_height;
 	sclw->header_height = row_height + 4;
 
+	// Update the widths
+	sclw->cue_width = row_height * 5 / 2;
+	sclw->pre_width = row_height * 7 / 2;
+	sclw->action_width = sclw->pre_width;
+	sclw->post_width = sclw->pre_width;
+
 	// Reload the icons to rescale them
 	stack_cue_list_content_widget_reload_icons(sclw);
 
 	// Update the top cue
 	stack_cue_list_content_widget_recalculate_top_cue(sclw);
+
+	// Update the height of the visible area
+	stack_cue_list_content_widget_update_height(sclw);
 
 	// Redraw the entire list
 	stack_cue_list_content_widget_update_list_cache(sclw, 0, 0);
@@ -742,7 +752,14 @@ static bool stack_cue_list_content_widget_update_row(StackCueListContentWidget *
 			break;
 		case 2:
 			rectangle_x = local_geom.cue_x;
-			rectangle_width = local_geom.name_x - local_geom.cue_x;
+			if (sclw->scriptref_width > 0)
+			{
+				rectangle_width = local_geom.scriptref_x - local_geom.cue_x;
+			}
+			else
+			{
+				rectangle_width = local_geom.name_x - local_geom.cue_x;
+			}
 			break;
 		case 3:
 			rectangle_x = local_geom.name_x;
@@ -1102,10 +1119,10 @@ static gboolean stack_cue_list_content_widget_draw(GtkWidget *widget, cairo_t *c
 	PangoFontDescription *fd = pango_context_get_font_description(pc);
 	gint text_size = pango_font_description_get_size(fd);
 
-	if (sclw->row_height != text_size / PANGO_SCALE + 13)
+	if (sclw->row_height != text_size / PANGO_SCALE * 2 + 2)
 	{
-		stack_log("Changing row height from %d to %d\n", sclw->row_height, (text_size / PANGO_SCALE) + 13);
-		stack_cue_list_content_widget_set_row_height(sclw, (text_size / PANGO_SCALE) + 13);
+		stack_log("Changing row height from %d to %d\n", sclw->row_height, (text_size / PANGO_SCALE) * 2 + 2);
+		stack_cue_list_content_widget_set_row_height(sclw, (text_size / PANGO_SCALE) * 2 + 2);
 	}
 
 	// Update list cache if necessary

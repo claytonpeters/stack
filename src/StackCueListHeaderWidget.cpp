@@ -67,6 +67,7 @@ void stack_cue_list_header_widget_update_cache(StackCueListHeaderWidget *sclhw, 
 	sclhw->header_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, sclhw->sclw->header_height);
 	sclhw->header_cr = cairo_create(sclhw->header_surface);
 	sclhw->header_cache_width = width;
+	sclhw->header_cache_width = sclhw->sclw->header_height;
 
 	// Set up for text
 	cairo_set_antialias(sclhw->header_cr, CAIRO_ANTIALIAS_DEFAULT);
@@ -103,9 +104,10 @@ static gboolean stack_cue_list_header_widget_draw(GtkWidget *widget, cairo_t *cr
 	cairo_set_line_width(cr, 1.0);
 
 	// Update header cache if necessary
-	if (sclhw->header_surface == NULL || sclhw->header_cache_width != width)
+	if (sclhw->header_surface == NULL || sclhw->header_cache_width != width || sclhw->header_cache_height != sclhw->sclw->header_height)
 	{
 		stack_cue_list_header_widget_update_cache(sclhw, width);
+		gtk_widget_set_size_request(widget, 0, sclhw->sclw->header_height);
 	}
 
 	// Render the header

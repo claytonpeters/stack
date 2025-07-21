@@ -36,7 +36,7 @@ void stack_cue_list_widget_toggle_scriptref_column(StackCueListWidget *sclw)
 {
 	if (sclw->content->scriptref_width == 0)
 	{
-		sclw->content->scriptref_width = 90;
+		sclw->content->scriptref_width = sclw->content->cue_width * 3 / 2;
 	}
 	else
 	{
