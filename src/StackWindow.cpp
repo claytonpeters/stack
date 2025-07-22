@@ -1851,10 +1851,10 @@ void saw_file_dropped(GtkWidget *widget, GdkDragContext *context, gint x, gint y
 			// Unlock the cue list
 			stack_cue_list_unlock(window->cue_list);
 
-			// Update that last row in the list store with the basics of the cue
+			// Tell the cue list to redraw
 			if (new_cue != NULL)
 			{
-				stack_cue_list_content_widget_update_cue(window->sclw->content, new_cue->uid, 0);
+				stack_cue_list_content_widget_list_modified(window->sclw->content);
 			}
 
 			// Iterate
