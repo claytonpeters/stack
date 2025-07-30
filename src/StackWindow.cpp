@@ -1065,9 +1065,12 @@ extern "C" void saw_cue_play_clicked(void* widget, gpointer user_data)
 	// Get the window
 	StackAppWindow *window = STACK_APP_WINDOW(user_data);
 
-	stack_cue_list_goto(window->cue_list, window->sclw->content->primary_selection);
-	stack_cue_list_go(window->cue_list);
-	stack_cue_list_content_widget_select_single_cue(window->sclw->content, window->cue_list->active_cue);
+	if (window->cue_list->active_cue != STACK_CUE_UID_NONE)
+	{
+		stack_cue_list_goto(window->cue_list, window->sclw->content->primary_selection);
+		stack_cue_list_go(window->cue_list);
+		stack_cue_list_content_widget_select_single_cue(window->sclw->content, window->cue_list->active_cue);
+	}
 }
 
 // Menu/toolbar callback
@@ -1473,6 +1476,12 @@ static gboolean saw_ui_timer(gpointer user_data)
 		{
 			stack_level_meter_set_clipped(window->master_out_meter, i, true);
 		}
+	}
+
+	// If the active cue doesn't exist (it could be deleted), set the active cue to none
+	if (stack_cue_get_by_uid(window->cue_list->active_cue) == NULL)
+	{
+		window->cue_list->active_cue = STACK_CUE_UID_NONE;
 	}
 
 	// Unlock the cue list
