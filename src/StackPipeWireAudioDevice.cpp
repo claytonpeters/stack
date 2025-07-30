@@ -70,7 +70,7 @@ static void stack_pipewire_audio_device_registry_callback_global(void *user_data
 	data->outputs.push_back(output);
 }
 
-// Disconects from Pipewire
+// Disconnects from Pipewire
 void stack_pipewire_audio_device_disconnect(StackPipeWireConnection *connection)
 {
 	if (connection->loop_is_threaded && connection->loop.threaded != NULL)
@@ -323,14 +323,6 @@ static void stack_pipewire_audio_device_process_callback(void *user_data)
 	if (pwb == NULL)
 	{
 		stack_log("stack_pipeire_audio_device_process_callback(): failed to get PipeWire buffer\n");
-
-		// For reasons that are not clear to me, not having this here causes a
-		// segfault in libspa in certain circumstances. I could readily recreate
-		// this by opening Audacity whilst Stack was running, but with this here
-		// it _seems_ to not happen. Non-empty string to prevent a compile-time
-		// warning about an empty format string
-		pw_log_warn(" ");
-
 		return;
 	}
 
@@ -349,15 +341,22 @@ static void stack_pipewire_audio_device_process_callback(void *user_data)
 	}
 
 	// Figure out how much audio to get from the cue list
+	// In slightly rare circumstances, PipeWire can request more data than the
+	// SPA buffer is allocated for (I've been able to reliably trigger this by
+	// opening Audacity). As such, we check for the maximum size of the buffer
+	// and only return that much to prevent us trashing the heap
 	size_t writable_frames = 0;
-	if (pwb->requested > 0)
+	size_t buffer_max_frames = pwb->buffer->datas[0].maxsize / stride;
+	if (pwb->requested > 0 && pwb->requested <= buffer_max_frames)
 	{
 		writable_frames = (size_t)pwb->requested;
 	}
 	else
 	{
-		writable_frames = pwb->buffer->datas[0].maxsize / stride;
+		stack_log("stack_pipewire_audio_device_process_callback(): PipeWire requested %lld frames, enforcing maximum of %lld\n", pwb->requested, buffer_max_frames);
+		writable_frames = buffer_max_frames;
 	}
+
 
 	// Currently we're hardcded to float32
 	size_t read = STACK_AUDIO_DEVICE(device)->request_audio(writable_frames, buffer, STACK_AUDIO_DEVICE(device)->request_audio_user_data);
