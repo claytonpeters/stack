@@ -924,7 +924,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 		bool loop = false;
 
 		// Determine if we should loop
-		if (run_action_time / loop_length > audio_cue->playback_loops)
+		if (loop_length > 0 && run_action_time / loop_length > audio_cue->playback_loops)
 		{
 			audio_cue->playback_loops++;
 
@@ -962,7 +962,7 @@ static void stack_audio_cue_pulse(StackCue *cue, stack_time_t clocktime)
 
 	// Redraw the preview periodically whilst in playback, and we're the selected
 	// queue
-	if (audio_cue->media_tab != NULL && audio_cue->preview_widget != NULL && stack_get_clock_time() - audio_cue->preview_widget->last_redraw_time > 33 * NANOSECS_PER_MILLISEC)
+	if (audio_cue->media_tab != NULL && audio_cue->preview_widget != NULL && stack_get_clock_time() - audio_cue->preview_widget->last_redraw_time > 33 * NANOSECS_PER_MILLISEC && loop_length > 0)
 	{
 		stack_time_t media_start_time = 0;
 		stack_property_get_int64(stack_cue_get_property(cue, "media_start_time"), STACK_PROPERTY_VERSION_LIVE, &media_start_time);
