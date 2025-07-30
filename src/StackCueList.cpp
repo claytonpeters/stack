@@ -904,6 +904,13 @@ bool stack_cue_list_save(StackCueList *cue_list, const char *uri)
 	// We've saved the cue list, so set it to not have been changed
 	cue_list->changed = false;
 
+	// Store the URI we were saved at
+	if (cue_list->uri != NULL)
+	{
+		free(cue_list->uri);
+	}
+	cue_list->uri = strdup(uri);
+
 	return true;
 }
 
